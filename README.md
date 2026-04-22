@@ -1,44 +1,69 @@
 # 🐍 Kairu
 
-![Language](https://img.shields.io/badge/language-python-blue) ![License](https://img.shields.io/badge/license-busl--1.1-green) ![Status](https://img.shields.io/badge/status-active-brightgreen)
+![Language](https://img.shields.io/badge/language-python-yellow) ![License](https://img.shields.io/badge/license-busl--1.1-green) ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
-> 🚀 A python project for Standalone speculative decoding library. Wraps any HuggingFace model with EAGLE-style speculative decoding, dynamic early exit, and token budget enforcement. Live dashboard showing tok/s, quality tradeoff, and cost per query..
+> ⚡ Real-time inference optimizer for LLMs — faster generation, smarter decoding, and live observability 📊✨
 
-## ✨ Features
+---
 
-- 🛠️ Modern python development
+## 🌊 Meaning
 
-- 📚 Well-documented and easy to use
-- ✅ Production-ready code
-- ⚡ Performant and reliable
+**Kairu (流れる)** — *to flow, to stream.*
+
+Inference should be fluid — not blocked by latency, inefficiency, or opaque performance.
+
+---
+
+## 🚀 What it is
+
+Kairu wraps any HuggingFace model and adds:
+
+* 🦅 Speculative decoding (EAGLE-style)
+* ⏩ Dynamic early exit
+* 💸 Token budget enforcement
+* 📊 Live dashboard:
+
+  * tokens/sec
+  * latency
+  * quality tradeoffs
+
+---
+
+## ❗ The problem
+
+Speculative decoding works — but:
+
+* locked inside heavy frameworks (vLLM, etc.)
+* hard to experiment with
+* no lightweight tooling
+* no built-in observability
+
+---
+
+## 🧠 What you learn
+
+* Speculative decoding internals (EAGLE, Medusa)
+* KV cache management
+* Streaming inference
+* Performance optimization
+
+---
 
 ## 🚀 Quick Start
 
-### Installation
-
 ```bash
-git clone https://github.com/yourusername/kairu.git
-cd kairu
+pip install kairu
 ```
 
-```bash
-pip install -r requirements.txt
+```python
+from kairu import wrap_model
+
+model = wrap_model("your-model")
+model.generate("Hello world")
 ```
 
-## 💻 Usage
+---
 
-```bash
-# More examples coming soon
-```
+## 🎯 Vision
 
-## 🤝 Contributing
-
-1. Fork this repository
-2. Create your feature branch: `git checkout -b feat/my-feature`
-3. Commit your changes: `git commit -m 'feat: add my feature'`
-4. Push to the branch: `git push origin feat/my-feature`
-5. Open a pull request
-
-## 📄 License
-
-This project is licensed under the busl-1.1 License — see the [LICENSE](LICENSE) file for details.
+> Make LLM inference fast, transparent, and controllable.
