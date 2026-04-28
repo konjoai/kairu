@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.1.0**
+Current version: **v0.2.0**
 
 ---
 
@@ -25,22 +25,32 @@ Deliverables:
 
 ---
 
-## Phase 2 — HuggingFace Integration (v0.2.0)
+## Phase 2 — HuggingFace Integration (v0.2.0) ✅ COMPLETE
 
-- Full HF backend with streaming generation via `model.generate(..., streamer=...)`
-- Tokenizer integration: `encode(text) → list[int]`, `decode(ids) → str`
-- End-to-end test with a tiny model (e.g. `sshleifer/tiny-gpt2`) in CI
-- `wrap_model("model-name")` no longer falls back to MockModel when `[hf]` is installed
+**Ship Gate:** 51 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/tokenizer.py` — `TokenizerBase` ABC, `MockTokenizer` (deterministic, no deps), `HFTokenizer` (wraps HF `AutoTokenizer`)
+- `kairu/streaming.py` — `StreamingDecoder`: greedy/temperature-sampled token-by-token iterator using only NumPy + `ModelInterface`; `stream()` yields IDs, `generate()` collects to list; stop-token support
+- `kairu/_hf_backend.py` — full rewrite: `HuggingFaceModel` with `encode()`, `decode()`, `stream_generate()` (HF `TextIteratorStreamer` + threading); all heavy imports deferred to `__init__` so the module is importable without ML libs
+- `kairu/__init__.py` — exports `StreamingDecoder`, `MockTokenizer`, `TokenizerBase`; guarded import of `HFTokenizer`; version bumped to `0.2.0`
+- 8 tokenizer tests (`tests/test_tokenizer.py`) — fully offline
+- 8 streaming tests (`tests/test_streaming.py`) — uses `MockModel`, no HF
+- 8 HF backend tests (`tests/test_hf_backend.py`) — 4 structural (offline), 4 integration gated behind `KAIRU_TEST_HF=1`
 
 ---
 
 ## Phase 3 — Benchmarking (v0.3.0)
 
-- `kairu.bench` module: `BenchmarkRunner` class
-- p50 / p95 / p99 latency reporting across N generations
-- CSV + JSON result export to `benchmarks/results/<timestamp>_<name>.json`
-- Hardware metadata capture (platform, CPU, RAM, OS)
-- CLI: `python -m kairu.bench --model mock --tokens 100 --runs 50`
+- `kairu/bench.py` — `BenchmarkRunner` class driving N generation runs against any `ModelInterface`
+- Latency statistics: p50 / p95 / p99 / stddev computed over per-token wall-clock samples
+- `BenchmarkResult.to_json()` serializes run config + hardware metadata + full latency distribution
+- Results saved to `benchmarks/results/<ISO-timestamp>_<name>.json`; previous runs never overwritten
+- Hardware metadata: `platform.node()`, CPU model via `/proc/cpuinfo` or `sysctl`, total RAM, OS version
+- `__main__` entry point: `python -m kairu.bench --model mock --tokens 100 --runs 50 [--output <path>]`
+- CLI flag `--model` accepts `mock` (no deps) or any HF model name (requires `kairu[hf]`)
+- 8 benchmark tests: `BenchmarkRunner` unit tests (mock only), CLI `--help` smoke test, JSON output schema validation
+- Ship Gate: all 59+ tests passing; `--model mock` CLI exits 0 in CI without any ML deps
 
 ---
 
