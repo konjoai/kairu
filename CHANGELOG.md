@@ -4,6 +4,31 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.3.0] — 2026-04-28
+
+### Added
+
+- `kairu.bench.BenchmarkRunner` — drives N generation runs against any `ModelInterface` via `StreamingDecoder`; discards warmup runs; returns a `BenchmarkResult` with full latency statistics
+- `kairu.bench.BenchmarkResult` — dataclass holding `latencies_s` (warmup-excluded per-run totals), `p50`/`p95`/`p99`/`mean`/`stddev` (seconds), `tokens_per_s_mean`, `hardware` dict, and ISO timestamp; `to_json()` and `save(base_dir)` — never overwrites existing files
+- `kairu.bench._collect_hardware()` — hostname, OS/release/machine, CPU model (via `sysctl -n machdep.cpu.brand_string` on macOS, `/proc/cpuinfo` on Linux), total RAM (via `psutil` → `sysctl hw.memsize` → `/proc/meminfo`), Python version
+- `kairu.bench.build_parser()` + `kairu.bench.main()` — CLI entry point for `python -m kairu.bench`; flags: `--model`, `--tokens`, `--runs`, `--warmup`, `--output`, `--name`; `--model mock` works with zero ML dependencies
+- `kairu/__main__bench.py` — thin re-export shim so `from kairu.__main__bench import main` works in tests
+- 8 benchmark tests in `tests/test_bench.py`: shape validation, p50≤p95≤p99 ordering, JSON round-trip with required keys, `save()` writes valid JSON with hardware, `_collect_hardware()` required keys, CLI exits 0, `--help` exits 0, saved filename contains timestamp + name
+- `benchmarks/results/` directory auto-created on first `save()` call
+
+### Changed
+
+- `kairu/__init__.py` — exports `BenchmarkRunner`, `BenchmarkResult`; version bumped `0.2.0 → 0.3.0`
+
+### Architecture Decisions
+
+- Percentile computation uses pure `statistics` module + manual sorted-list linear interpolation — no scipy dependency
+- `stddev` uses `statistics.stdev` (sample std dev, n-1); falls back to 0.0 when fewer than 2 samples
+- Hardware collection is fully defensive — every platform call is wrapped in `try/except`; the function never raises
+- CLI logic lives in `bench.py` (triggered by `-m kairu.bench`); `__main__bench.py` is a re-export shim for clean test imports
+
+---
+
 ## [0.2.0] — 2026-04-28
 
 ### Added

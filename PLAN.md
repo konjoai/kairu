@@ -40,17 +40,18 @@ Deliverables:
 
 ---
 
-## Phase 3 — Benchmarking (v0.3.0)
+## Phase 3 — Benchmarking (v0.3.0) ✅ COMPLETE
 
-- `kairu/bench.py` — `BenchmarkRunner` class driving N generation runs against any `ModelInterface`
-- Latency statistics: p50 / p95 / p99 / stddev computed over per-token wall-clock samples
-- `BenchmarkResult.to_json()` serializes run config + hardware metadata + full latency distribution
-- Results saved to `benchmarks/results/<ISO-timestamp>_<name>.json`; previous runs never overwritten
-- Hardware metadata: `platform.node()`, CPU model via `/proc/cpuinfo` or `sysctl`, total RAM, OS version
-- `__main__` entry point: `python -m kairu.bench --model mock --tokens 100 --runs 50 [--output <path>]`
-- CLI flag `--model` accepts `mock` (no deps) or any HF model name (requires `kairu[hf]`)
-- 8 benchmark tests: `BenchmarkRunner` unit tests (mock only), CLI `--help` smoke test, JSON output schema validation
-- Ship Gate: all 59+ tests passing; `--model mock` CLI exits 0 in CI without any ML deps
+**Ship Gate:** 59 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/bench.py` — `BenchmarkRunner` driving N generation runs against any `ModelInterface`; `build_parser()` + `main()` CLI entry; p50/p95/p99/stddev via pure `statistics` + sorted-list percentile (no scipy)
+- `kairu/bench.BenchmarkResult` — dataclass with `latencies_s`, `p50`, `p95`, `p99`, `mean`, `stddev`, `tokens_per_s_mean`, `hardware`, `timestamp`; `to_json()` + `save()` (never overwrites)
+- `kairu/bench._collect_hardware()` — hostname, OS, machine, CPU model (`sysctl`/`/proc/cpuinfo`), total RAM (`psutil`/`sysctl hw.memsize`/`/proc/meminfo`), Python version
+- `kairu/__main__bench.py` — thin re-export shim for `build_parser`, `main`, `_collect_hardware`
+- `python -m kairu.bench --model mock --tokens 100 --runs 50 --warmup 5` exits 0 with no ML deps
+- 8 benchmark tests in `tests/test_bench.py` — shape, percentile ordering, JSON round-trip, file save, hardware keys, CLI exit 0, CLI --help, filename contains timestamp+name
+- `kairu/__init__.py` exports `BenchmarkRunner`, `BenchmarkResult`; version bumped `0.2.0 → 0.3.0`
 
 ---
 

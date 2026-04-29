@@ -14,8 +14,9 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
+from kairu.bench import BenchmarkResult, BenchmarkRunner
 from kairu.budget import TokenBudget
 from kairu.metrics import GenerationMetrics
 from kairu.streaming import StreamingDecoder
@@ -36,5 +37,7 @@ __all__ = [
     "MockTokenizer",
     "TokenizerBase",
     "HFTokenizer",
+    "BenchmarkRunner",
+    "BenchmarkResult",
     "__version__",
 ]

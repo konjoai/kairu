@@ -1,0 +1,28 @@
+{
+  "name": "benchmark",
+  "model_name": "MockModel",
+  "num_tokens": 10,
+  "num_runs": 3,
+  "warmup": 1,
+  "latencies_s": [
+    0.0017569010000000052,
+    0.001037859000000002,
+    0.0009766479999999966
+  ],
+  "p50": 0.001037859000000002,
+  "p95": 0.0016849968000000048,
+  "p99": 0.001742520160000005,
+  "mean": 0.0012571360000000014,
+  "stddev": 0.0004338899492371344,
+  "tokens_per_s_mean": 7954.588843211864,
+  "hardware": {
+    "hostname": "Wesleys-MBP",
+    "os": "Darwin",
+    "os_release": "22.6.0",
+    "machine": "x86_64",
+    "python_version": "3.9.6 (default, May  7 2023, 23:32:45) \n[Clang 14.0.3 (clang-1403.0.22.14.1)]",
+    "cpu_model": "Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz",
+    "ram_total_bytes": 17179869184
+  },
+  "timestamp": "20260429T003209Z"
+}
