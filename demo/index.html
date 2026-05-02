@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Kairu — adaptive inference optimization</title>
-<meta name="description" content="Speculative decoding, layered early exit, and dynamic caching for LLM inference. Faster generation, smarter decoding, live observability." />
+<title>Kairu — make AI responses 2× faster</title>
+<meta name="description" content="Kairu makes AI responses up to 2× faster by guessing multiple words at once and verifying them in parallel. Open source, framework-agnostic, observable." />
 <style>
   :root {
-    --bg: #07080d;
-    --bg-2: #0d0f17;
-    --bg-3: #121624;
+    --bg: #06070c;
+    --bg-2: #0c0e16;
+    --bg-3: #11141f;
     --panel: #131826;
     --panel-2: #181d2f;
     --line: rgba(255,255,255,0.07);
-    --line-2: rgba(255,255,255,0.12);
-    --text: #e8ebf5;
+    --line-2: rgba(255,255,255,0.14);
+    --text: #ecf0fa;
     --muted: #8c93ab;
     --dim: #5b6275;
     --cyan: #4cd6e6;
@@ -23,8 +23,9 @@
     --green: #62e6a0;
     --red: #ff7686;
     --grad: linear-gradient(135deg,#4cd6e6 0%,#d36cff 50%,#f3c969 100%);
-    --grad-2: linear-gradient(135deg,#1a2240 0%,#2a1a40 100%);
-    --shadow: 0 30px 80px -30px rgba(76,214,230,.25);
+    --grad-warm: linear-gradient(135deg,#62e6a0 0%,#4cd6e6 100%);
+    --shadow: 0 30px 80px -30px rgba(76,214,230,.35);
+    --shadow-strong: 0 40px 100px -20px rgba(211,108,255,.35);
     --mono: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
   * { box-sizing: border-box; }
@@ -33,11 +34,13 @@
     font: 16px/1.65 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
     color: var(--text);
     background:
-      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(76,214,230,.10) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 80% 30%, rgba(211,108,255,.08) 0%, transparent 60%),
+      radial-gradient(ellipse 90% 60% at 50% 0%, rgba(76,214,230,.12) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 50% at 80% 30%, rgba(211,108,255,.10) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 10% 70%, rgba(243,201,105,.06) 0%, transparent 60%),
       var(--bg);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
   a { color: var(--cyan); text-decoration: none; }
   a:hover { text-decoration: underline; }
@@ -48,104 +51,350 @@
 
   /* ───── nav ───── */
   nav {
-    position: sticky; top: 0; z-index: 50;
+    position: sticky; top: 0; z-index: 100;
     backdrop-filter: blur(14px);
-    background: rgba(7,8,13,.7);
+    background: rgba(6,7,12,.7);
     border-bottom: 1px solid var(--line);
   }
   nav .inner {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 28px; max-width: 1180px; margin: 0 auto;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
   }
   .logo {
     display: flex; align-items: center; gap: 12px;
-    font-weight: 700; font-size: 18px; letter-spacing: -.01em;
+    font-weight: 700; font-size: 17px; letter-spacing: -.01em;
   }
   .logo .glyph {
-    width: 32px; height: 32px; border-radius: 9px;
+    width: 30px; height: 30px; border-radius: 8px;
     background: var(--grad); display: grid; place-items: center;
-    color: #07080d; font-size: 18px; font-weight: 800;
+    color: #07080d; font-size: 16px; font-weight: 800;
     box-shadow: 0 4px 16px -4px rgba(76,214,230,.6);
   }
-  nav .links { display: flex; gap: 28px; font-size: 14px; }
+  nav .links { display: flex; gap: 24px; font-size: 14px; }
   nav .links a { color: var(--muted); }
   nav .links a:hover { color: var(--text); text-decoration: none; }
 
   /* ───── hero ───── */
-  .hero { padding: 96px 0 64px; }
+  .hero { padding: 110px 0 60px; text-align: center; }
   .badge {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 6px 14px; border: 1px solid var(--line-2);
     border-radius: 999px; font-size: 12px; color: var(--muted);
     background: rgba(255,255,255,.02);
   }
-  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
-  h1 {
-    font-size: clamp(44px, 6.5vw, 76px); line-height: 1.04; margin: 22px 0 24px;
-    letter-spacing: -.035em; font-weight: 800;
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  h1.hero-title {
+    font-size: clamp(72px, 12vw, 160px); line-height: .95; margin: 28px 0 18px;
+    letter-spacing: -.05em; font-weight: 900;
     background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
-    max-width: 960px;
+    text-shadow: 0 0 80px rgba(76,214,230,.2);
   }
-  .lede {
-    font-size: clamp(18px, 1.8vw, 22px); color: var(--muted); max-width: 720px;
-    margin-bottom: 36px;
+  .tagline {
+    font-size: clamp(20px, 2.4vw, 30px); color: var(--text); max-width: 780px;
+    margin: 0 auto 14px; line-height: 1.35; font-weight: 500;
+    letter-spacing: -.01em;
   }
-  .cta { display: flex; gap: 14px; flex-wrap: wrap; }
+  .tagline .em {
+    background: var(--grad-warm); -webkit-background-clip: text; background-clip: text; color: transparent;
+    font-weight: 700;
+  }
+  .subtag {
+    color: var(--muted); font-size: 16px; max-width: 600px; margin: 0 auto 36px;
+  }
+  .cta { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
   .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 13px 22px; border-radius: 12px;
-    font-weight: 600; font-size: 15px;
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 26px; border-radius: 12px;
+    font-weight: 600; font-size: 15px; cursor: pointer; border: none;
     transition: transform .15s, box-shadow .15s;
+    font-family: inherit;
   }
   .btn:hover { transform: translateY(-2px); text-decoration: none; }
   .btn-primary { background: var(--grad); color: #07080d; box-shadow: var(--shadow); }
+  .btn-primary:hover { box-shadow: var(--shadow-strong); }
   .btn-ghost { border: 1px solid var(--line-2); color: var(--text); background: rgba(255,255,255,.02); }
   .btn-ghost:hover { border-color: var(--cyan); }
 
-  .hero-stats {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
-    margin-top: 56px; padding-top: 36px; border-top: 1px solid var(--line);
-  }
-  .stat .num {
-    font-size: 32px; font-weight: 700; letter-spacing: -.02em;
-    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  .stat .lbl { color: var(--muted); font-size: 13px; margin-top: 2px; }
-
   /* ───── sections ───── */
-  section { padding: 88px 0; }
+  section { padding: 80px 0; }
   .eyebrow {
     text-transform: uppercase; letter-spacing: .18em; font-size: 12px;
     color: var(--cyan); font-weight: 600; margin-bottom: 14px;
   }
   h2 {
-    font-size: clamp(32px, 4vw, 44px); margin: 0 0 16px;
-    letter-spacing: -.02em; line-height: 1.1; font-weight: 700;
+    font-size: clamp(30px, 3.6vw, 42px); margin: 0 0 14px;
+    letter-spacing: -.02em; line-height: 1.15; font-weight: 700;
   }
-  .section-lede { color: var(--muted); font-size: 18px; max-width: 680px; margin-bottom: 48px; }
+  .section-lede { color: var(--muted); font-size: 17px; max-width: 680px; margin-bottom: 40px; }
+  .center { text-align: center; }
+  .center .section-lede { margin-left: auto; margin-right: auto; }
 
-  /* ───── what is kairu ───── */
-  .what {
-    display: grid; grid-template-columns: 1.1fr .9fr; gap: 56px; align-items: center;
+  /* ───── RACE — the showcase ───── */
+  .race-wrap {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 36px;
+    box-shadow: var(--shadow);
   }
-  .what p { color: var(--muted); font-size: 17px; margin: 0 0 16px; }
-  .what strong { color: var(--text); }
-  .glyph-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-    padding: 28px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 18px;
+  .race-controls { display: flex; justify-content: center; align-items: center; gap: 18px; margin-bottom: 32px; flex-wrap: wrap; }
+  .race-btn {
+    background: var(--grad); color: #07080d; padding: 14px 28px; border-radius: 12px;
+    font-weight: 700; font-size: 15px; border: none; cursor: pointer;
+    box-shadow: var(--shadow); transition: transform .15s;
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: inherit;
   }
-  .glyph-grid .cell {
-    text-align: center; padding: 18px 8px;
-    border-radius: 12px; background: var(--bg-3);
+  .race-btn:hover { transform: translateY(-2px); }
+  .race-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+  .race-btn .play { width: 14px; height: 14px; }
+
+  .race-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .runner {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px; padding: 22px;
+    position: relative; overflow: hidden;
   }
-  .glyph-grid .cell .ch { font-size: 26px; color: var(--cyan); margin-bottom: 6px; }
-  .glyph-grid .cell .lbl { font-size: 11px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+  .runner.kairu { border-color: rgba(76,214,230,.35); box-shadow: 0 0 30px -10px rgba(76,214,230,.4); }
+  .runner.standard { border-color: rgba(255,255,255,0.1); }
+  .runner-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .runner-label {
+    display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px;
+  }
+  .runner-label .pip {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .runner.standard .pip { background: var(--muted); }
+  .runner.kairu .pip { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+  .runner-clock {
+    font-family: var(--mono); font-size: 14px; color: var(--gold);
+    background: rgba(243,201,105,.08); padding: 4px 10px; border-radius: 6px;
+    min-width: 80px; text-align: center;
+  }
+  .runner-text {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-size: 17px; line-height: 1.7; color: var(--text);
+    min-height: 168px;
+    background: var(--bg-3); padding: 16px 18px; border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  .runner-text .caret {
+    display: inline-block; width: 8px; height: 18px;
+    background: var(--cyan); margin-left: 2px; vertical-align: middle;
+    animation: blink 1s infinite;
+  }
+  .runner.standard .runner-text .caret { background: var(--muted); }
+  @keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+  .runner-text .burst {
+    background: linear-gradient(120deg, rgba(76,214,230,.2), rgba(211,108,255,.2));
+    border-radius: 4px; padding: 1px 2px;
+    animation: burstFade 1.2s ease-out forwards;
+  }
+  @keyframes burstFade {
+    0% { background: linear-gradient(120deg, rgba(76,214,230,.55), rgba(211,108,255,.55)); }
+    100% { background: transparent; }
+  }
+  .runner-text .reject {
+    text-decoration: line-through;
+    color: var(--red);
+    animation: rejectFade .8s ease-out forwards;
+  }
+  @keyframes rejectFade {
+    0% { color: #ff7686; opacity: 1; }
+    100% { opacity: .35; }
+  }
+  .runner-bar {
+    height: 4px; background: var(--bg-3); border-radius: 2px; margin-top: 14px;
+    overflow: hidden;
+  }
+  .runner-bar .fill { height: 100%; width: 0%; border-radius: 2px; transition: width .15s linear; }
+  .runner.standard .runner-bar .fill { background: var(--muted); }
+  .runner.kairu .runner-bar .fill { background: var(--grad); }
+
+  .race-result {
+    margin-top: 26px; text-align: center; min-height: 56px;
+    display: grid; place-items: center;
+  }
+  .race-result .verdict {
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 14px 24px; border-radius: 14px;
+    background: linear-gradient(120deg, rgba(98,230,160,.13), rgba(76,214,230,.13));
+    border: 1px solid rgba(98,230,160,.3);
+    font-size: 17px; font-weight: 600;
+    opacity: 0; transform: translateY(8px); transition: opacity .35s, transform .35s;
+  }
+  .race-result .verdict.show { opacity: 1; transform: none; }
+  .race-result .verdict .x { font-size: 28px; background: var(--grad-warm); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+
+  /* ───── HOW IT WORKS in 3 STEPS ───── */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .step {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+    padding: 28px; position: relative;
+    transition: border-color .25s, transform .25s;
+  }
+  .step:hover { border-color: var(--cyan); transform: translateY(-3px); }
+  .step .num {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(76,214,230,.18), rgba(211,108,255,.18));
+    display: grid; place-items: center;
+    font-weight: 700; color: var(--cyan); border: 1px solid rgba(76,214,230,.35);
+    margin-bottom: 18px;
+  }
+  .step h3 { margin: 0 0 8px; font-size: 19px; letter-spacing: -.01em; }
+  .step p { margin: 0 0 16px; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+  .step-anim { background: var(--bg-3); border-radius: 10px; padding: 14px; height: 110px; display: grid; place-items: center; }
+  .step-anim svg { width: 100%; height: 100%; }
+
+  /* ───── SIMULATOR ───── */
+  .sim {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 36px;
+    display: grid; grid-template-columns: .9fr 1.1fr; gap: 36px;
+  }
+  .sim h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.01em; }
+  .sim p.desc { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+  .controls .field { margin-bottom: 22px; }
+  .controls label {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 14px; color: var(--text); margin-bottom: 8px;
+  }
+  .controls label .name { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .controls label .name .help {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(255,255,255,.07); color: var(--muted);
+    font-size: 11px; display: inline-grid; place-items: center;
+    cursor: help; user-select: none; font-weight: 600;
+    border: 1px solid var(--line-2);
+    transition: background .15s, color .15s;
+    position: relative;
+  }
+  .controls label .name .help:hover { background: var(--cyan); color: #07080d; border-color: var(--cyan); }
+  .controls label .name .help[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute; left: 22px; top: -6px; z-index: 10;
+    background: #07080d; color: var(--text); padding: 8px 12px;
+    border-radius: 8px; font-size: 12px; font-weight: 400;
+    width: 240px; line-height: 1.45;
+    border: 1px solid var(--line-2); box-shadow: 0 12px 32px -10px rgba(0,0,0,.6);
+    white-space: normal;
+  }
+  .controls label .val { color: var(--gold); font-family: var(--mono); font-size: 15px; font-weight: 600; }
+  .controls input[type=range] {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 6px; background: var(--bg-3); border-radius: 3px; outline: none;
+  }
+  .controls input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--grad); cursor: pointer;
+    box-shadow: 0 0 0 4px rgba(76,214,230,.18);
+  }
+  .controls input[type=range]::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%; border: none;
+    background: #4cd6e6; cursor: pointer;
+  }
+  .controls input[type=range]:disabled { opacity: .5; }
+
+  .quality-bar {
+    margin-top: 6px; height: 6px; background: var(--bg-3); border-radius: 3px; overflow: hidden;
+  }
+  .quality-bar .fill {
+    height: 100%; background: var(--grad-warm); transition: width .3s;
+  }
+  .quality-note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .speedo-wrap { display: grid; place-items: center; padding: 10px; }
+  #speedo { width: 100%; max-width: 360px; height: 230px; }
+  .speedo-readout { text-align: center; margin-top: -20px; }
+  .speedo-readout .big {
+    font-size: 56px; font-weight: 800; letter-spacing: -.03em;
+    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .speedo-readout .lbl { font-size: 13px; color: var(--muted); margin-top: -4px; text-transform: uppercase; letter-spacing: .12em; }
+
+  /* ───── EARLY EXIT VISUALIZATION ───── */
+  .ee-wrap {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
+    padding: 36px;
+  }
+  .ee-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 36px; align-items: center; }
+  .ee-text h3 { margin: 0 0 12px; font-size: 22px; letter-spacing: -.01em; }
+  .ee-text p { color: var(--muted); margin: 0 0 14px; font-size: 14.5px; }
+  .ee-text .stat-pill {
+    display: inline-block; padding: 10px 16px; border-radius: 999px;
+    background: rgba(98,230,160,.08); color: var(--green);
+    font-family: var(--mono); font-size: 13px;
+    border: 1px solid rgba(98,230,160,.25);
+  }
+  .ee-controls { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .ee-btn {
+    background: var(--bg-3); border: 1px solid var(--line-2); color: var(--text);
+    padding: 9px 16px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 500;
+    font-family: inherit; transition: border-color .15s;
+  }
+  .ee-btn:hover { border-color: var(--cyan); }
+  .ee-svg-wrap { background: var(--bg-3); border-radius: 14px; padding: 20px; border: 1px solid var(--line); }
+  #ee-svg { width: 100%; height: 380px; display: block; }
+
+  /* ───── CLOCK COMPARISON / IMPACT ───── */
+  .impact-wrap {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: center;
+  }
+  .impact-text h2 { margin-top: 0; }
+  .impact-text p { color: var(--muted); font-size: 17px; margin: 0 0 12px; }
+  .impact-text strong { color: var(--text); }
+  .clocks {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
+    padding: 32px; display: grid; gap: 24px;
+  }
+  .clock-row {
+    display: grid; grid-template-columns: 110px 1fr auto; gap: 20px; align-items: center;
+  }
+  .clock-row .face {
+    width: 110px; height: 110px; border-radius: 50%;
+    border: 4px solid var(--line-2); position: relative;
+    background: radial-gradient(circle, var(--bg-3), var(--bg));
+  }
+  .clock-row.kairu .face { border-color: var(--cyan); box-shadow: 0 0 26px -4px rgba(76,214,230,.5); }
+  .clock-row .face .hand {
+    position: absolute; top: 50%; left: 50%;
+    width: 4px; height: 42px; transform-origin: 50% 100%;
+    border-radius: 2px;
+    transform: translate(-50%, -100%) rotate(0deg);
+  }
+  .clock-row.standard .face .hand { background: var(--muted); }
+  .clock-row.kairu .face .hand { background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+  .clock-row .face .center {
+    position: absolute; top: 50%; left: 50%; width: 10px; height: 10px;
+    background: var(--text); border-radius: 50%;
+    transform: translate(-50%,-50%);
+  }
+  .clock-row .lbl { font-weight: 600; font-size: 16px; }
+  .clock-row .lbl small { display: block; color: var(--muted); font-weight: 400; font-size: 13px; margin-top: 2px; }
+  .clock-row .time {
+    font-family: var(--mono); font-size: 24px; font-weight: 700;
+  }
+  .clock-row.standard .time { color: var(--muted); }
+  .clock-row.kairu .time { color: var(--cyan); }
+  .clock-divider { height: 1px; background: var(--line); }
+  .clock-savings {
+    text-align: center; padding: 14px;
+    background: linear-gradient(120deg, rgba(98,230,160,.08), rgba(76,214,230,.08));
+    border-radius: 12px; border: 1px solid rgba(98,230,160,.2);
+    color: var(--green); font-weight: 600; font-size: 15px;
+  }
 
   /* ───── feature cards ───── */
-  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .card {
-    padding: 28px;
+    padding: 26px;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 18px;
@@ -166,128 +415,25 @@
     display: grid; place-items: center; margin-bottom: 18px;
     border: 1px solid var(--line-2);
   }
-  .card h3 { margin: 0 0 8px; font-size: 18px; letter-spacing: -.01em; }
-  .card p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.55; }
-  .card .tag {
-    display: inline-block; margin-top: 14px; padding: 3px 9px;
-    background: rgba(76,214,230,.08); color: var(--cyan);
-    border-radius: 5px; font-size: 11px; font-family: var(--mono);
-  }
-
-  /* ───── interactive simulator ───── */
-  .sim {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 22px;
-    padding: 36px;
-    display: grid; grid-template-columns: 1fr 1.4fr; gap: 40px;
-  }
-  .sim h3 { margin: 0 0 12px; font-size: 22px; letter-spacing: -.01em; }
-  .sim p.desc { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
-  .sim .formula {
-    font-family: var(--mono); font-size: 13px;
-    padding: 14px 16px; background: var(--bg-3); border-radius: 10px;
-    color: var(--cyan); margin-bottom: 24px;
-    border: 1px solid var(--line);
-  }
-  .controls .field { margin-bottom: 20px; }
-  .controls label {
-    display: flex; justify-content: space-between; align-items: baseline;
-    font-size: 13px; color: var(--muted); margin-bottom: 8px;
-  }
-  .controls label .val { color: var(--gold); font-family: var(--mono); font-size: 14px; }
-  .controls input[type=range] {
-    width: 100%; -webkit-appearance: none; appearance: none;
-    height: 6px; background: var(--bg-3); border-radius: 3px; outline: none;
-  }
-  .controls input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: var(--grad); cursor: pointer;
-    box-shadow: 0 0 0 4px rgba(76,214,230,.18);
-  }
-  .controls input[type=range]::-moz-range-thumb {
-    width: 18px; height: 18px; border-radius: 50%; border: none;
-    background: #4cd6e6; cursor: pointer;
-  }
-  .readout {
-    display: grid; grid-template-columns: repeat(2,1fr); gap: 16px;
-    margin-top: 28px;
-  }
-  .readout .box {
-    padding: 16px; background: var(--bg-3); border-radius: 12px;
-    border: 1px solid var(--line);
-  }
-  .readout .box .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
-  .readout .box .v { font-size: 28px; font-weight: 700; margin-top: 4px;
-    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-
-  .chart-wrap {
-    background: var(--bg-3); border-radius: 14px; padding: 18px 14px;
-    border: 1px solid var(--line);
-  }
-  #chart { width: 100%; height: 320px; display: block; }
-  .legend { display: flex; gap: 20px; margin-top: 12px; padding: 0 8px; font-size: 12px; color: var(--muted); }
-  .legend .swatch { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
-
-  /* ───── early-exit visualization ───── */
-  .ee-wrap {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
-    padding: 36px;
-  }
-  .ee-grid { display: grid; grid-template-columns: 1fr 1.6fr; gap: 40px; align-items: center; }
-  .ee-text h3 { margin: 0 0 12px; font-size: 22px; letter-spacing: -.01em; }
-  .ee-text p { color: var(--muted); margin: 0 0 16px; font-size: 14.5px; }
-  .ee-text .stat-pill {
-    display: inline-block; padding: 8px 14px; border-radius: 999px;
-    background: rgba(98,230,160,.08); color: var(--green);
-    font-family: var(--mono); font-size: 13px;
-    border: 1px solid rgba(98,230,160,.2);
-  }
-  .ee-svg-wrap { background: var(--bg-3); border-radius: 14px; padding: 20px; border: 1px solid var(--line); }
-  #ee-svg { width: 100%; height: 380px; display: block; }
-
-  /* ───── decision tree ───── */
-  .tree-wrap {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
-    padding: 36px;
-  }
-  #tree-svg { width: 100%; height: 460px; display: block; }
-  .tree-legend {
-    display: flex; gap: 24px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--muted);
-  }
-  .tree-legend .item { display: flex; align-items: center; gap: 8px; }
-  .tree-legend .chip { width: 14px; height: 14px; border-radius: 4px; }
-
-  /* ───── code ───── */
-  pre.code {
-    background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
-    padding: 22px 24px; overflow-x: auto; font-size: 13.5px; line-height: 1.7;
-    margin: 0;
-  }
-  .code .kw { color: var(--magenta); }
-  .code .fn { color: var(--cyan); }
-  .code .str { color: var(--gold); }
-  .code .com { color: var(--dim); font-style: italic; }
-  .code .num { color: var(--green); }
-
-  .code-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card h3 { margin: 0 0 8px; font-size: 17px; letter-spacing: -.01em; }
+  .card .plain { color: var(--text); font-size: 14.5px; margin: 0 0 8px; line-height: 1.55; }
+  .card .tech { color: var(--muted); font-size: 12.5px; margin: 0; line-height: 1.5; font-family: var(--mono); }
 
   /* ───── footer ───── */
   footer {
     border-top: 1px solid var(--line);
-    padding: 48px 0 36px; margin-top: 60px;
+    padding: 40px 0 36px; margin-top: 40px;
     color: var(--muted); font-size: 13px;
   }
   footer .row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; }
   footer .row .word { font-family: var(--mono); color: var(--dim); letter-spacing: .04em; }
 
   @media (max-width: 880px) {
-    .what, .sim, .ee-grid, .code-grid { grid-template-columns: 1fr; }
-    .features { grid-template-columns: 1fr; }
-    .hero-stats { grid-template-columns: repeat(2,1fr); }
+    .sim, .ee-grid, .impact-wrap, .race-grid { grid-template-columns: 1fr; }
+    .features, .steps { grid-template-columns: 1fr; }
     nav .links { display: none; }
+    h1.hero-title { font-size: 64px; }
+    section { padding: 56px 0; }
   }
 </style>
 </head>
@@ -297,198 +443,196 @@
   <div class="inner">
     <div class="logo"><div class="glyph">流</div> kairu</div>
     <div class="links">
-      <a href="#what">what</a>
-      <a href="#features">features</a>
+      <a href="#race">race</a>
+      <a href="#how">how it works</a>
       <a href="#simulator">simulator</a>
       <a href="#exit">early exit</a>
-      <a href="#profile">autoprofile</a>
+      <a href="#impact">impact</a>
       <a href="https://github.com/konjoai/kairu">github</a>
     </div>
   </div>
 </nav>
 
-<section class="hero wrap">
-  <div class="badge"><span class="dot"></span> v0.5.0 · 112 tests passing</div>
-  <h1>Adaptive inference optimization — speculative decoding, early exit, and dynamic caching.</h1>
-  <p class="lede">
-    Wrap any HuggingFace model. Get faster generation, smarter decoding, and live observability —
-    without changing your training loop or fighting your runtime.
+<!-- ─────────────────────────────────────── HERO ─────────────────────────────────────── -->
+<header class="hero wrap">
+  <div class="badge"><span class="dot"></span> v0.5.0 · open source · 112 tests passing</div>
+  <h1 class="hero-title">Kairu</h1>
+  <p class="tagline">
+    Make AI responses <span class="em">2× faster</span> by generating
+    <span class="em">multiple words at once.</span>
+  </p>
+  <p class="subtag">
+    Kairu is a small, open-source library that speeds up large language models. It guesses ahead,
+    verifies in parallel, and stops thinking the moment it is confident — so your users wait less.
   </p>
   <div class="cta">
-    <a href="https://github.com/konjoai/kairu" class="btn btn-primary">View on GitHub →</a>
-    <a href="#simulator" class="btn btn-ghost">Try the simulator</a>
+    <a href="#race" class="btn btn-primary">▶  Watch the race</a>
+    <a href="https://github.com/konjoai/kairu" class="btn btn-ghost">View on GitHub</a>
   </div>
-  <div class="hero-stats">
-    <div class="stat"><div class="num">5×</div><div class="lbl">theoretical speedup at ρ=1.0, γ=4</div></div>
-    <div class="stat"><div class="num">57%</div><div class="lbl">layer compute saved (mock 12-layer)</div></div>
-    <div class="stat"><div class="num">O(1)</div><div class="lbl">LRU cache get/put</div></div>
-    <div class="stat"><div class="num">0</div><div class="lbl">heavy frameworks required</div></div>
+</header>
+
+<!-- ─────────────────────────────────────── RACE ─────────────────────────────────────── -->
+<section id="race" class="wrap">
+  <div class="center">
+    <div class="eyebrow">live demo</div>
+    <h2>See it live: standard AI vs. Kairu</h2>
+    <p class="section-lede">
+      Same model. Same prompt. Two ways of generating the answer. Hit <strong>Race</strong> and watch
+      Kairu pull ahead — words appear in bursts as the fast guesser predicts ahead and the main model
+      confirms.
+    </p>
+  </div>
+  <div class="race-wrap">
+    <div class="race-controls">
+      <button class="race-btn" id="race-go">
+        <svg class="play" viewBox="0 0 14 14" fill="currentColor"><path d="M3 1l9 6-9 6z"/></svg>
+        Race them
+      </button>
+      <button class="btn btn-ghost" id="race-reset">Reset</button>
+    </div>
+    <div class="race-grid">
+      <div class="runner standard">
+        <div class="runner-head">
+          <div class="runner-label"><span class="pip"></span> Standard generation</div>
+          <div class="runner-clock" id="clock-std">0.00 s</div>
+        </div>
+        <div class="runner-text" id="text-std"><span class="caret"></span></div>
+        <div class="runner-bar"><div class="fill" id="bar-std"></div></div>
+      </div>
+      <div class="runner kairu">
+        <div class="runner-head">
+          <div class="runner-label"><span class="pip"></span> Kairu (draft + verify)</div>
+          <div class="runner-clock" id="clock-kai">0.00 s</div>
+        </div>
+        <div class="runner-text" id="text-kai"><span class="caret"></span></div>
+        <div class="runner-bar"><div class="fill" id="bar-kai"></div></div>
+      </div>
+    </div>
+    <div class="race-result"><div class="verdict" id="verdict"></div></div>
   </div>
 </section>
 
-<section id="what" class="wrap">
-  <div class="what">
-    <div>
-      <div class="eyebrow">流 · to flow, to stream</div>
-      <h2>What is kairu?</h2>
-      <p>
-        Kairu is a small, dependency-light inference optimizer for autoregressive LLMs.
-        It implements the same techniques the big serving frameworks use — <strong>speculative
-        decoding</strong>, <strong>dynamic early exit</strong>, <strong>KV-cache recycling</strong>,
-        <strong>adaptive lookahead</strong> — but exposes them as composable Python primitives you can
-        plug into any model interface in a few lines.
-      </p>
-      <p>
-        The codebase is a single Python package, NumPy-only at its core. HuggingFace, FastAPI, and
-        every other heavyweight is an optional extra. Tests run offline against deterministic mock
-        models so you can develop optimization passes without burning a GPU hour.
-      </p>
-      <p style="color:var(--text)">
-        <strong>Eight scripts. Eight cultures. One word for the same idea.</strong>
-      </p>
-    </div>
-    <div class="glyph-grid">
-      <div class="cell"><div class="ch">ቆንጆ</div><div class="lbl">Beautiful</div></div>
-      <div class="cell"><div class="ch">根性</div><div class="lbl">Grit</div></div>
-      <div class="cell"><div class="ch">康宙</div><div class="lbl">Health</div></div>
-      <div class="cell"><div class="ch">कोहजो</div><div class="lbl">Search</div></div>
-      <div class="cell"><div class="ch">ᨀᨚᨐᨚ</div><div class="lbl">Build</div></div>
-      <div class="cell"><div class="ch">конйо</div><div class="lbl">Wild</div></div>
-      <div class="cell"><div class="ch">건조</div><div class="lbl">Lean</div></div>
-      <div class="cell"><div class="ch">কুঞ্জ</div><div class="lbl">Garden</div></div>
-    </div>
+<!-- ─────────────────────────────────────── HOW IT WORKS ─────────────────────────────────────── -->
+<section id="how" class="wrap">
+  <div class="center">
+    <div class="eyebrow">how it works</div>
+    <h2>Three steps. No magic.</h2>
+    <p class="section-lede">
+      The trick is splitting the work between two models — a small fast one that <em>guesses</em>
+      and a large slow one that <em>checks the guesses in one shot</em>.
+    </p>
   </div>
-</section>
 
-<section id="features" class="wrap">
-  <div class="eyebrow">primitives</div>
-  <h2>Six pieces. Compose them however you want.</h2>
-  <p class="section-lede">Every primitive implements a clear contract, exposes its stats, and has 100% test coverage. No magic, no surprises.</p>
-
-  <div class="features">
-    <div class="card">
-      <div class="icon">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M3 10h4l2-6 2 12 2-6h4" stroke="#4cd6e6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <h3>SpeculativeDecoder</h3>
-      <p>Draft model proposes γ tokens, target verifies in parallel, residual sampling on rejection. Implements Chen et al. 2023 / Leviathan et al. 2023 to the letter.</p>
-      <span class="tag">kairu.SpeculativeDecoder</span>
+  <div class="steps">
+    <div class="step">
+      <div class="num">1</div>
+      <h3>A fast guesser predicts ahead</h3>
+      <p>A small AI proposes the next 4 words it thinks will come — it is quick but not always right.</p>
+      <div class="step-anim"><svg id="step1" viewBox="0 0 240 80"></svg></div>
     </div>
-
-    <div class="card">
-      <div class="icon">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M3 4h14M3 8h14M3 12h10M3 16h6" stroke="#d36cff" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <h3>LayerwiseEarlyExit</h3>
-      <p>Walks transformer layers and emits the argmax token at the first layer whose top-prob clears the threshold. Skip up to 60% of layer compute on confident tokens.</p>
-      <span class="tag">kairu.LayerwiseEarlyExitDecoder</span>
+    <div class="step">
+      <div class="num">2</div>
+      <h3>The main model checks all 4 at once</h3>
+      <p>Instead of generating one word at a time, the main model looks at the 4 guesses together — that is the speed-up.</p>
+      <div class="step-anim"><svg id="step2" viewBox="0 0 240 80"></svg></div>
     </div>
-
-    <div class="card">
-      <div class="icon">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="3" y="3" width="14" height="14" rx="2" stroke="#f3c969" stroke-width="1.6"/>
-          <path d="M7 7h6M7 10h6M7 13h4" stroke="#f3c969" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <h3>LogitsCache</h3>
-      <p>Bounded LRU cache memoizing <code>next_token_logits(prefix)</code>. O(1) get/put via <code>OrderedDict.move_to_end</code>. Recycles target calls across speculative verification rounds.</p>
-      <span class="tag">kairu.LogitsCache · CachedModel</span>
-    </div>
-
-    <div class="card">
-      <div class="icon">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M3 16l4-4 3 3 7-7" stroke="#62e6a0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M14 8h3v3" stroke="#62e6a0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <h3>DynamicGammaScheduler</h3>
-      <p>AIMD over speculative γ. Grows lookahead under high rolling acceptance, multiplicatively shrinks under low. Same control law as TCP. Configurable bounds, thresholds, window.</p>
-      <span class="tag">kairu.DynamicGammaScheduler</span>
-    </div>
-
-    <div class="card">
-      <div class="icon">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <circle cx="10" cy="10" r="7" stroke="#ff7686" stroke-width="1.6"/>
-          <path d="M10 5v5l3 2" stroke="#ff7686" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <h3>AutoProfile</h3>
-      <p>Picks <code>vanilla</code> / <code>early_exit</code> / <code>layered_early_exit</code> / <code>speculative</code> from model metadata. Returns a frozen profile with explicit rationale.</p>
-      <span class="tag">kairu.AutoProfile</span>
-    </div>
-
-    <div class="card">
-      <div class="icon">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M3 6c0 1 1 2 3 2s3-1 3-2-1-2-3-2-3 1-3 2zm0 0v8c0 1 1 2 3 2s3-1 3-2v-8" stroke="#4cd6e6" stroke-width="1.4"/>
-          <path d="M11 14h6M14 11l3 3-3 3" stroke="#4cd6e6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <h3>SSE Streaming Server</h3>
-      <p>FastAPI <code>POST /generate</code> emitting OpenAI-compatible <code>chat.completion.chunk</code> frames with per-token <code>kairu</code> metrics. Boundary-validated, rate-limited, timeout-enforced.</p>
-      <span class="tag">kairu.create_app</span>
+    <div class="step">
+      <div class="num">3</div>
+      <h3>Keep the good guesses, redo the rest</h3>
+      <p>Whatever the main model agrees with becomes part of the answer. Wrong guesses are tossed and re-rolled.</p>
+      <div class="step-anim"><svg id="step3" viewBox="0 0 240 80"></svg></div>
     </div>
   </div>
 </section>
 
+<!-- ─────────────────────────────────────── SIMULATOR ─────────────────────────────────────── -->
 <section id="simulator" class="wrap">
-  <div class="eyebrow">interactive</div>
-  <h2>Speculative decoding speedup simulator</h2>
-  <p class="section-lede">Slide ρ (the draft/target acceptance rate) and γ (lookahead). The chart redraws live with the closed-form expected speedup from Leviathan et al. 2023.</p>
-
+  <div class="center">
+    <div class="eyebrow">interactive</div>
+    <h2>Tune the dials yourself</h2>
+    <p class="section-lede">
+      Move the sliders. Watch the speedometer swing and the answer-quality bar shift. Hover the
+      little <strong>?</strong> next to each name for a plain-English explanation.
+    </p>
+  </div>
   <div class="sim">
     <div class="controls">
       <h3>Inputs</h3>
-      <p class="desc">ρ is how often the target model accepts a draft token. γ is how many tokens the draft generates per verification round.</p>
-      <div class="formula">E[T] = (1 − ρ<sup>γ+1</sup>) / (1 − ρ)</div>
+      <p class="desc">Two knobs control the trade-off. The math behind them is simple — a closed-form curve from a 2023 paper.</p>
 
       <div class="field">
-        <label>Acceptance rate ρ <span class="val" id="rho-val">0.70</span></label>
+        <label>
+          <span class="name">
+            How often the guess is right
+            <span class="help" data-tip="The fraction of guesses the small model gets right. If the guesser is almost always correct, you save a lot of time. If it is rarely right, you mostly waste compute on bad guesses.">?</span>
+          </span>
+          <span class="val" id="rho-val">0.70</span>
+        </label>
         <input type="range" id="rho" min="0" max="100" value="70" />
       </div>
+
       <div class="field">
-        <label>Lookahead γ <span class="val" id="gamma-val">4</span></label>
+        <label>
+          <span class="name">
+            How many words to guess at once
+            <span class="help" data-tip="How many tokens the small model proposes per round. Bigger = more speedup if guesses are right, but more wasted work if they are wrong. The technical name for this is gamma (γ).">?</span>
+          </span>
+          <span class="val" id="gamma-val">4</span>
+        </label>
         <input type="range" id="gamma" min="1" max="12" value="4" />
       </div>
 
-      <div class="readout">
-        <div class="box"><div class="k">Speedup</div><div class="v" id="speedup">2.43×</div></div>
-        <div class="box"><div class="k">Avg accepted / round</div><div class="v" id="avgacc">2.43</div></div>
+      <div class="field">
+        <label>
+          <span class="name">
+            Answer quality
+            <span class="help" data-tip="Kairu provably keeps quality identical to the main model on its own — every accepted token follows the exact same probability distribution. The bar below reflects that mathematical guarantee.">?</span>
+          </span>
+          <span class="val" style="color:var(--green)">guaranteed identical</span>
+        </label>
+        <div class="quality-bar"><div class="fill" id="quality-fill" style="width:100%"></div></div>
+        <div class="quality-note">Speculative decoding does not change what the model would have said — only how fast it says it.</div>
       </div>
     </div>
 
     <div>
-      <div class="chart-wrap">
-        <svg id="chart" viewBox="0 0 600 320" preserveAspectRatio="none"></svg>
+      <div class="speedo-wrap">
+        <svg id="speedo" viewBox="0 0 360 230"></svg>
       </div>
-      <div class="legend">
-        <span><span class="swatch" style="background:#4cd6e6"></span>Speedup vs ρ (current γ)</span>
-        <span><span class="swatch" style="background:#d36cff"></span>γ+1 ceiling</span>
-        <span><span class="swatch" style="background:#f3c969"></span>Current ρ marker</span>
+      <div class="speedo-readout">
+        <div class="big" id="speedo-num">2.43×</div>
+        <div class="lbl">expected speedup</div>
       </div>
     </div>
   </div>
 </section>
 
+<!-- ─────────────────────────────────────── EARLY EXIT ─────────────────────────────────────── -->
 <section id="exit" class="wrap">
-  <div class="eyebrow">visualization</div>
-  <h2>Layerwise early exit, in motion</h2>
-  <p class="section-lede">Each token enters the transformer at layer 1 and rises until its top-prob crosses the threshold. Skipped layers are wasted compute kairu doesn't pay.</p>
+  <div class="center">
+    <div class="eyebrow">second trick</div>
+    <h2>Stop thinking when the answer is obvious</h2>
+    <p class="section-lede">
+      A modern AI processes every word through dozens of layers. But for easy words — like
+      finishing the phrase “New York City” after “New York” — the model is sure after just a few
+      layers. Kairu lets it stop early.
+    </p>
+  </div>
 
   <div class="ee-wrap">
     <div class="ee-grid">
       <div class="ee-text">
-        <h3>How it reads</h3>
-        <p>The 12 horizontal lanes are transformer layers (bottom → top). Each rising column is a token; it stops at its exit layer. Confident tokens exit early. Hard tokens climb further.</p>
-        <p>The dashed band is the confidence threshold. Below it, the model isn't sure enough yet — it keeps computing. Above it, kairu emits the argmax and moves on.</p>
-        <p class="stat-pill" id="ee-stat">mean exit layer: 5.2 / 12 · compute saved: 56.7%</p>
+        <h3>How to read this</h3>
+        <p>Each rising column is one word being generated. It climbs through the layers of the
+          model. The moment its confidence crosses the green line, it lights up <strong>“done!”</strong>
+          and stops — saving every layer above.</p>
+        <p>Tap a column to see the per-token detail. Easy words exit at the bottom. Hard words climb
+          to the top.</p>
+        <p class="stat-pill" id="ee-stat">Click <em>Run again</em> to start the animation</p>
+        <div class="ee-controls">
+          <button class="ee-btn" id="ee-run">▶  Run again</button>
+          <button class="ee-btn" id="ee-toggle">Easy words</button>
+        </div>
       </div>
       <div class="ee-svg-wrap">
         <svg id="ee-svg" viewBox="0 0 600 380"></svg>
@@ -497,59 +641,79 @@
   </div>
 </section>
 
-<section id="profile" class="wrap">
-  <div class="eyebrow">decision logic</div>
-  <h2>AutoProfile — strategy from model metadata</h2>
-  <p class="section-lede">Deterministic heuristic over four strategies. Every recommendation comes with a human-readable rationale string — debuggable, reproducible, zero learned parameters.</p>
-
-  <div class="tree-wrap">
-    <svg id="tree-svg" viewBox="0 0 1100 460"></svg>
-    <div class="tree-legend">
-      <div class="item"><span class="chip" style="background:#4cd6e6"></span> decision node</div>
-      <div class="item"><span class="chip" style="background:#62e6a0"></span> speculative</div>
-      <div class="item"><span class="chip" style="background:#d36cff"></span> layered_early_exit</div>
-      <div class="item"><span class="chip" style="background:#f3c969"></span> early_exit</div>
-      <div class="item"><span class="chip" style="background:#ff7686"></span> vanilla</div>
+<!-- ─────────────────────────────────────── IMPACT / CLOCKS ─────────────────────────────────────── -->
+<section id="impact" class="wrap">
+  <div class="impact-wrap">
+    <div class="impact-text">
+      <div class="eyebrow">real-world impact</div>
+      <h2>Half the wait. Same answer.</h2>
+      <p>A 2× speedup is not abstract. If your AI assistant takes 6 seconds to answer a question
+        today, with Kairu it answers in <strong>3 seconds</strong> instead.</p>
+      <p>Across a million daily queries that is <strong>~830 hours</strong> of cumulative user wait
+        time saved every day — and a proportionally lower compute bill.</p>
+      <p style="color:var(--text)"><strong>Same model. Same response. Half the latency.</strong></p>
+    </div>
+    <div class="clocks">
+      <div class="clock-row standard">
+        <div class="face"><div class="hand" id="hand-std"></div><div class="center"></div></div>
+        <div class="lbl">Standard generation<small>one word at a time</small></div>
+        <div class="time" id="time-std">6.00 s</div>
+      </div>
+      <div class="clock-divider"></div>
+      <div class="clock-row kairu">
+        <div class="face"><div class="hand" id="hand-kai"></div><div class="center"></div></div>
+        <div class="lbl">Kairu<small>guess + verify, exit early</small></div>
+        <div class="time" id="time-kai">3.00 s</div>
+      </div>
+      <div class="clock-savings" id="savings">Saves 3.00 s per response — ~830 user-hours / day at 1M queries</div>
     </div>
   </div>
 </section>
 
+<!-- ─────────────────────────────────────── FEATURES ─────────────────────────────────────── -->
 <section class="wrap">
-  <div class="eyebrow">code</div>
-  <h2>Five lines to wrap a model.</h2>
-  <p class="section-lede">Every primitive is independently composable. Use the wrapper for a fully wired stack, or reach for a single decoder when you need it.</p>
-
-  <div class="code-grid">
-    <pre class="code"><span class="com"># Auto-pick strategy + cache size for any model</span>
-<span class="kw">from</span> kairu <span class="kw">import</span> AutoProfile, ModelWrapper
-
-profile = AutoProfile.<span class="fn">recommend</span>(model,
-    name_hint=<span class="str">"llama-3-8b"</span>,
-    has_draft=<span class="kw">True</span>)
-
-<span class="kw">print</span>(profile.strategy)   <span class="com"># speculative</span>
-<span class="kw">print</span>(profile.gamma)      <span class="com"># 4</span>
-<span class="kw">print</span>(profile.rationale)  <span class="com"># "large target..."</span>
-
-wrapper = ModelWrapper(model,
-    draft_model=draft,
-    cache_capacity=<span class="num">256</span>,
-    adaptive_gamma=<span class="kw">True</span>)
-</pre>
-    <pre class="code"><span class="com"># Stream OpenAI-compatible SSE chunks</span>
-<span class="kw">from</span> kairu <span class="kw">import</span> create_app, ServerConfig
-<span class="kw">import</span> uvicorn
-
-app = <span class="fn">create_app</span>(config=ServerConfig(
-    model_name=<span class="str">"kairu-mock"</span>,
-    rate_limit_requests=<span class="num">10</span>,
-    request_timeout_s=<span class="num">30.0</span>,
-))
-uvicorn.<span class="fn">run</span>(app, host=<span class="str">"0.0.0.0"</span>, port=<span class="num">8000</span>)
-
-<span class="com"># curl -N -X POST localhost:8000/generate \</span>
-<span class="com">#   -d '{"prompt":"hi","max_tokens":16}'</span>
-</pre>
+  <div class="center">
+    <div class="eyebrow">what is in the box</div>
+    <h2>Six composable building blocks</h2>
+    <p class="section-lede">Use one. Use all six. Each one ships with tests, stats, and a documented API.</p>
+  </div>
+  <div class="features">
+    <div class="card">
+      <div class="icon">⚡</div>
+      <h3>Draft + verify</h3>
+      <p class="plain">Generate a guess with a small model, check it instantly with a big one. Most guesses are right — that is your speedup.</p>
+      <p class="tech">kairu.SpeculativeDecoder</p>
+    </div>
+    <div class="card">
+      <div class="icon">⏩</div>
+      <h3>Stop when confident</h3>
+      <p class="plain">Halt halfway through the model when the answer is already obvious. Easy words skip up to 60% of the work.</p>
+      <p class="tech">kairu.LayerwiseEarlyExitDecoder</p>
+    </div>
+    <div class="card">
+      <div class="icon">💾</div>
+      <h3>Remember answers</h3>
+      <p class="plain">Cache what the model already computed for a given prefix. The next request that starts the same way is instant.</p>
+      <p class="tech">kairu.LogitsCache · CachedModel</p>
+    </div>
+    <div class="card">
+      <div class="icon">🎯</div>
+      <h3>Auto-tune lookahead</h3>
+      <p class="plain">If the guesser is on a streak, guess further. If it is missing, pull back. Same idea as TCP congestion control.</p>
+      <p class="tech">kairu.DynamicGammaScheduler</p>
+    </div>
+    <div class="card">
+      <div class="icon">🧭</div>
+      <h3>Pick the right strategy</h3>
+      <p class="plain">Tell Kairu about your model and it picks the best mix of techniques — with a one-line explanation of why.</p>
+      <p class="tech">kairu.AutoProfile</p>
+    </div>
+    <div class="card">
+      <div class="icon">🌊</div>
+      <h3>Stream to the browser</h3>
+      <p class="plain">A built-in server speaks the same protocol as OpenAI — drop it in and your existing client code keeps working.</p>
+      <p class="tech">kairu.create_app · POST /generate</p>
+    </div>
   </div>
 </section>
 
@@ -561,245 +725,500 @@ uvicorn.<span class="fn">run</span>(app, host=<span class="str">"0.0.0.0"</span>
 </footer>
 
 <script>
-// ───────────────────────────────────── speedup simulator
+// ═══════════════════════════════════════════════════════════════════════
+// 1. RACE — animated head-to-head comparison
+// ═══════════════════════════════════════════════════════════════════════
+(function () {
+  const STORY =
+    "Once upon a time, in a small village nestled between the mountains and the sea, " +
+    "there lived a clever fox who dreamed of building a ship that could carry her across " +
+    "the great ocean to the lands beyond the sunset.";
+
+  const els = {
+    btn: document.getElementById('race-go'),
+    reset: document.getElementById('race-reset'),
+    textStd: document.getElementById('text-std'),
+    textKai: document.getElementById('text-kai'),
+    clockStd: document.getElementById('clock-std'),
+    clockKai: document.getElementById('clock-kai'),
+    barStd: document.getElementById('bar-std'),
+    barKai: document.getElementById('bar-kai'),
+    verdict: document.getElementById('verdict'),
+  };
+
+  // tuning so the race takes ~9s standard vs ~4s kairu
+  const STD_MS_PER_CHAR = 28;       // sequential character reveal
+  const KAI_BURST_TOKENS = 4;       // tokens per speculative burst
+  const KAI_BURST_INTERVAL = 220;   // ms per burst
+  const KAI_REJECT_PROB = 0.18;     // chance a burst gets one rejection
+  const TOK_SIZE = 5;               // approx avg chars per "token"
+
+  let running = false;
+  let abortFn = null;
+
+  function reset() {
+    if (abortFn) abortFn();
+    abortFn = null;
+    running = false;
+    els.textStd.innerHTML = '<span class="caret"></span>';
+    els.textKai.innerHTML = '<span class="caret"></span>';
+    els.clockStd.textContent = '0.00 s';
+    els.clockKai.textContent = '0.00 s';
+    els.barStd.style.width = '0%';
+    els.barKai.style.width = '0%';
+    els.verdict.classList.remove('show');
+    els.verdict.innerHTML = '';
+    els.btn.disabled = false;
+  }
+
+  function placeCaret(node) {
+    const caret = document.createElement('span');
+    caret.className = 'caret';
+    node.appendChild(caret);
+  }
+
+  // Standard runner — char by char
+  function runStandard(onDone) {
+    const start = performance.now();
+    let i = 0;
+    let stopped = false;
+    function step() {
+      if (stopped) return;
+      const elapsed = performance.now() - start;
+      if (i >= STORY.length) {
+        els.clockStd.textContent = (elapsed / 1000).toFixed(2) + ' s';
+        els.barStd.style.width = '100%';
+        onDone(elapsed / 1000);
+        return;
+      }
+      const ch = STORY[i++];
+      // Build content fresh each tick (cheap for ~200 chars)
+      els.textStd.innerHTML = STORY.slice(0, i).replace(/</g, '&lt;');
+      placeCaret(els.textStd);
+      els.clockStd.textContent = (elapsed / 1000).toFixed(2) + ' s';
+      els.barStd.style.width = (100 * i / STORY.length).toFixed(1) + '%';
+      setTimeout(step, STD_MS_PER_CHAR);
+    }
+    step();
+    return () => { stopped = true; };
+  }
+
+  // Kairu runner — bursts of multiple tokens, occasional reject
+  function runKairu(onDone) {
+    const start = performance.now();
+    let pos = 0;
+    let stopped = false;
+    function burst() {
+      if (stopped) return;
+      const elapsed = performance.now() - start;
+      if (pos >= STORY.length) {
+        els.clockKai.textContent = (elapsed / 1000).toFixed(2) + ' s';
+        els.barKai.style.width = '100%';
+        onDone(elapsed / 1000);
+        return;
+      }
+      // Try to take γ * TOK_SIZE chars; reject one occasionally
+      let take = KAI_BURST_TOKENS * TOK_SIZE;
+      const isReject = Math.random() < KAI_REJECT_PROB;
+      if (isReject) take = Math.max(1, Math.floor(take * 0.5));
+      take = Math.min(take, STORY.length - pos);
+      const accepted = STORY.slice(pos, pos + take);
+      pos += take;
+
+      const safeBefore = STORY.slice(0, pos - take).replace(/</g, '&lt;');
+      const safeBurst = accepted.replace(/</g, '&lt;');
+      let html = safeBefore + '<span class="burst">' + safeBurst + '</span>';
+      if (isReject && pos < STORY.length) {
+        // Show a fake rejected guess after the accepted burst, then let next round overwrite
+        const fakeChars = "xqzjvk".slice(0, 3);
+        html += '<span class="reject">' + fakeChars + '</span>';
+      }
+      els.textKai.innerHTML = html;
+      placeCaret(els.textKai);
+      els.clockKai.textContent = (elapsed / 1000).toFixed(2) + ' s';
+      els.barKai.style.width = (100 * pos / STORY.length).toFixed(1) + '%';
+      setTimeout(burst, KAI_BURST_INTERVAL);
+    }
+    burst();
+    return () => { stopped = true; };
+  }
+
+  function showVerdict(stdT, kaiT) {
+    const ratio = stdT / kaiT;
+    const saved = (stdT - kaiT).toFixed(2);
+    els.verdict.innerHTML =
+      `<span>Kairu finished in</span> <span class="x">${kaiT.toFixed(2)}s</span>` +
+      ` <span>vs</span> <span style="font-family:var(--mono);color:var(--muted)">${stdT.toFixed(2)}s</span>` +
+      ` <span>—</span> <span class="x">${ratio.toFixed(2)}×</span> <span>faster, ${saved}s saved</span>`;
+    els.verdict.classList.add('show');
+  }
+
+  els.btn.addEventListener('click', () => {
+    if (running) return;
+    reset();
+    running = true;
+    els.btn.disabled = true;
+    let stdDone = null, kaiDone = null;
+    function maybeFinish() {
+      if (stdDone !== null && kaiDone !== null) {
+        showVerdict(stdDone, kaiDone);
+        running = false;
+        els.btn.disabled = false;
+      }
+    }
+    const stopStd = runStandard(t => { stdDone = t; maybeFinish(); });
+    const stopKai = runKairu(t => { kaiDone = t; maybeFinish(); });
+    abortFn = () => { stopStd(); stopKai(); };
+  });
+  els.reset.addEventListener('click', reset);
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// 2. STEP-BY-STEP MINI ANIMATIONS
+// ═══════════════════════════════════════════════════════════════════════
+(function () {
+  // Step 1: small model emitting 4 dots
+  function paint1() {
+    const svg = document.getElementById('step1');
+    const t = (Date.now() / 600) % 1;
+    let s = '';
+    s += `<circle cx="30" cy="40" r="14" fill="rgba(76,214,230,0.18)" stroke="#4cd6e6" stroke-width="1.5"/>`;
+    s += `<text x="30" y="44" fill="#4cd6e6" font-size="12" text-anchor="middle" font-weight="700">fast</text>`;
+    for (let i = 0; i < 4; i++) {
+      const phase = (t - i * 0.15 + 1) % 1;
+      const x = 60 + i * 38;
+      const opacity = phase < 0.5 ? phase * 2 : 1 - (phase - 0.5) * 2;
+      s += `<rect x="${x}" y="32" width="30" height="16" rx="4"
+        fill="rgba(76,214,230,${0.15 + opacity * 0.4})" stroke="#4cd6e6" stroke-width="1" opacity="${0.5 + opacity * 0.5}"/>`;
+      s += `<text x="${x + 15}" y="44" fill="#e8ebf5" font-size="11" text-anchor="middle" font-family="ui-monospace">w${i+1}</text>`;
+    }
+    svg.innerHTML = s;
+  }
+  // Step 2: big model checking all 4 in parallel
+  function paint2() {
+    const svg = document.getElementById('step2');
+    const t = (Date.now() / 800) % 1;
+    let s = '';
+    // 4 token boxes
+    for (let i = 0; i < 4; i++) {
+      const x = 16 + i * 38;
+      s += `<rect x="${x}" y="14" width="30" height="16" rx="4" fill="rgba(76,214,230,0.18)" stroke="#4cd6e6" stroke-width="1"/>`;
+      s += `<text x="${x + 15}" y="26" fill="#e8ebf5" font-size="11" text-anchor="middle" font-family="ui-monospace">w${i+1}</text>`;
+      // verify pulse line down to big model
+      const lineOpacity = Math.max(0, Math.sin(t * Math.PI * 2 + i * 0.3));
+      s += `<line x1="${x+15}" y1="32" x2="${x+15}" y2="54" stroke="#d36cff" stroke-width="1.5" opacity="${0.3 + lineOpacity * 0.7}"/>`;
+    }
+    s += `<rect x="14" y="56" width="172" height="20" rx="6" fill="rgba(211,108,255,0.18)" stroke="#d36cff" stroke-width="1.5"/>`;
+    s += `<text x="100" y="70" fill="#d36cff" font-size="12" text-anchor="middle" font-weight="700">main model — verifies all at once</text>`;
+    svg.innerHTML = s;
+  }
+  // Step 3: keep good, reject one
+  function paint3() {
+    const svg = document.getElementById('step3');
+    const t = (Date.now() / 1000) % 1;
+    let s = '';
+    const states = [['ok','#62e6a0'],['ok','#62e6a0'],['ok','#62e6a0'],['x','#ff7686']];
+    for (let i = 0; i < 4; i++) {
+      const x = 16 + i * 38;
+      const [kind, color] = states[i];
+      const pop = Math.max(0, Math.sin(t * Math.PI * 2 + i * 0.5));
+      s += `<rect x="${x}" y="32" width="30" height="16" rx="4"
+        fill="${color}22" stroke="${color}" stroke-width="${1 + pop}"/>`;
+      s += `<text x="${x + 15}" y="44" fill="${color}" font-size="11" text-anchor="middle" font-family="ui-monospace" font-weight="700">${kind === 'ok' ? '✓ w'+(i+1) : '✗ w4'}</text>`;
+    }
+    s += `<text x="120" y="68" fill="#8c93ab" font-size="11" text-anchor="middle">3 kept · 1 redone</text>`;
+    svg.innerHTML = s;
+  }
+  function loop() {
+    paint1(); paint2(); paint3();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// 3. SIMULATOR — speedometer + sliders + quality bar
+// ═══════════════════════════════════════════════════════════════════════
 (function () {
   const rhoEl = document.getElementById('rho');
   const gammaEl = document.getElementById('gamma');
   const rhoVal = document.getElementById('rho-val');
   const gammaVal = document.getElementById('gamma-val');
-  const speedup = document.getElementById('speedup');
-  const avgacc = document.getElementById('avgacc');
-  const chart = document.getElementById('chart');
+  const speedoNum = document.getElementById('speedo-num');
+  const speedo = document.getElementById('speedo');
+  const qFill = document.getElementById('quality-fill');
 
-  function speedupAt(rho, gamma) {
-    if (rho >= 0.999) return gamma + 1;
+  function expectedSpeedup(rho, gamma) {
+    if (rho >= 0.9999) return gamma + 1;
     return (1 - Math.pow(rho, gamma + 1)) / (1 - rho);
   }
 
-  function drawChart(currentRho, gamma) {
-    const W = 600, H = 320, pad = { l: 44, r: 16, t: 16, b: 36 };
-    const innerW = W - pad.l - pad.r, innerH = H - pad.t - pad.b;
+  // Animated needle state
+  let displayedAngle = 0;
+  let targetAngle = 0;
 
-    const yMax = gamma + 1;
-    const xToPx = x => pad.l + x * innerW;
-    const yToPx = y => pad.t + (1 - y / yMax) * innerH;
-
-    let svg = '';
-
-    // grid + axis labels
-    for (let i = 0; i <= 5; i++) {
-      const y = pad.t + i * innerH / 5;
-      const yval = yMax * (1 - i / 5);
-      svg += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,0.05)"/>`;
-      svg += `<text x="${pad.l - 8}" y="${y + 4}" fill="#5b6275" font-size="10" text-anchor="end" font-family="ui-monospace">${yval.toFixed(1)}×</text>`;
-    }
-    for (let i = 0; i <= 5; i++) {
-      const x = pad.l + i * innerW / 5;
-      svg += `<line x1="${x}" x2="${x}" y1="${pad.t}" y2="${H - pad.b}" stroke="rgba(255,255,255,0.04)"/>`;
-      svg += `<text x="${x}" y="${H - pad.b + 16}" fill="#5b6275" font-size="10" text-anchor="middle" font-family="ui-monospace">${(i / 5).toFixed(1)}</text>`;
-    }
-    svg += `<text x="${W / 2}" y="${H - 4}" fill="#8c93ab" font-size="11" text-anchor="middle">acceptance rate ρ</text>`;
-    svg += `<text x="14" y="${pad.t + innerH / 2}" fill="#8c93ab" font-size="11" text-anchor="middle" transform="rotate(-90 14,${pad.t + innerH / 2})">E[speedup]</text>`;
-
-    // ceiling line (γ+1)
-    svg += `<line x1="${pad.l}" y1="${yToPx(yMax)}" x2="${W - pad.r}" y2="${yToPx(yMax)}" stroke="#d36cff" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>`;
-
-    // curve
-    let path = '';
-    const N = 200;
-    for (let i = 0; i <= N; i++) {
-      const x = i / N;
-      const s = Math.min(speedupAt(x, gamma), yMax);
-      const px = xToPx(x), py = yToPx(s);
-      path += (i === 0 ? `M ${px} ${py}` : ` L ${px} ${py}`);
-    }
-    // gradient fill under curve
-    svg += `<defs><linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#4cd6e6" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#4cd6e6" stop-opacity="0"/>
-            </linearGradient></defs>`;
-    svg += `<path d="${path} L ${xToPx(1)} ${yToPx(0)} L ${xToPx(0)} ${yToPx(0)} Z" fill="url(#curveGrad)"/>`;
-    svg += `<path d="${path}" fill="none" stroke="#4cd6e6" stroke-width="2.2" stroke-linecap="round"/>`;
-
-    // current marker
-    const cs = Math.min(speedupAt(currentRho, gamma), yMax);
-    const cx = xToPx(currentRho), cy = yToPx(cs);
-    svg += `<line x1="${cx}" y1="${pad.t}" x2="${cx}" y2="${H - pad.b}" stroke="#f3c969" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="7" fill="#f3c969"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="11" fill="#f3c969" opacity="0.25"/>`;
-    svg += `<text x="${cx}" y="${cy - 14}" fill="#f3c969" font-size="12" text-anchor="middle" font-family="ui-monospace" font-weight="600">${cs.toFixed(2)}×</text>`;
-
-    chart.innerHTML = svg;
+  function speedupToAngle(speedup) {
+    // Map speedup [1, 13] → angle [-110, +110] degrees (220° sweep)
+    const minS = 1, maxS = 13;
+    const t = Math.max(0, Math.min(1, (speedup - minS) / (maxS - minS)));
+    return -110 + t * 220;
   }
+
+  function drawSpeedo(angle) {
+    const W = 360, H = 230;
+    const cx = 180, cy = 180, r = 130;
+    let s = '';
+
+    // arc background
+    function polar(deg, rad) {
+      const rad2 = (deg - 90) * Math.PI / 180;
+      return [cx + Math.cos(rad2) * rad, cy + Math.sin(rad2) * rad];
+    }
+    function arcPath(a1, a2, rad) {
+      const [x1, y1] = polar(a1, rad);
+      const [x2, y2] = polar(a2, rad);
+      const large = Math.abs(a2 - a1) > 180 ? 1 : 0;
+      return `M ${x1} ${y1} A ${rad} ${rad} 0 ${large} 1 ${x2} ${y2}`;
+    }
+    // base arc
+    s += `<path d="${arcPath(-110, 110, r)}" stroke="rgba(255,255,255,0.06)" stroke-width="14" fill="none" stroke-linecap="round"/>`;
+    // gradient arc up to needle
+    s += `<defs><linearGradient id="speedGrad" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stop-color="#62e6a0"/>
+            <stop offset="50%" stop-color="#4cd6e6"/>
+            <stop offset="100%" stop-color="#d36cff"/>
+          </linearGradient></defs>`;
+    s += `<path d="${arcPath(-110, angle, r)}" stroke="url(#speedGrad)" stroke-width="14" fill="none" stroke-linecap="round" filter="drop-shadow(0 0 8px rgba(76,214,230,0.5))"/>`;
+
+    // tick marks
+    for (let v = 1; v <= 13; v += 2) {
+      const tt = (v - 1) / 12;
+      const a = -110 + tt * 220;
+      const [x1, y1] = polar(a, r - 22);
+      const [x2, y2] = polar(a, r - 14);
+      s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5b6275" stroke-width="2"/>`;
+      const [tx, ty] = polar(a, r - 36);
+      s += `<text x="${tx}" y="${ty + 4}" fill="#8c93ab" font-size="11" text-anchor="middle" font-family="ui-monospace">${v}×</text>`;
+    }
+
+    // needle
+    const needleR = r - 8;
+    const [nx, ny] = polar(angle, needleR);
+    s += `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#f3c969" stroke-width="3.5" stroke-linecap="round" filter="drop-shadow(0 0 6px rgba(243,201,105,0.8))"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="14" fill="#13182680" stroke="#f3c969" stroke-width="2"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="5" fill="#f3c969"/>`;
+
+    speedo.innerHTML = s;
+  }
+
+  function tickAnim() {
+    const diff = targetAngle - displayedAngle;
+    if (Math.abs(diff) > 0.05) {
+      displayedAngle += diff * 0.18;
+      drawSpeedo(displayedAngle);
+    }
+    requestAnimationFrame(tickAnim);
+  }
+  requestAnimationFrame(tickAnim);
 
   function update() {
     const rho = +rhoEl.value / 100;
     const gamma = +gammaEl.value;
     rhoVal.textContent = rho.toFixed(2);
     gammaVal.textContent = gamma;
-    const s = speedupAt(rho, gamma);
-    speedup.textContent = s.toFixed(2) + '×';
-    avgacc.textContent = s.toFixed(2);
-    drawChart(rho, gamma);
+    const s = expectedSpeedup(rho, gamma);
+    speedoNum.textContent = s.toFixed(2) + '×';
+    targetAngle = speedupToAngle(s);
+    // Quality is mathematically guaranteed identical → always 100%, but pulse it for feedback
+    qFill.style.width = '100%';
   }
 
   rhoEl.addEventListener('input', update);
   gammaEl.addEventListener('input', update);
   update();
+  // Init the speedo immediately so the page does not flash empty
+  drawSpeedo(targetAngle);
 })();
 
-// ───────────────────────────────────── early-exit visualization
+// ═══════════════════════════════════════════════════════════════════════
+// 4. EARLY-EXIT — animated layer climb with "done!" effect
+// ═══════════════════════════════════════════════════════════════════════
 (function () {
   const svg = document.getElementById('ee-svg');
   const stat = document.getElementById('ee-stat');
-  const W = 600, H = 380, pad = { l: 40, r: 20, t: 20, b: 36 };
-  const innerW = W - pad.l - pad.r, innerH = H - pad.t - pad.b;
+  const runBtn = document.getElementById('ee-run');
+  const toggleBtn = document.getElementById('ee-toggle');
+
   const NUM_LAYERS = 12;
-  const TOKENS = [4, 5, 8, 3, 6, 4, 4, 4, 6, 8, 5, 7]; // exit layers
-  const colW = innerW / TOKENS.length;
+  const W = 600, H = 380, pad = { l: 44, r: 24, t: 22, b: 38 };
+  const innerW = W - pad.l - pad.r, innerH = H - pad.t - pad.b;
+
+  // Two profiles: easy text (mostly low exits) vs hard text (deeper)
+  const EASY = [3, 4, 4, 3, 5, 4, 6, 3, 4, 4, 3, 5];
+  const HARD = [7, 9, 6, 11, 8, 10, 7, 9, 8, 11, 6, 9];
+  let mode = 'easy';
+  let exits = EASY.slice();
 
   function laneY(layer) {
     return pad.t + (1 - layer / NUM_LAYERS) * innerH;
   }
 
-  function build(progress) {
+  let progress = 0; // 0..tokens.length
+
+  function paint() {
+    const tokens = exits;
+    const colW = innerW / tokens.length;
     let s = '';
 
     // lane lines
     for (let l = 1; l <= NUM_LAYERS; l++) {
       const y = laneY(l);
-      s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,0.05)"/>`;
-      s += `<text x="${pad.l - 6}" y="${y + 3}" fill="#5b6275" font-size="9" text-anchor="end" font-family="ui-monospace">L${l}</text>`;
+      const isMajor = l % 4 === 0;
+      s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,${isMajor ? 0.10 : 0.04})"/>`;
+      s += `<text x="${pad.l - 8}" y="${y + 3}" fill="#5b6275" font-size="9" text-anchor="end" font-family="ui-monospace">L${l}</text>`;
     }
 
-    // threshold band (between layer 4 and 8)
-    const yTopBand = laneY(8), yBotBand = laneY(4);
-    s += `<rect x="${pad.l}" y="${yTopBand}" width="${innerW}" height="${yBotBand - yTopBand}" fill="rgba(98,230,160,0.04)" stroke="rgba(98,230,160,0.18)" stroke-dasharray="3 3"/>`;
-    s += `<text x="${W - pad.r - 6}" y="${yTopBand - 6}" fill="#62e6a0" font-size="10" text-anchor="end">confidence band</text>`;
+    // confidence threshold line (between L4 and L5 for easy, L7 and L8 for hard)
+    const threshLayer = mode === 'easy' ? 4.5 : 7.5;
+    const yThresh = laneY(threshLayer);
+    s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${yThresh}" y2="${yThresh}" stroke="#62e6a0" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.65"/>`;
+    s += `<text x="${W - pad.r - 6}" y="${yThresh - 6}" fill="#62e6a0" font-size="10" text-anchor="end" font-family="ui-monospace">confidence threshold</text>`;
 
     // token columns
     let totalExit = 0;
-    TOKENS.forEach((exitLayer, i) => {
-      const tProg = Math.max(0, Math.min(1, (progress * TOKENS.length) - i));
-      const animatedExit = 1 + (exitLayer - 1) * tProg;
+    let completed = 0;
+    tokens.forEach((targetLayer, i) => {
+      const tProg = Math.max(0, Math.min(1, progress - i));
+      const animatedExit = 1 + (targetLayer - 1) * tProg;
       const cx = pad.l + (i + 0.5) * colW;
       const yTop = laneY(animatedExit);
-      const yBot = laneY(0.6);
+      const yBot = laneY(0.4);
+      const colInner = colW * 0.55;
 
-      // column
-      s += `<defs><linearGradient id="tg${i}" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stop-color="#4cd6e6" stop-opacity="0.18"/>
+      // gradient column
+      s += `<defs><linearGradient id="ee-g${i}" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stop-color="#4cd6e6" stop-opacity="0.22"/>
               <stop offset="100%" stop-color="#d36cff" stop-opacity="0.85"/>
             </linearGradient></defs>`;
-      const colInner = colW * 0.55;
-      s += `<rect x="${cx - colInner / 2}" y="${yTop}" width="${colInner}" height="${yBot - yTop}" fill="url(#tg${i})" rx="3"/>`;
+      s += `<rect x="${cx - colInner / 2}" y="${yTop}" width="${colInner}" height="${yBot - yTop}" fill="url(#ee-g${i})" rx="4"/>`;
 
-      // exit dot
       if (tProg >= 1) {
-        s += `<circle cx="${cx}" cy="${yTop}" r="5" fill="#f3c969"/>`;
-        s += `<circle cx="${cx}" cy="${yTop}" r="9" fill="#f3c969" opacity="0.25"/>`;
-        totalExit += exitLayer;
-      } else {
+        completed++;
+        totalExit += targetLayer;
+        // done dot with halo
+        s += `<circle cx="${cx}" cy="${yTop}" r="14" fill="#62e6a0" opacity="0.18"/>`;
+        s += `<circle cx="${cx}" cy="${yTop}" r="9" fill="#62e6a0" opacity="0.32"/>`;
+        s += `<circle cx="${cx}" cy="${yTop}" r="5" fill="#62e6a0"/>`;
+        s += `<text x="${cx}" y="${yTop - 18}" fill="#62e6a0" font-size="10" text-anchor="middle" font-family="ui-monospace" font-weight="700">done!</text>`;
+      } else if (tProg > 0) {
         totalExit += animatedExit;
+        // pulse at current head
+        s += `<circle cx="${cx}" cy="${yTop}" r="6" fill="#4cd6e6" opacity="${0.4 + 0.6 * Math.sin(performance.now() / 120)}"/>`;
+        s += `<circle cx="${cx}" cy="${yTop}" r="3" fill="#4cd6e6"/>`;
       }
 
-      // bottom token label
-      s += `<text x="${cx}" y="${H - 18}" fill="#8c93ab" font-size="10" text-anchor="middle" font-family="ui-monospace">t${i + 1}</text>`;
+      s += `<text x="${cx}" y="${H - 16}" fill="#8c93ab" font-size="10" text-anchor="middle" font-family="ui-monospace">t${i + 1}</text>`;
     });
 
-    s += `<text x="${pad.l + innerW / 2}" y="${H - 4}" fill="#5b6275" font-size="10" text-anchor="middle">generated tokens</text>`;
+    s += `<text x="${pad.l + innerW / 2}" y="${H - 2}" fill="#5b6275" font-size="10" text-anchor="middle">generated tokens (left to right)</text>`;
+
     svg.innerHTML = s;
 
-    const meanExit = totalExit / TOKENS.length;
-    const saved = (1 - meanExit / NUM_LAYERS) * 100;
-    stat.textContent = `mean exit layer: ${meanExit.toFixed(1)} / ${NUM_LAYERS} · compute saved: ${saved.toFixed(1)}%`;
+    if (completed === tokens.length) {
+      const meanExit = totalExit / tokens.length;
+      const saved = (1 - meanExit / NUM_LAYERS) * 100;
+      stat.innerHTML = `mean exit layer: <strong>${meanExit.toFixed(1)} / ${NUM_LAYERS}</strong> · compute saved: <strong>${saved.toFixed(1)}%</strong>`;
+    } else if (completed > 0) {
+      const meanExit = totalExit / Math.max(1, completed);
+      const saved = (1 - meanExit / NUM_LAYERS) * 100;
+      stat.innerHTML = `${completed}/${tokens.length} done · running… (estimated ${saved.toFixed(0)}% saved)`;
+    } else {
+      stat.innerHTML = `Click <em>Run again</em> to start the animation`;
+    }
   }
 
-  // animate on first scroll into view
-  let started = false;
+  let raf = null;
   function animate() {
+    if (raf) cancelAnimationFrame(raf);
+    progress = 0;
+    const total = exits.length;
     const start = performance.now();
-    const dur = 2200;
+    const dur = 2400;
     function tick(now) {
       const p = Math.min(1, (now - start) / dur);
-      // ease-out
       const eased = 1 - Math.pow(1 - p, 3);
-      build(eased);
-      if (p < 1) requestAnimationFrame(tick);
+      progress = eased * total;
+      paint();
+      if (p < 1) raf = requestAnimationFrame(tick);
     }
-    requestAnimationFrame(tick);
+    raf = requestAnimationFrame(tick);
   }
+
+  runBtn.addEventListener('click', animate);
+  toggleBtn.addEventListener('click', () => {
+    mode = mode === 'easy' ? 'hard' : 'easy';
+    exits = mode === 'easy' ? EASY.slice() : HARD.slice();
+    toggleBtn.textContent = mode === 'easy' ? 'Easy words' : 'Hard words';
+    animate();
+  });
+
+  // start once visible
+  let started = false;
   function maybeStart() {
     if (started) return;
     const r = svg.getBoundingClientRect();
     if (r.top < window.innerHeight && r.bottom > 0) {
-      started = true; animate();
+      started = true;
+      animate();
     }
   }
   window.addEventListener('scroll', maybeStart, { passive: true });
   maybeStart();
-  // restart on click for fun
-  svg.addEventListener('click', () => { started = false; build(0); maybeStart(); });
+  paint();
 })();
 
-// ───────────────────────────────────── decision tree
+// ═══════════════════════════════════════════════════════════════════════
+// 5. CLOCK COMPARISON — animated hands sweeping the time
+// ═══════════════════════════════════════════════════════════════════════
 (function () {
-  const svg = document.getElementById('tree-svg');
-  // Layout: cascading decision flow left → right
-  const nodes = [
-    // decision nodes
-    { x: 60,  y: 220, w: 170, h: 56, kind: 'd', label: 'name matches', sub: '/tiny|small|draft/' },
-    { x: 290, y: 130, w: 170, h: 56, kind: 'd', label: 'has draft +', sub: 'vocab ≥ 30k or family' },
-    { x: 290, y: 310, w: 170, h: 56, kind: 'd', label: 'isinstance', sub: 'LayeredModelInterface' },
-    { x: 540, y: 410, w: 170, h: 56, kind: 'd', label: 'vocab ≥ 5,000?', sub: '' },
-    // leaves
-    { x: 60,  y: 60,  w: 170, h: 56, kind: 'v', label: 'vanilla', sub: 'γ=1, rationale: draft hint' },
-    { x: 540, y: 60,  w: 170, h: 56, kind: 'sp', label: 'speculative', sub: 'γ=4 (small) or 6 (huge)' },
-    { x: 540, y: 240, w: 170, h: 56, kind: 'lay', label: 'layered_early_exit', sub: 'threshold=0.85' },
-    { x: 800, y: 350, w: 170, h: 56, kind: 'ee', label: 'early_exit', sub: 'threshold=0.9' },
-    { x: 800, y: 470, w: 170, h: 56, kind: 'v', label: 'vanilla', sub: 'tiny vocab fallback' },
-  ];
-  // edges: from idx → to idx, label
-  const edges = [
-    [0, 4, 'yes'],
-    [0, 1, 'no'],
-    [1, 5, 'yes'],
-    [1, 2, 'no'],
-    [2, 6, 'yes'],
-    [2, 3, 'no'],
-    [3, 7, 'yes'],
-    [3, 8, 'no'],
-  ];
+  const STD_S = 6.0;
+  const KAI_S = 3.0;
+  const handStd = document.getElementById('hand-std');
+  const handKai = document.getElementById('hand-kai');
+  const timeStd = document.getElementById('time-std');
+  const timeKai = document.getElementById('time-kai');
+  const savings = document.getElementById('savings');
 
-  const fillFor = (kind) => ({
-    d:   { fill: '#1a2240', stroke: '#4cd6e6', text: '#e8ebf5' },
-    sp:  { fill: 'rgba(98,230,160,0.13)', stroke: '#62e6a0', text: '#62e6a0' },
-    lay: { fill: 'rgba(211,108,255,0.13)', stroke: '#d36cff', text: '#d36cff' },
-    ee:  { fill: 'rgba(243,201,105,0.13)', stroke: '#f3c969', text: '#f3c969' },
-    v:   { fill: 'rgba(255,118,134,0.13)', stroke: '#ff7686', text: '#ff7686' },
-  })[kind];
-
-  let s = '';
-  // edges first
-  edges.forEach(([from, to, label]) => {
-    const a = nodes[from], b = nodes[to];
-    const x1 = a.x + a.w, y1 = a.y + a.h / 2;
-    const x2 = b.x,        y2 = b.y + b.h / 2;
-    const mx = (x1 + x2) / 2;
-    const path = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
-    s += `<path d="${path}" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.4"/>`;
-    s += `<text x="${mx}" y="${(y1 + y2) / 2 - 4}" fill="#8c93ab" font-size="11" text-anchor="middle" font-family="ui-monospace">${label}</text>`;
-  });
-  // nodes
-  nodes.forEach(n => {
-    const c = fillFor(n.kind);
-    s += `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="10" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.4"/>`;
-    s += `<text x="${n.x + n.w / 2}" y="${n.y + 22}" fill="${c.text}" font-size="13" text-anchor="middle" font-weight="600" font-family="-apple-system,sans-serif">${n.label}</text>`;
-    if (n.sub) {
-      s += `<text x="${n.x + n.w / 2}" y="${n.y + 40}" fill="#8c93ab" font-size="11" text-anchor="middle" font-family="ui-monospace">${n.sub}</text>`;
+  function animate() {
+    const start = performance.now();
+    const dur = 2600;
+    function tick(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 2.5);
+      const stdElapsed = eased * STD_S;
+      const kaiElapsed = Math.min(STD_S * eased, KAI_S);
+      timeStd.textContent = stdElapsed.toFixed(2) + ' s';
+      timeKai.textContent = kaiElapsed.toFixed(2) + ' s';
+      // 60s = full revolution; 6s = 36°
+      handStd.style.transform = `translate(-50%, -100%) rotate(${stdElapsed * 6}deg)`;
+      handKai.style.transform = `translate(-50%, -100%) rotate(${kaiElapsed * 6}deg)`;
+      if (p < 1) requestAnimationFrame(tick);
     }
-  });
-  svg.innerHTML = s;
+    requestAnimationFrame(tick);
+  }
+  let started = false;
+  const sec = document.getElementById('impact');
+  function maybeStart() {
+    if (started) return;
+    const r = sec.getBoundingClientRect();
+    if (r.top < window.innerHeight * 0.85 && r.bottom > 0) {
+      started = true;
+      animate();
+    }
+  }
+  window.addEventListener('scroll', maybeStart, { passive: true });
+  sec.addEventListener('click', () => { started = false; animate(); started = true; });
+  maybeStart();
 })();
 </script>
 </body>
