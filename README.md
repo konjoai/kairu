@@ -64,6 +64,30 @@ model.generate("Hello world")
 
 ---
 
+## 🌊 Streaming server (v0.4.0)
+
+```bash
+pip install "kairu[server]"
+```
+
+```python
+import uvicorn
+from kairu import create_app, ServerConfig
+
+app = create_app(config=ServerConfig(model_name="kairu-mock"))
+uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+```bash
+curl -N -X POST http://localhost:8000/generate \
+  -H 'content-type: application/json' \
+  -d '{"prompt": "hello world", "max_tokens": 16}'
+```
+
+Each frame is OpenAI `chat.completion.chunk`-compatible with a `kairu` extension carrying per-token `latency_ms` and `tokens_per_s`. Stream terminates with `data: [DONE]`. Per-IP rate limit + per-request timeout are enforced at the boundary.
+
+---
+
 ## 🎯 Vision
 
 > Make LLM inference fast, transparent, and controllable.

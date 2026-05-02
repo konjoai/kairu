@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.2.0**
+Current version: **v0.4.0**
 
 ---
 
@@ -55,13 +55,19 @@ Deliverables:
 
 ---
 
-## Phase 4 — Streaming API (v0.4.0)
+## Phase 4 — Streaming API (v0.4.0) ✅ COMPLETE
 
-- FastAPI SSE endpoint: `POST /generate` → `text/event-stream`
-- Per-token metrics emitted as SSE data frames
-- OpenAI-compatible response format
-- Rate limiting + timeout enforcement (CLAUDE.md security rules)
-- Integration test with `httpx` async client
+**Ship Gate:** 73 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/server.py` — `create_app(model?, tokenizer?, config?)` FastAPI factory; `POST /generate` SSE endpoint, `GET /health`; OpenAI-compatible `chat.completion.chunk` frames + `kairu` extension carrying per-token `token_id`/`index`/`latency_ms`/`tokens_per_s`; final frame's `finish_reason ∈ {length, stop, timeout}`; trailing `data: [DONE]\n\n` sentinel
+- `kairu.server.ServerConfig` — `max_prompt_chars`, `max_tokens_cap`, `request_timeout_s`, `rate_limit_requests`, `rate_limit_window_s`; every limit enforced at the API boundary before the tokenizer is touched
+- `kairu.server.RateLimiter` — pure-stdlib sliding-window per-key limiter, `asyncio.Lock`-guarded
+- Boundary validation: empty/oversized prompts, control characters, max-tokens cap, temperature ∈ [0, 2], non-negative `stop_token_id`
+- SHA-256-only prompt logging (raw content never logged)
+- 14 server tests in `tests/test_server.py` — health, OpenAI chunk shape, `[DONE]` sentinel, all validation paths, 429 rate limiting, request timeout, sliding-window unit tests, total_s monotonicity
+- `pyproject.toml` — new `server` extras (`fastapi`, `uvicorn`, `pydantic`); `dev` extras gain `pytest-asyncio` and `httpx`; `asyncio_mode = "auto"`
+- `kairu/__init__.py` — guarded re-export of `create_app`, `ServerConfig`, `RateLimiter`; version `0.3.0 → 0.4.0`
 
 ---
 
