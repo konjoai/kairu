@@ -88,6 +88,37 @@ Each frame is OpenAI `chat.completion.chunk`-compatible with a `kairu` extension
 
 ---
 
+## 🧬 Model-aware optimization (v0.5.0)
+
+```python
+from kairu import (
+    AutoProfile, CachedModel, DynamicGammaScheduler,
+    LayerwiseEarlyExitDecoder, MockLayeredModel, MockModel, ModelWrapper,
+)
+
+# Auto-pick a decoder strategy + cache size for any model
+profile = AutoProfile.recommend(MockModel(), name_hint="llama-3-8b", has_draft=True)
+print(profile.strategy, profile.gamma, profile.rationale)
+
+# Layerwise early exit on architectures that expose intermediate logits
+decoder = LayerwiseEarlyExitDecoder(MockLayeredModel(num_layers=24), confidence_threshold=0.85)
+tokens, stats = decoder.generate([1, 2, 3], max_new_tokens=16)
+print(f"saved {stats['compute_saved']:.1%} of layer compute")
+
+# Wrap any model with logits memoization + adaptive γ
+wrapper = ModelWrapper(
+    MockModel(), draft_model=MockModel(),
+    cache_capacity=256, adaptive_gamma=True,
+)
+```
+
+* **Layerwise early exit** — stops at the first transformer layer whose top-prob ≥ threshold
+* **Logits cache (`CachedModel`)** — recycles target-model calls across speculative verification
+* **Adaptive γ (`DynamicGammaScheduler`)** — AIMD control loop over speculative lookahead
+* **`AutoProfile`** — picks `vanilla` / `early_exit` / `layered_early_exit` / `speculative` from model metadata
+
+---
+
 ## 🎯 Vision
 
 > Make LLM inference fast, transparent, and controllable.

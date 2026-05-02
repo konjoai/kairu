@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.4.0**
+Current version: **v0.5.0**
 
 ---
 
@@ -71,9 +71,26 @@ Deliverables:
 
 ---
 
-## Phase 5 — Model-Aware Optimization (v0.5.0)
+## Phase 5 — Model-Aware Optimization (v0.5.0) ✅ COMPLETE
 
-- Architecture-specific early exit: hook into intermediate transformer layers
-- KV-cache recycling across speculative verification steps
-- Dynamic `gamma` scheduling: increase lookahead when acceptance rate is high
-- `AutoProfile`: select best decoder strategy per model family
+**Ship Gate:** 112 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/layered.py` — `LayeredModelInterface` extension; `MockLayeredModel` with depth-monotonic confidence; `LayerwiseEarlyExitDecoder` reporting per-token exit layers and `compute_saved`
+- `kairu/kv_cache.py` — `LogitsCache` (bounded LRU, O(1) get/put, hit/miss/evict stats); `CachedModel` wrapper memoizing `next_token_logits` keyed by prefix tuple
+- `kairu/gamma_scheduler.py` — `DynamicGammaScheduler` (AIMD over γ, configurable bounds/thresholds/window/rates)
+- `kairu/auto_profile.py` — `AutoProfile.recommend(model, name_hint?, has_draft=False)` → frozen `DecoderProfile{strategy, gamma, threshold, temperature, use_cache, cache_capacity, rationale}`
+- `kairu/speculative.py` — optional `scheduler` kwarg; per-round `scheduler.update`; stats now include `final_gamma` and `gamma_adjustments`
+- `kairu/wrapper.py` — new flags `cache_capacity` (transparently wraps target+draft in `CachedModel`) and `adaptive_gamma` (auto-attaches scheduler)
+- 39 new tests across `tests/test_layered.py`, `tests/test_kv_cache.py`, `tests/test_gamma_scheduler.py`, `tests/test_auto_profile.py`
+- `kairu/__init__.py` — exports new types; version `0.4.0 → 0.5.0`
+
+---
+
+## Phase 6 — Distributed & Production Hardening (v0.6.0)
+
+- Redis-backed `RateLimiter` (server scales horizontally without losing per-IP guarantees)
+- Persistent metrics export — Prometheus `/metrics` endpoint on the SSE server
+- HF backend: real `past_key_values` integration via `CachedModel`-style adapter
+- `kairu serve` CLI with `--model`, `--port`, `--cache-capacity`, `--adaptive-gamma` flags
+- Docker image (multi-stage, slim) + GHCR publish in CI

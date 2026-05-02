@@ -4,6 +4,36 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.5.0] — 2026-05-02
+
+### Added — Model-Aware Optimization
+
+- `kairu.layered.LayeredModelInterface` — `ModelInterface` extension exposing `num_layers()` and `layer_logits(token_ids, layer_idx)`. Mirrors HF transformers' `output_hidden_states=True` contract at the abstract-interface level.
+- `kairu.layered.MockLayeredModel` — deterministic L-layer mock; logits sharpen monotonically with depth via `layer_logits = base_logits * (l / L)`. Drop-in for testing without ML deps.
+- `kairu.layered.LayerwiseEarlyExitDecoder` — walks layers `[min_layer, num_layers]`, emits the argmax token at the first layer whose top-prob ≥ threshold. Reports per-token `exit_layers`, `mean_exit_layer`, and `compute_saved = 1 - mean_exit_layer / num_layers`.
+- `kairu.kv_cache.LogitsCache` — bounded LRU cache (`OrderedDict.move_to_end`-backed); O(1) get/put; reports `hits`, `misses`, `evictions`, `size`, `hit_rate`.
+- `kairu.kv_cache.CachedModel` — `ModelInterface` decorator that memoizes `next_token_logits` keyed by `tuple(token_ids)`. Drop-in for any model. Recycles target-model calls across speculative verification rounds and across repeated generations on the same prompt prefix.
+- `kairu.gamma_scheduler.DynamicGammaScheduler` — AIMD scheduler over speculative γ. Math: `E[accepted] = (1 - ρ^(γ+1)) / (1 - ρ)` (Leviathan et al. 2023) → grow γ on high rolling acceptance, multiplicatively shrink on low. Configurable bounds, thresholds, window, increase/decrease rates.
+- `kairu.auto_profile.AutoProfile.recommend(model, name_hint?, has_draft=False)` → frozen `DecoderProfile{strategy, gamma, early_exit_threshold, temperature, use_cache, cache_capacity, rationale}`. Strategy ∈ {`vanilla`, `early_exit`, `layered_early_exit`, `speculative`}. Decision rules: draft-name hint → vanilla; large vocab + draft → speculative (γ=4 below 100k vocab, 6 above); layered model → layered_early_exit; mid-size single backbone → early_exit; tiny → vanilla.
+- `kairu.speculative.SpeculativeDecoder` — new optional `scheduler: DynamicGammaScheduler` arg; per-round `scheduler.update(round_accepted, gamma)`; stats include `final_gamma` and `gamma_adjustments` when the scheduler is wired.
+- `kairu.wrapper.ModelWrapper` — new `cache_capacity: int = 0` flag (transparently wraps target + draft in `CachedModel`) and `adaptive_gamma: bool = False` flag (auto-attaches a `DynamicGammaScheduler`).
+- 39 new tests across `tests/test_layered.py` (11), `tests/test_kv_cache.py` (9), `tests/test_gamma_scheduler.py` (10), `tests/test_auto_profile.py` (9). Cover: dtype/shape contracts, monotonic-confidence-with-depth, LRU eviction order, hit/miss math, cache helps repeat-prompt speculative calls, AIMD growth/shrink/clamp, mid-band hold, every config-validation path, AutoProfile dispatch on every branch, profile immutability and determinism.
+
+### Changed
+
+- `pyproject.toml` — `version: 0.4.0 → 0.5.0`; description expanded.
+- `kairu/__init__.py` — version bump; new exports `AutoProfile`, `DecoderProfile`, `CachedModel`, `LogitsCache`, `DynamicGammaScheduler`, `LayeredModelInterface`, `LayerwiseEarlyExitDecoder`, `MockLayeredModel`.
+- `kairu/speculative.py` — `from __future__ import annotations` added (3.10 PEP 604 union syntax was breaking 3.9 collection).
+- `README.md` — adds the model-aware optimization section.
+
+### Architecture Decisions
+
+- **Logits memoization > per-layer KV tensor caching** at this abstraction tier. Real KV caches store per-layer K/V along the sequence dimension; that requires a backend-specific contract (HF `past_key_values`, MLX `make_kv_cache`, etc.). At the `ModelInterface` boundary the only observable is `next_token_logits(prefix)`, and *that* is a pure function of the prefix for a deterministic model. Caching at this layer is provably equivalent in I/O behavior and works uniformly across every backend the package supports today and tomorrow.
+- **AIMD over learned γ scheduling.** A learned scheduler would need per-model calibration and a training pass. AIMD reaches a stable operating point in `O(log γ_max)` updates, has zero hyperparameter coupling to the model family, and matches the control law that is empirically known to converge cleanly under non-stationary acceptance rates (TCP congestion control, RED, ABR streaming).
+- **AutoProfile is a deterministic heuristic, not a learned classifier.** The decision surface is small (4 strategies × a handful of features). A heuristic with explicit `rationale` strings is debuggable, reproducible, and zero-dependency. When/if the matrix grows past hand-encoding, swap in a tiny logistic regression — but not before.
+
+---
+
 ## [0.4.0] — 2026-05-01
 
 ### Added

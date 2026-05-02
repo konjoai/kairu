@@ -14,10 +14,18 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
+from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
 from kairu.budget import TokenBudget
+from kairu.gamma_scheduler import DynamicGammaScheduler
+from kairu.kv_cache import CachedModel, LogitsCache
+from kairu.layered import (
+    LayeredModelInterface,
+    LayerwiseEarlyExitDecoder,
+    MockLayeredModel,
+)
 from kairu.metrics import GenerationMetrics
 from kairu.streaming import StreamingDecoder
 from kairu.tokenizer import MockTokenizer, TokenizerBase
@@ -49,5 +57,13 @@ __all__ = [
     "create_app",
     "ServerConfig",
     "RateLimiter",
+    "AutoProfile",
+    "DecoderProfile",
+    "CachedModel",
+    "LogitsCache",
+    "DynamicGammaScheduler",
+    "LayeredModelInterface",
+    "LayerwiseEarlyExitDecoder",
+    "MockLayeredModel",
     "__version__",
 ]
