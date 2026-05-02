@@ -13,6 +13,8 @@ from __future__ import annotations
 from kairu.base import ModelInterface
 from kairu.budget import TokenBudget
 from kairu.early_exit import EarlyExitDecoder
+from kairu.gamma_scheduler import DynamicGammaScheduler
+from kairu.kv_cache import CachedModel
 from kairu.metrics import GenerationMetrics
 from kairu.speculative import SpeculativeDecoder
 
@@ -46,18 +48,29 @@ class ModelWrapper:
         speculative_gamma: int = 4,
         early_exit_threshold: float = 0.9,
         temperature: float = 1.0,
+        cache_capacity: int = 0,
+        adaptive_gamma: bool = False,
     ):
+        if cache_capacity > 0:
+            model = CachedModel(model, cache_capacity=cache_capacity)
+            if draft_model is not None:
+                draft_model = CachedModel(draft_model, cache_capacity=cache_capacity)
+
         self._model = model
         self._draft = draft_model
         self._max_budget = max_budget
         self._temperature = temperature
+        self.scheduler: DynamicGammaScheduler | None = None
 
         if draft_model is not None:
+            if adaptive_gamma:
+                self.scheduler = DynamicGammaScheduler(initial=speculative_gamma)
             self._decoder: SpeculativeDecoder | EarlyExitDecoder = SpeculativeDecoder(
                 target=model,
                 draft=draft_model,
                 gamma=speculative_gamma,
                 temperature=temperature,
+                scheduler=self.scheduler,
             )
         else:
             self._decoder = EarlyExitDecoder(

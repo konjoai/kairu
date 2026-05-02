@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import numpy as np
 from kairu.base import ModelInterface
+from kairu.gamma_scheduler import DynamicGammaScheduler
 
 
 class SpeculativeDecoder:
@@ -18,11 +21,13 @@ class SpeculativeDecoder:
         draft: ModelInterface,
         gamma: int = 4,
         temperature: float = 1.0,
+        scheduler: DynamicGammaScheduler | None = None,
     ):
         self.target = target
         self.draft = draft
         self.gamma = gamma
         self.temperature = temperature
+        self.scheduler = scheduler
         self._rng = np.random.default_rng(42)
 
     def _softmax(self, x: np.ndarray) -> np.ndarray:
@@ -64,7 +69,8 @@ class SpeculativeDecoder:
 
         while len(generated) < max_new_tokens:
             remaining = max_new_tokens - len(generated)
-            gamma = min(self.gamma, remaining)
+            current_gamma = self.scheduler.gamma if self.scheduler else self.gamma
+            gamma = min(current_gamma, remaining)
 
             # --- Draft phase: generate gamma candidate tokens ---
             draft_tokens: list[int] = []
@@ -82,6 +88,7 @@ class SpeculativeDecoder:
             accepted: list[int] = []
             verify_ctx = list(tokens)
             all_accepted = True
+            round_accepted = 0
             for dtok, dprob in zip(draft_tokens, draft_probs):
                 target_logits = self.target.next_token_logits(verify_ctx)
                 target_probs = self._softmax(target_logits / max(self.temperature, 1e-8))
@@ -91,6 +98,7 @@ class SpeculativeDecoder:
                     accepted.append(dtok)
                     verify_ctx.append(dtok)
                     total_accepted += 1
+                    round_accepted += 1
                 else:
                     total_rejected += 1
                     all_accepted = False
@@ -111,6 +119,9 @@ class SpeculativeDecoder:
             tokens.extend(accepted)
             generated.extend(accepted)
 
+            if self.scheduler is not None:
+                self.scheduler.update(round_accepted, gamma)
+
             if len(generated) >= max_new_tokens:
                 break
 
@@ -130,4 +141,7 @@ class SpeculativeDecoder:
             "rejected_tokens": total_rejected,
             "acceptance_rate": total_accepted / total if total > 0 else 0.0,
         }
+        if self.scheduler is not None:
+            stats["final_gamma"] = self.scheduler.gamma
+            stats["gamma_adjustments"] = self.scheduler.stats()["adjustments"]
         return generated, stats
