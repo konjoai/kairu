@@ -14,7 +14,7 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 from kairu.bench import BenchmarkResult, BenchmarkRunner
 from kairu.budget import TokenBudget
@@ -28,6 +28,13 @@ try:
 except Exception:  # noqa: BLE001 — transformers not installed
     HFTokenizer = None  # type: ignore[assignment,misc]
 
+try:
+    from kairu.server import RateLimiter, ServerConfig, create_app
+except Exception:  # noqa: BLE001 — fastapi not installed
+    create_app = None  # type: ignore[assignment]
+    ServerConfig = None  # type: ignore[assignment,misc]
+    RateLimiter = None  # type: ignore[assignment,misc]
+
 __all__ = [
     "wrap_model",
     "ModelWrapper",
@@ -39,5 +46,8 @@ __all__ = [
     "HFTokenizer",
     "BenchmarkRunner",
     "BenchmarkResult",
+    "create_app",
+    "ServerConfig",
+    "RateLimiter",
     "__version__",
 ]

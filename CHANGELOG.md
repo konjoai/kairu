@@ -4,6 +4,34 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.4.0] — 2026-05-01
+
+### Added
+
+- `kairu.server.create_app(model?, tokenizer?, config?)` — FastAPI factory; returns an app exposing `POST /generate` (SSE) and `GET /health`. Lazy-imports FastAPI so `import kairu` stays cheap on environments without the `server` extra.
+- `kairu.server.ServerConfig` — dataclass with `model_name`, `max_prompt_chars` (default 8192), `max_tokens_cap` (512), `request_timeout_s` (30.0), `rate_limit_requests` (10), `rate_limit_window_s` (10.0). Every limit is enforced at the API boundary before the tokenizer sees the request (CLAUDE.md §Inference Server Security).
+- `kairu.server.RateLimiter` — pure-stdlib sliding-window per-key rate limiter; `asyncio.Lock`-guarded; mathematically: allow at time *t* iff `|{u ∈ window : t - u ≤ W}| < N`.
+- `POST /generate` SSE stream — OpenAI `chat.completion.chunk`-compatible frames (`id`, `object`, `created`, `model`, `choices[].delta.content`, `choices[].finish_reason`) with a `kairu` extension carrying `token_id`, `index`, `latency_ms`, `tokens_per_s` per token, and `tokens_generated`/`total_s` on the final frame; terminates with `data: [DONE]\n\n` (OpenAI convention). `finish_reason` is one of `length`, `stop`, or `timeout`.
+- Per-request wall-clock timeout enforcement via deadline check in the streaming generator (no partial frames lost — current chunk completes, then the stream ends with `finish_reason="timeout"`).
+- Boundary input validation: prompt length, control-character rejection (`\x00-\x08\x0b\x0c\x0e-\x1f\x7f`), `max_tokens` cap, `temperature` ∈ [0, 2], non-negative `stop_token_id`.
+- Privacy-preserving logging — only a SHA-256 prefix of the prompt is logged, never the raw content (CLAUDE.md "never log raw user prompt content at INFO level").
+- 14 server tests in `tests/test_server.py` — health endpoint, OpenAI-compatible chunk shape, `[DONE]` sentinel, empty/oversized/control-char prompt rejection, max-tokens cap, temperature range, 429 rate limiting, stop-token short-circuit, request timeout `finish_reason="timeout"`, sliding-window unit tests, total_s monotonicity vs. summed per-token latencies.
+
+### Changed
+
+- `pyproject.toml` — `version: 0.3.0 → 0.4.0`; new `[project.optional-dependencies] server = ["fastapi>=0.110.0", "uvicorn>=0.27.0", "pydantic>=2.0.0"]`; `dev` extras gain `pytest-asyncio>=0.23.0` and `httpx>=0.27.0`; `[tool.pytest.ini_options]` now sets `asyncio_mode = "auto"`.
+- `kairu/__init__.py` — guarded re-export of `create_app`, `ServerConfig`, `RateLimiter`; version bumped `0.3.0 → 0.4.0`.
+- `README.md` — adds the `POST /generate` quickstart and the `kairu[server]` install hint.
+
+### Architecture Decisions
+
+- The Pydantic `GenerateRequest` schema lives at module scope (not inside `create_app`) so FastAPI's `typing.get_type_hints` can resolve the annotation during route registration. Same fix is applied to `Request` (imported from `starlette.requests` at module level rather than inside the factory) — closure-scoped FastAPI annotations are silently misclassified as query parameters.
+- `_enforce_limits(req, cfg)` runs *after* Pydantic schema validation. The schema carries permissive caps (1M-char prompts, 100k tokens) and the per-instance `ServerConfig` tightens them. This decouples schema definition (one-time, module-load) from server config (per-instance, runtime).
+- The SSE generator uses `await asyncio.sleep(0)` between tokens to force the StreamingResponse to flush each frame instead of buffering the whole generation. Without this, ASGI servers may coalesce frames and the "streaming" claim is a lie on the wire.
+- Rate-limit state is in-process and per-key; horizontal scaling will require an external store (Redis) — flagged as a Phase 5 concern.
+
+---
+
 ## [0.3.0] — 2026-04-28
 
 ### Added
