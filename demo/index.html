@@ -391,6 +391,91 @@
     color: var(--green); font-weight: 600; font-size: 15px;
   }
 
+  /* ───── live banner + LIVE/EST badges ───── */
+  .live-banner {
+    margin: 18px auto 0; max-width: 720px;
+    padding: 14px 18px; border-radius: 12px;
+    background: var(--bg-3); border: 1px solid var(--line-2);
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    font-size: 14px;
+  }
+  .live-banner.live { border-color: rgba(98,230,160,.45); background: linear-gradient(120deg, rgba(98,230,160,.08), rgba(76,214,230,.06)); }
+  .live-banner.offline { border-color: rgba(243,201,105,.35); background: rgba(243,201,105,.05); }
+  .live-banner .pip { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+  .live-banner.live .pip { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .live-banner code { background: rgba(255,255,255,.05); padding: 3px 8px; border-radius: 5px; font-size: 13px; color: var(--cyan); }
+
+  .src-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-family: var(--mono); font-weight: 700;
+    padding: 3px 8px; border-radius: 5px; vertical-align: middle;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+  .src-badge.live { background: rgba(98,230,160,.15); color: var(--green); border: 1px solid rgba(98,230,160,.4); }
+  .src-badge.est  { background: rgba(243,201,105,.12); color: var(--gold);  border: 1px solid rgba(243,201,105,.35); }
+  .src-badge .ddot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  .derivation {
+    margin-top: 14px; padding: 12px 14px; background: var(--bg-3);
+    border-radius: 10px; border: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted); line-height: 1.7;
+    word-break: break-word;
+  }
+  .derivation .lbl { color: var(--cyan); font-weight: 700; }
+
+  /* ───── AutoProfile section ───── */
+  .ap-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 36px; }
+  .ap-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 32px; align-items: start; }
+  .ap-presets { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 22px; }
+  .ap-preset {
+    padding: 8px 14px; border-radius: 9px; cursor: pointer; font-size: 13px;
+    background: var(--bg-3); color: var(--text); border: 1px solid var(--line-2);
+    font-family: inherit; transition: all .15s;
+  }
+  .ap-preset:hover { border-color: var(--cyan); }
+  .ap-preset.active { background: linear-gradient(120deg, rgba(76,214,230,.18), rgba(211,108,255,.18)); border-color: var(--cyan); color: var(--text); }
+  .ap-form { display: grid; gap: 14px; }
+  .ap-form .row { display: grid; grid-template-columns: 130px 1fr; gap: 14px; align-items: center; }
+  .ap-form input[type=text], .ap-form input[type=number] {
+    background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font-family: inherit; font-size: 14px;
+    width: 100%;
+  }
+  .ap-form input:focus { outline: none; border-color: var(--cyan); }
+  .ap-form .switch { display: flex; gap: 8px; }
+  .ap-form .switch label {
+    flex: 1; padding: 9px 12px; background: var(--bg-3); border: 1px solid var(--line-2);
+    border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px;
+    transition: all .15s;
+  }
+  .ap-form .switch input { display: none; }
+  .ap-form .switch input:checked + span { color: var(--cyan); }
+  .ap-form .switch label:has(input:checked) { border-color: var(--cyan); background: rgba(76,214,230,.08); }
+  .ap-result {
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px; min-height: 220px;
+  }
+  .ap-result .strategy {
+    font-size: 28px; font-weight: 700; letter-spacing: -.01em;
+    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 6px;
+  }
+  .ap-result .meta {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0;
+  }
+  .ap-result .meta .cell {
+    background: var(--bg-2); padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--line);
+  }
+  .ap-result .meta .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .ap-result .meta .v { font-size: 16px; font-weight: 700; color: var(--text); margin-top: 2px; font-family: var(--mono); }
+  .ap-result .rationale {
+    color: var(--muted); font-size: 14px; line-height: 1.6;
+    padding: 14px; background: var(--bg-2); border-radius: 10px; border-left: 3px solid var(--cyan);
+    font-family: var(--mono);
+  }
+  .ap-result .src { margin-top: 14px; font-size: 11px; color: var(--dim); font-family: var(--mono); }
+
   /* ───── feature cards ───── */
   .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .card {
@@ -446,6 +531,7 @@
       <a href="#race">race</a>
       <a href="#how">how it works</a>
       <a href="#simulator">simulator</a>
+      <a href="#autoprofile">autoprofile</a>
       <a href="#exit">early exit</a>
       <a href="#impact">impact</a>
       <a href="https://github.com/konjoai/kairu">github</a>
@@ -468,6 +554,14 @@
   <div class="cta">
     <a href="#race" class="btn btn-primary">▶  Watch the race</a>
     <a href="https://github.com/konjoai/kairu" class="btn btn-ghost">View on GitHub</a>
+  </div>
+  <div class="live-banner offline" id="live-banner">
+    <span class="pip"></span>
+    <span id="live-text">
+      Static mode — for live numbers from the real library, run
+      <code>python demo/server.py</code> from the repo root, then open
+      <code>http://127.0.0.1:7777/</code>.
+    </span>
   </div>
 </header>
 
@@ -509,6 +603,10 @@
       </div>
     </div>
     <div class="race-result"><div class="verdict" id="verdict"></div></div>
+    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--muted)">
+      simulation source: <span class="src-badge est" id="race-src"><span class="ddot"></span>visual estimate</span>
+      <span id="race-source-detail" style="margin-left:6px;font-family:var(--mono)"></span>
+    </div>
   </div>
 </section>
 
@@ -601,7 +699,66 @@
       </div>
       <div class="speedo-readout">
         <div class="big" id="speedo-num">2.43×</div>
-        <div class="lbl">expected speedup</div>
+        <div class="lbl">expected speedup <span class="src-badge est" id="speedup-src"><span class="ddot"></span>estimated</span></div>
+      </div>
+      <div class="derivation" id="speedup-derivation">
+        <span class="lbl">formula:</span> (1 − ρ<sup>γ+1</sup>) / ((1 − ρ) · (1 + γ · (1 − ρ)))<br>
+        Run <code>python demo/server.py</code> to see the real per-step derivation from kairu.gamma_scheduler.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────── AUTOPROFILE ─────────────────────────────────────── -->
+<section id="autoprofile" class="wrap">
+  <div class="center">
+    <div class="eyebrow">smart defaults</div>
+    <h2>Tell Kairu about your model. It picks the rest.</h2>
+    <p class="section-lede">
+      Pick a preset or describe your own. The recommendation comes straight from
+      <code style="color:var(--cyan)">AutoProfile.recommend()</code> — same code path your inference server would call.
+    </p>
+  </div>
+  <div class="ap-wrap">
+    <div class="ap-grid">
+      <div>
+        <h3 style="margin:0 0 6px;font-size:18px">Describe your model</h3>
+        <p class="desc" style="color:var(--muted);font-size:14px;margin:0 0 10px;">
+          Try a preset, then tweak any field. The result updates instantly.
+        </p>
+        <div class="ap-presets">
+          <button class="ap-preset active" data-name="llama-3-70b" data-vocab="128000" data-draft="1" data-layered="0">llama-3-70b + draft</button>
+          <button class="ap-preset" data-name="qwen-2-7b" data-vocab="32000" data-draft="0" data-layered="0">qwen-2-7b solo</button>
+          <button class="ap-preset" data-name="kairu-mid" data-vocab="32000" data-draft="0" data-layered="1">layered mid-size</button>
+          <button class="ap-preset" data-name="tinyllama-draft" data-vocab="32000" data-draft="0" data-layered="0">tinyllama-draft</button>
+          <button class="ap-preset" data-name="custom" data-vocab="2000" data-draft="0" data-layered="0">tiny custom</button>
+        </div>
+        <div class="ap-form">
+          <div class="row"><label>name hint</label><input type="text" id="ap-name" value="llama-3-70b" /></div>
+          <div class="row"><label>vocab size</label><input type="number" id="ap-vocab" value="128000" min="500" max="500000" step="1000"/></div>
+          <div class="row"><label>has draft model</label>
+            <div class="switch">
+              <label><input type="radio" name="ap-draft" value="1" checked /><span>yes</span></label>
+              <label><input type="radio" name="ap-draft" value="0" /><span>no</span></label>
+            </div>
+          </div>
+          <div class="row"><label>per-layer logits</label>
+            <div class="switch">
+              <label><input type="radio" name="ap-layered" value="1" /><span>yes</span></label>
+              <label><input type="radio" name="ap-layered" value="0" checked /><span>no</span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ap-result" id="ap-result">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <div class="strategy" id="ap-strategy">speculative</div>
+          <span class="src-badge est" id="ap-src"><span class="ddot"></span>estimated</span>
+        </div>
+        <div style="color:var(--muted);font-size:13px">recommended decoder strategy</div>
+        <div class="meta" id="ap-meta"></div>
+        <div class="rationale" id="ap-rationale">Move the controls to see the live recommendation.</div>
+        <div class="src" id="ap-source">source: client-side mirror — start the server for live calls</div>
       </div>
     </div>
   </div>
@@ -726,6 +883,55 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════
+// 0. LIVE-MODE PROBE — detect demo/server.py and switch badges
+// ═══════════════════════════════════════════════════════════════════════
+const Kairu = {
+  liveMode: false,
+  base: '',  // same-origin when served from demo/server.py
+  fetchJson: async function (path, body) {
+    const url = (this.base || '') + path;
+    const opts = body
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      : { method: 'GET' };
+    const r = await fetch(url, opts);
+    if (!r.ok) throw new Error('http ' + r.status);
+    return await r.json();
+  },
+  setBadge: function (el, isLive) {
+    if (!el) return;
+    el.classList.toggle('live', isLive);
+    el.classList.toggle('est', !isLive);
+    el.innerHTML = '<span class="ddot"></span>' + (isLive ? 'live' : 'estimated');
+  },
+};
+(async () => {
+  // Try same-origin first; fall back to localhost:7777 (the documented port).
+  const candidates = ['', 'http://127.0.0.1:7777'];
+  for (const base of candidates) {
+    try {
+      const r = await fetch(base + '/api/health', { cache: 'no-store' });
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (j && j.ok) {
+        Kairu.liveMode = true;
+        Kairu.base = base;
+        const banner = document.getElementById('live-banner');
+        const text = document.getElementById('live-text');
+        banner.classList.remove('offline');
+        banner.classList.add('live');
+        text.innerHTML = `Live mode — connected to <code>${base || window.location.origin}</code> · kairu v${j.version} · every number below comes from the real library.`;
+        // Flip every visible source badge to LIVE.
+        ['speedup-src', 'race-src', 'ap-src'].forEach(id => Kairu.setBadge(document.getElementById(id), true));
+        // Trigger fresh updates on all interactive widgets.
+        document.dispatchEvent(new CustomEvent('kairu-live-ready'));
+        return;
+      }
+    } catch (_) { /* try next */ }
+  }
+  // No server — leave the offline banner alone.
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
 // 1. RACE — animated head-to-head comparison
 // ═══════════════════════════════════════════════════════════════════════
 (function () {
@@ -843,13 +1049,36 @@
     return () => { stopped = true; };
   }
 
-  function showVerdict(stdT, kaiT) {
+  async function fetchRealSpeedup() {
+    if (!Kairu.liveMode) return null;
+    try {
+      const j = await Kairu.fetchJson('/api/simulate-race', { rho: 0.8, gamma: 4, n_tokens: 50, seed: 42 });
+      return j;
+    } catch (_) { return null; }
+  }
+
+  async function showVerdict(stdT, kaiT) {
     const ratio = stdT / kaiT;
     const saved = (stdT - kaiT).toFixed(2);
+    let extra = '';
+    const real = await fetchRealSpeedup();
+    const detailEl = document.getElementById('race-source-detail');
+    if (real) {
+      extra = ` &nbsp;·&nbsp; <span style="font-size:13px;color:var(--muted)">live sim: ` +
+        `${real.standard_steps} target calls vs <strong style="color:var(--cyan)">${real.kairu_steps}</strong> ` +
+        `verification rounds → <strong style="color:var(--green)">${real.actual_speedup.toFixed(2)}×</strong> ` +
+        `(closed-form ${real.closed_form_speedup.toFixed(2)}×)</span>`;
+      if (detailEl) {
+        detailEl.textContent = `· ρ=${real.rho_input} γ=${real.gamma_input} n=${real.n_tokens} · empirical accept ${(real.empirical_acceptance_rate*100).toFixed(0)}%`;
+      }
+    } else if (detailEl) {
+      detailEl.textContent = '· numbers from animation timing only';
+    }
     els.verdict.innerHTML =
       `<span>Kairu finished in</span> <span class="x">${kaiT.toFixed(2)}s</span>` +
       ` <span>vs</span> <span style="font-family:var(--mono);color:var(--muted)">${stdT.toFixed(2)}s</span>` +
-      ` <span>—</span> <span class="x">${ratio.toFixed(2)}×</span> <span>faster, ${saved}s saved</span>`;
+      ` <span>—</span> <span class="x">${ratio.toFixed(2)}×</span> <span>faster, ${saved}s saved</span>` +
+      extra;
     els.verdict.classList.add('show');
   }
 
@@ -861,7 +1090,7 @@
     let stdDone = null, kaiDone = null;
     function maybeFinish() {
       if (stdDone !== null && kaiDone !== null) {
-        showVerdict(stdDone, kaiDone);
+        showVerdict(stdDone, kaiDone).catch(() => {});
         running = false;
         els.btn.disabled = false;
       }
@@ -1021,20 +1250,49 @@
   }
   requestAnimationFrame(tickAnim);
 
+  const derivEl = document.getElementById('speedup-derivation');
+  let liveTimer = null;
+
+  function applyEstimate(rho, gamma) {
+    const s = expectedSpeedup(rho, gamma);
+    speedoNum.textContent = s.toFixed(2) + '×';
+    targetAngle = speedupToAngle(s);
+    qFill.style.width = '100%';
+  }
+  async function applyLive(rho, gamma) {
+    try {
+      const j = await Kairu.fetchJson('/api/speedup', { rho, gamma });
+      speedoNum.textContent = j.speedup.toFixed(2) + '×';
+      targetAngle = speedupToAngle(j.speedup);
+      derivEl.innerHTML =
+        `<span class="lbl">formula:</span> ${j.formula_used}<br>` +
+        `<span class="lbl">live derivation:</span> ${j.derivation}<br>` +
+        `<span class="lbl">tokens / verify-round:</span> ${j.expected_tokens_per_step.toFixed(4)} &nbsp; · &nbsp; ` +
+        `<span class="lbl">source:</span> ${j.source}`;
+    } catch (e) {
+      applyEstimate(rho, gamma);
+    }
+  }
+
   function update() {
     const rho = +rhoEl.value / 100;
     const gamma = +gammaEl.value;
     rhoVal.textContent = rho.toFixed(2);
     gammaVal.textContent = gamma;
-    const s = expectedSpeedup(rho, gamma);
-    speedoNum.textContent = s.toFixed(2) + '×';
-    targetAngle = speedupToAngle(s);
-    // Quality is mathematically guaranteed identical → always 100%, but pulse it for feedback
     qFill.style.width = '100%';
+    if (Kairu.liveMode) {
+      // Debounce slider drags so we do not flood the server.
+      clearTimeout(liveTimer);
+      applyEstimate(rho, gamma);  // optimistic so the needle moves immediately
+      liveTimer = setTimeout(() => applyLive(rho, gamma), 90);
+    } else {
+      applyEstimate(rho, gamma);
+    }
   }
 
   rhoEl.addEventListener('input', update);
   gammaEl.addEventListener('input', update);
+  document.addEventListener('kairu-live-ready', update);
   update();
   // Init the speedo immediately so the page does not flash empty
   drawSpeedo(targetAngle);
@@ -1219,6 +1477,113 @@
   window.addEventListener('scroll', maybeStart, { passive: true });
   sec.addEventListener('click', () => { started = false; animate(); started = true; });
   maybeStart();
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// 6. AUTOPROFILE — live recommendation widget
+// ═══════════════════════════════════════════════════════════════════════
+(function () {
+  const els = {
+    name: document.getElementById('ap-name'),
+    vocab: document.getElementById('ap-vocab'),
+    presets: document.querySelectorAll('.ap-preset'),
+    strategy: document.getElementById('ap-strategy'),
+    meta: document.getElementById('ap-meta'),
+    rationale: document.getElementById('ap-rationale'),
+    source: document.getElementById('ap-source'),
+    src: document.getElementById('ap-src'),
+  };
+  const draftRadios = document.querySelectorAll('input[name=ap-draft]');
+  const layeredRadios = document.querySelectorAll('input[name=ap-layered]');
+
+  function readForm() {
+    const draft = [...draftRadios].find(r => r.checked).value === '1';
+    const layered = [...layeredRadios].find(r => r.checked).value === '1';
+    return {
+      model_name: els.name.value.trim(),
+      vocab_size: Math.max(500, +els.vocab.value || 32000),
+      has_draft: draft,
+      layered: layered,
+    };
+  }
+
+  // Faithful client-side mirror of kairu.auto_profile.AutoProfile.recommend.
+  // Used when the server is offline so the widget still works on a static page.
+  const FRONTIER = /\b(llama|mistral|mixtral|qwen|deepseek|phi|gpt|gemma|claude)\b/i;
+  const DRAFT_HINT = /\b(tiny|small|mini|draft|125m|350m)\b/i;
+  function clientRecommend(req) {
+    const name = req.model_name || '';
+    const vocab = +req.vocab_size;
+    if (name && DRAFT_HINT.test(name)) {
+      return { strategy: 'vanilla', gamma: 1, early_exit_threshold: 1.0, temperature: 1.0,
+        use_cache: true, cache_capacity: 64,
+        rationale: `name '${name}' matches draft-model pattern; no speculation, no early exit` };
+    }
+    if (req.has_draft && (vocab >= 30000 || FRONTIER.test(name))) {
+      const gamma = vocab >= 100000 ? 6 : 4;
+      return { strategy: 'speculative', gamma, early_exit_threshold: 0.9, temperature: 1.0,
+        use_cache: true, cache_capacity: 256,
+        rationale: `large target (vocab=${vocab})${FRONTIER.test(name) ? ' / frontier family' : ''} with draft → speculative γ=${gamma}` };
+    }
+    if (req.layered) {
+      return { strategy: 'layered_early_exit', gamma: 1, early_exit_threshold: 0.85, temperature: 1.0,
+        use_cache: true, cache_capacity: 128,
+        rationale: 'model exposes per-layer logits → architecture-aware early exit' };
+    }
+    if (vocab >= 5000) {
+      return { strategy: 'early_exit', gamma: 1, early_exit_threshold: 0.9, temperature: 1.0,
+        use_cache: true, cache_capacity: 128,
+        rationale: `mid-size single-backbone model (vocab=${vocab}) → confidence early exit` };
+    }
+    return { strategy: 'vanilla', gamma: 1, early_exit_threshold: 1.0, temperature: 1.0,
+      use_cache: true, cache_capacity: 32,
+      rationale: `tiny model (vocab=${vocab}) → vanilla decoding` };
+  }
+
+  function render(profile, isLive, sourceText) {
+    els.strategy.textContent = profile.strategy;
+    els.meta.innerHTML = `
+      <div class="cell"><div class="k">γ (lookahead)</div><div class="v">${profile.gamma}</div></div>
+      <div class="cell"><div class="k">exit threshold</div><div class="v">${profile.early_exit_threshold.toFixed(2)}</div></div>
+      <div class="cell"><div class="k">cache cap</div><div class="v">${profile.cache_capacity}</div></div>
+    `;
+    els.rationale.textContent = profile.rationale;
+    els.source.textContent = 'source: ' + sourceText;
+    Kairu.setBadge(els.src, isLive);
+  }
+
+  let timer = null;
+  function update() {
+    const req = readForm();
+    // Always show client-mirror first for instant feedback.
+    render(clientRecommend(req), false, 'client-side mirror of AutoProfile.recommend');
+    if (!Kairu.liveMode) return;
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      try {
+        const j = await Kairu.fetchJson('/api/recommend', req);
+        render(j, true, j.source + ` · vocab=${j.model_inspected.vocab_size}`);
+      } catch (_) { /* keep client-side render */ }
+    }, 80);
+  }
+
+  els.presets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      els.presets.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      els.name.value = btn.dataset.name;
+      els.vocab.value = btn.dataset.vocab;
+      [...draftRadios].forEach(r => r.checked = (r.value === btn.dataset.draft));
+      [...layeredRadios].forEach(r => r.checked = (r.value === btn.dataset.layered));
+      update();
+    });
+  });
+  els.name.addEventListener('input', update);
+  els.vocab.addEventListener('input', update);
+  draftRadios.forEach(r => r.addEventListener('change', update));
+  layeredRadios.forEach(r => r.addEventListener('change', update));
+  document.addEventListener('kairu-live-ready', update);
+  update();
 })();
 </script>
 </body>
