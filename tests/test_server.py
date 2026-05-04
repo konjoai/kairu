@@ -186,6 +186,39 @@ async def test_rate_limiter_rejects_bad_config():
 
 
 @pytest.mark.asyncio
+async def test_metrics_endpoint_serves_prometheus_format():
+    app = create_app()
+    async with _client(app) as c:
+        await c.get("/health")
+        await c.post("/generate", json={"prompt": "hi", "max_tokens": 3})
+        r = await c.get("/metrics")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/plain")
+    body = r.text
+    assert "# TYPE kairu_requests_total counter" in body
+    assert "# TYPE kairu_tokens_generated_total counter" in body
+    assert "# TYPE kairu_active_streams gauge" in body
+    assert "# TYPE kairu_token_latency_seconds histogram" in body
+    # Real activity should have produced non-zero counters.
+    assert "kairu_tokens_generated_total" in body
+    assert 'endpoint="/health"' in body
+    assert 'endpoint="/generate"' in body
+
+
+@pytest.mark.asyncio
+async def test_metrics_endpoint_records_429_after_rate_limit():
+    cfg = ServerConfig(rate_limit_requests=1, rate_limit_window_s=60.0)
+    app = create_app(config=cfg)
+    async with _client(app) as c:
+        await c.post("/generate", json={"prompt": "a", "max_tokens": 1})
+        await c.post("/generate", json={"prompt": "a", "max_tokens": 1})  # 429
+        r = await c.get("/metrics")
+    body = r.text
+    assert "kairu_rate_limited_total" in body
+    assert 'status="429"' in body
+
+
+@pytest.mark.asyncio
 async def test_kairu_metrics_total_s_monotonic():
     """The final frame's total_s must be ≥ sum of latencies (within float tolerance)."""
     app = create_app()

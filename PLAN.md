@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.5.0**
+Current version: **v0.6.0**
 
 ---
 
@@ -87,10 +87,27 @@ Deliverables:
 
 ---
 
-## Phase 6 — Distributed & Production Hardening (v0.6.0)
+## Phase 6 — Distributed & Production Hardening (v0.6.0) ✅ COMPLETE
 
-- Redis-backed `RateLimiter` (server scales horizontally without losing per-IP guarantees)
-- Persistent metrics export — Prometheus `/metrics` endpoint on the SSE server
-- HF backend: real `past_key_values` integration via `CachedModel`-style adapter
-- `kairu serve` CLI with `--model`, `--port`, `--cache-capacity`, `--adaptive-gamma` flags
-- Docker image (multi-stage, slim) + GHCR publish in CI
+**Ship Gate:** 139 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/rate_limit.py` — `RateLimiterBackend` protocol; `InMemoryBackend` (default, BC-preserving) + `RedisBackend` (atomic `MULTI` pipeline with speculative-add rollback). `kairu.create_app(..., rate_limit_backend=...)` accepts any backend.
+- `kairu/metrics_export.py` — pure-stdlib Prometheus exposition; `Counter`/`Gauge`/`Histogram` (canonical Prometheus latency buckets, O(log buckets) `observe`). `MetricsCollector` exposes the named series the dashboard contract depends on.
+- `GET /metrics` endpoint on the SSE server, instrumenting `/health`, `/generate` success/422/429/500, and the active-streams gauge with proper `try/finally`.
+- `kairu/cli.py` — `kairu serve | bench | version` console script. `serve` covers every `ServerConfig` field plus `--cache-capacity`, `--adaptive-gamma`, `--redis URL`.
+- `kairu/_hf_backend.py` — new `HuggingFaceKVCachedModel`; persistent `past_key_values` keyed by longest-common-prefix between successive calls; `kv_cache_stats` and `reset_cache()` exposed.
+- `Dockerfile` (multi-stage slim, non-root uid 1001, healthcheck) + `.dockerignore`.
+- `.github/workflows/docker.yml` — multi-arch (amd64/arm64) GHCR publish on `main` push and `v*.*.*` tags. Buildx + QEMU + GHA cache. Forks safe.
+- 27 new tests across `tests/test_rate_limit.py` (12), `tests/test_metrics_export.py` (8), `tests/test_cli.py` (7); plus 2 server-side `/metrics` tests.
+- `kairu/__init__.py` — exports `MetricsCollector`, `InMemoryBackend`, `RedisBackend`, `RateLimiterBackend`; version `0.5.0 → 0.6.0`. `pyproject.toml` adds `redis` extra and `kairu` console script.
+
+---
+
+## Phase 7 — Observability & Real-Workload Validation (v0.7.0)
+
+- OpenTelemetry trace export from `/generate` (per-token spans, propagating client trace context)
+- Token-budget enforcement at the cluster scope via shared Redis counters
+- Real benchmark harness against `tiny-gpt2` + `gpt2` on a fixed 100-prompt corpus, scripted to publish a results JSON to `benchmarks/results/`
+- Helm chart + `kustomize` manifests for the GHCR image
+- Streaming `/generate` JSONL fallback for clients that cannot consume SSE

@@ -14,7 +14,7 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
@@ -36,12 +36,19 @@ try:
 except Exception:  # noqa: BLE001 — transformers not installed
     HFTokenizer = None  # type: ignore[assignment,misc]
 
+from kairu.metrics_export import MetricsCollector
+from kairu.rate_limit import (
+    InMemoryBackend,
+    RateLimiter,
+    RateLimiterBackend,
+    RedisBackend,
+)
+
 try:
-    from kairu.server import RateLimiter, ServerConfig, create_app
+    from kairu.server import ServerConfig, create_app
 except Exception:  # noqa: BLE001 — fastapi not installed
     create_app = None  # type: ignore[assignment]
     ServerConfig = None  # type: ignore[assignment,misc]
-    RateLimiter = None  # type: ignore[assignment,misc]
 
 __all__ = [
     "wrap_model",
@@ -57,6 +64,10 @@ __all__ = [
     "create_app",
     "ServerConfig",
     "RateLimiter",
+    "RateLimiterBackend",
+    "InMemoryBackend",
+    "RedisBackend",
+    "MetricsCollector",
     "AutoProfile",
     "DecoderProfile",
     "CachedModel",
