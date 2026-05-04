@@ -119,6 +119,45 @@ wrapper = ModelWrapper(
 
 ---
 
+## 🚢 Production hardening (v0.6.0)
+
+```bash
+pip install "kairu[server,redis]"
+
+# Single-process default
+kairu serve --host 0.0.0.0 --port 8000 --cache-capacity 256
+
+# Horizontally scaled — Redis-backed rate limit shared across replicas
+kairu serve --host 0.0.0.0 --port 8000 --redis redis://redis:6379/0 \
+            --rate-limit 100 --rate-window 60
+```
+
+```bash
+# Prometheus scrape
+curl http://localhost:8000/metrics
+# kairu_requests_total{endpoint="/generate",status="200"} 42
+# kairu_tokens_generated_total{finish_reason="length"} 2752
+# kairu_token_latency_seconds_bucket{le="0.01"} 38
+# ...
+```
+
+```bash
+# Docker — multi-arch image published to GHCR on every main push
+docker run --rm -p 8000:8000 ghcr.io/konjoai/kairu:latest \
+  serve --host 0.0.0.0 --port 8000
+```
+
+```python
+# HuggingFace KV-cache adapter — drop-in past_key_values reuse
+from kairu._hf_backend import HuggingFaceKVCachedModel
+model = HuggingFaceKVCachedModel("gpt2")
+# model.next_token_logits([..., t0, t1, t2]) reuses cached state from
+# the prior call when prefixes overlap. model.kv_cache_stats reports
+# kv_hits / kv_misses / kv_hit_rate / cached_prefix_len.
+```
+
+---
+
 ## 🎯 Vision
 
 > Make LLM inference fast, transparent, and controllable.

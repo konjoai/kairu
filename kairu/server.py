@@ -39,12 +39,17 @@ import logging
 import re
 import time
 import uuid
-from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import AsyncIterator, Optional
 
 from kairu.base import ModelInterface
+from kairu.metrics_export import CONTENT_TYPE as METRICS_CT, MetricsCollector
 from kairu.mock_model import MockModel
+from kairu.rate_limit import (
+    InMemoryBackend,
+    RateLimiter,
+    RateLimiterBackend,
+)
 from kairu.streaming import StreamingDecoder
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 
@@ -66,44 +71,6 @@ class ServerConfig:
     request_timeout_s: float = 30.0
     rate_limit_requests: int = 10
     rate_limit_window_s: float = 10.0
-
-
-@dataclass
-class _Bucket:
-    """Sliding-window timestamps for one client. Pure stdlib, O(1) amortized."""
-
-    times: deque = field(default_factory=deque)
-
-
-class RateLimiter:
-    """Per-key sliding-window rate limiter.
-
-    Math:  allow request at time t iff |{u ∈ window : t - u ≤ W}| < N.
-    Each ``check(key)`` evicts expired stamps then either appends-and-allows
-    or refuses.
-    """
-
-    def __init__(self, max_requests: int, window_s: float) -> None:
-        if max_requests < 1:
-            raise ValueError("max_requests must be >= 1")
-        if window_s <= 0:
-            raise ValueError("window_s must be > 0")
-        self._max = max_requests
-        self._win = window_s
-        self._buckets: dict[str, _Bucket] = {}
-        self._lock = asyncio.Lock()
-
-    async def check(self, key: str, now: Optional[float] = None) -> bool:
-        t = time.monotonic() if now is None else now
-        async with self._lock:
-            b = self._buckets.setdefault(key, _Bucket())
-            cutoff = t - self._win
-            while b.times and b.times[0] <= cutoff:
-                b.times.popleft()
-            if len(b.times) >= self._max:
-                return False
-            b.times.append(t)
-            return True
 
 
 def _validate_prompt(prompt: str, max_chars: int) -> None:
@@ -160,11 +127,13 @@ def create_app(
     model: Optional[ModelInterface] = None,
     tokenizer: Optional[TokenizerBase] = None,
     config: Optional[ServerConfig] = None,
+    rate_limit_backend: Optional[RateLimiterBackend] = None,
+    metrics: Optional[MetricsCollector] = None,
 ):
     """Build a FastAPI app. Lazy-imports FastAPI so ``import kairu`` stays cheap."""
     try:
         from fastapi import FastAPI, HTTPException
-        from fastapi.responses import JSONResponse, StreamingResponse
+        from fastapi.responses import JSONResponse, Response, StreamingResponse
         from pydantic import ValidationError
     except ImportError as e:  # pragma: no cover — surfaced via install extras
         raise ImportError(
@@ -174,37 +143,59 @@ def create_app(
     cfg = config or ServerConfig()
     mdl: ModelInterface = model if model is not None else MockModel()
     tok: TokenizerBase = tokenizer if tokenizer is not None else MockTokenizer()
-    limiter = RateLimiter(cfg.rate_limit_requests, cfg.rate_limit_window_s)
+    limiter = RateLimiter(
+        cfg.rate_limit_requests,
+        cfg.rate_limit_window_s,
+        backend=rate_limit_backend,
+    )
+    mtx = metrics if metrics is not None else MetricsCollector()
 
-    app = FastAPI(title="Kairu Inference Server", version="0.4.0")
+    app = FastAPI(title="Kairu Inference Server", version="0.6.0")
     app.state.config = cfg
     app.state.model = mdl
     app.state.tokenizer = tok
     app.state.rate_limiter = limiter
+    app.state.metrics = mtx
 
     def _client_key(request: Request) -> str:
         return request.client.host if request.client else "unknown"
 
     @app.get("/health")
     async def health() -> dict:
+        mtx.requests_total.inc(endpoint="/health", status="200")
         return {"status": "ok", "model": cfg.model_name, "version": app.version}
+
+    @app.get("/metrics")
+    async def metrics_endpoint():
+        mtx.requests_total.inc(endpoint="/metrics", status="200")
+        body = mtx.render()
+        return Response(content=body, media_type=METRICS_CT)
 
     @app.post("/generate")
     async def generate(request: Request):
+        req_start = time.monotonic()
         try:
             req = GenerateRequest.model_validate(await request.json())
         except ValidationError as e:
+            mtx.requests_total.inc(endpoint="/generate", status="422")
+            mtx.errors_total.inc(kind="validation")
             return JSONResponse(status_code=422, content={"detail": e.errors()})
         except Exception as e:  # noqa: BLE001 — invalid JSON
+            mtx.requests_total.inc(endpoint="/generate", status="422")
+            mtx.errors_total.inc(kind="invalid_json")
             return JSONResponse(status_code=422, content={"detail": str(e)})
 
         try:
             _enforce_limits(req, cfg)
         except ValueError as e:
+            mtx.requests_total.inc(endpoint="/generate", status="422")
+            mtx.errors_total.inc(kind="limit_violation")
             return JSONResponse(status_code=422, content={"detail": str(e)})
 
         key = _client_key(request)
         if not await limiter.check(key):
+            mtx.requests_total.inc(endpoint="/generate", status="429")
+            mtx.rate_limited_total.inc()
             raise HTTPException(
                 status_code=429,
                 detail=f"rate limit exceeded ({cfg.rate_limit_requests}/{cfg.rate_limit_window_s}s)",
@@ -226,6 +217,7 @@ def create_app(
             last_t = start
             count = 0
             finish_reason = "stop"
+            mtx.active_streams.inc()
 
             try:
                 for index, tok_id in enumerate(
@@ -240,6 +232,7 @@ def create_app(
                     dt = now - last_t
                     last_t = now
                     count += 1
+                    mtx.token_latency_seconds.observe(dt)
                     elapsed = now - start
                     tps = count / elapsed if elapsed > 0 else 0.0
 
@@ -285,6 +278,11 @@ def create_app(
                 }
                 yield _sse_frame(final)
                 yield b"data: [DONE]\n\n"
+                mtx.tokens_generated_total.inc(count, finish_reason=finish_reason)
+                mtx.requests_total.inc(endpoint="/generate", status="200")
+                mtx.request_duration_seconds.observe(
+                    time.monotonic() - req_start, endpoint="/generate"
+                )
             except Exception as exc:  # noqa: BLE001 — stream errors are reported in-band
                 logger.exception("generate id=%s failed", request_id)
                 err = {
@@ -293,6 +291,10 @@ def create_app(
                 }
                 yield _sse_frame(err)
                 yield b"data: [DONE]\n\n"
+                mtx.errors_total.inc(kind="stream_failed")
+                mtx.requests_total.inc(endpoint="/generate", status="500")
+            finally:
+                mtx.active_streams.dec()
 
         return StreamingResponse(
             event_stream(),

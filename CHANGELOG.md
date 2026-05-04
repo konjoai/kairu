@@ -4,6 +4,35 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.6.0] — 2026-05-03
+
+### Added — Distributed & Production Hardening
+
+- `kairu.rate_limit.RateLimiterBackend` — pluggable storage protocol for sliding-window rate limit state. Two backends ship: `InMemoryBackend` (single-process, default, identical behavior to v0.4.0) and `RedisBackend` (cross-process via Redis sorted sets with atomic `MULTI`/`ZREMRANGEBYSCORE`/`ZCARD`/`ZADD` pipeline; rolls back the speculative add when the count is over). Public `RateLimiter` API unchanged — `kairu.create_app(..., rate_limit_backend=...)` accepts any backend.
+- `kairu.metrics_export` — pure-stdlib Prometheus exposition format. Three primitives (`Counter`, `Gauge`, `Histogram`) with thread-safe mutations; `Histogram` uses canonical Prometheus latency buckets (0.005 s … 10 s) with O(log buckets) `observe`. `MetricsCollector` holds the named series the dashboard contract depends on: `kairu_requests_total`, `kairu_tokens_generated_total`, `kairu_errors_total`, `kairu_rate_limited_total`, `kairu_active_streams`, `kairu_request_duration_seconds`, `kairu_token_latency_seconds`, `kairu_process_uptime_seconds`.
+- `GET /metrics` endpoint — emits the exposition payload with `Content-Type: text/plain; version=0.0.4; charset=utf-8`. Wired into `/health`, `/generate` (success, validation, rate-limit, stream failure), and the active-streams gauge with proper `try/finally` on the SSE generator.
+- `kairu.cli` — new console-script entry `kairu` with three subcommands. `kairu serve` wraps `create_app` with full flag coverage (`--model`, `--host`, `--port`, `--cache-capacity`, `--adaptive-gamma`, `--max-prompt-chars`, `--max-tokens-cap`, `--request-timeout`, `--rate-limit`, `--rate-window`, `--redis`, `--log-level`); `kairu bench` re-exports `kairu.bench.main`; `kairu version` prints `__version__`. The `--redis` flag swaps in `RedisBackend` via `redis.asyncio` (lazy imported, only required when used).
+- `kairu._hf_backend.HuggingFaceKVCachedModel` — drop-in subclass of `HuggingFaceModel` that retains `past_key_values` across calls, computes the longest-common-prefix between successive token-id lists, and feeds only the divergent suffix to the model. Exposes `kv_cache_stats` (`kv_hits`, `kv_misses`, `kv_hit_rate`, `cached_prefix_len`) and `reset_cache()`. Respects `model.config.max_position_embeddings` as the hard cap and resets cleanly on overflow.
+- `Dockerfile` (multi-stage, slim, non-root user uid 1001, healthcheck against `/health`) and `.dockerignore`.
+- `.github/workflows/docker.yml` — multi-arch (linux/amd64, linux/arm64) GHCR publish on push to `main` and on `v*.*.*` tags. Buildx + QEMU + GHA cache. PRs from forks are smoke-built without push (no credentials surfaced). Post-push smoke test runs `kairu version` against the freshly pushed image.
+- 27 new tests across `tests/test_rate_limit.py` (12 — both backends, mock-redis pipeline replays the real semantics including speculative-add rollback), `tests/test_metrics_export.py` (8 — counter/gauge/histogram math, label escaping, exposition format), `tests/test_cli.py` (7 — argparse coverage of every flag, version subcommand, dispatch). `tests/test_server.py` gains 2 tests covering `/metrics` shape and 429 accounting.
+
+### Changed
+
+- `pyproject.toml` — `version: 0.5.0 → 0.6.0`; new `redis` optional extra (`redis>=5.0.0`); new `[project.scripts] kairu = "kairu.cli:main"`.
+- `kairu/__init__.py` — exports `MetricsCollector`, `InMemoryBackend`, `RedisBackend`, `RateLimiterBackend`; `RateLimiter` now lives in `kairu.rate_limit` and is re-exported.
+- `kairu/server.py` — refactored to use `kairu.rate_limit.RateLimiter`; `create_app` accepts `rate_limit_backend` and `metrics` kwargs; FastAPI app version pinned to `0.6.0`. Inline `RateLimiter`/`_Bucket` classes removed (BC-preserving — public name still resolves through `kairu.RateLimiter`).
+- `kairu/_hf_backend.py` — `__all__` now lists `HuggingFaceKVCachedModel`.
+
+### Architecture Decisions
+
+- **Atomic Redis pipeline over Lua/EVAL.** A two-round-trip pipeline (`MULTI`+`EXEC`, then conditional `ZREM` on rejection) is portable across Redis 5+/Valkey, debuggable from `redis-cli`, and ~5–8 % slower than the equivalent Lua script in benchmarks. We pay that for now; an `EVAL` script can drop in if a real workload pushes back.
+- **No `prometheus_client` dependency.** The exposition format is a 3-line-per-series text spec; rolling our own keeps the install graph clean and removes the multiprocessing helper that conflicts with how SSE servers run inside uvicorn workers.
+- **HF KV cache at the `next_token_logits` boundary, not `generate()`.** The decoder modules already pass token-id prefixes through that one method; tracking the longest common prefix at that seam means `SpeculativeDecoder`, `LayerwiseEarlyExitDecoder`, and the streaming server all benefit from a single point change with no per-decoder integration work.
+- **Docker image runs as uid 1001.** Cloud platforms enforcing pod-security policies (GKE Autopilot, EKS Pod Security Standards 'restricted') reject root containers; shipping non-root by default avoids that footgun.
+
+---
+
 ## [0.5.0] — 2026-05-02
 
 ### Added — Model-Aware Optimization
