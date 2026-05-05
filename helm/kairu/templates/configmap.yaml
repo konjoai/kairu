@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kairu.fullname" . }}-config
+  labels:
+    {{- include "kairu.labels" . | nindent 4 }}
+data:
+  model: {{ .Values.kairu.model | quote }}
+  model_name: {{ .Values.kairu.modelName | quote }}
+  max_prompt_chars: {{ .Values.kairu.maxPromptChars | quote }}
+  max_tokens_cap: {{ .Values.kairu.maxTokensCap | quote }}
+  request_timeout_s: {{ .Values.kairu.requestTimeoutS | quote }}
+  rate_limit: {{ .Values.kairu.rateLimit | quote }}
+  rate_window: {{ .Values.kairu.rateWindow | quote }}
+  log_level: {{ .Values.kairu.logLevel | quote }}

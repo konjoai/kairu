@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kairu.fullname" . }}
+  labels:
+    {{- include "kairu.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "kairu.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kairu.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Force pod rollout on values change (config hash).
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: kairu
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - kairu
+            - serve
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "{{ .Values.service.targetPort }}"
+            - --model
+            - "{{ .Values.kairu.model }}"
+            - --model-name
+            - "{{ .Values.kairu.modelName }}"
+            - --max-prompt-chars
+            - "{{ .Values.kairu.maxPromptChars }}"
+            - --max-tokens-cap
+            - "{{ .Values.kairu.maxTokensCap }}"
+            - --request-timeout
+            - "{{ .Values.kairu.requestTimeoutS }}"
+            - --rate-limit
+            - "{{ .Values.kairu.rateLimit }}"
+            - --rate-window
+            - "{{ .Values.kairu.rateWindow }}"
+            - --cache-capacity
+            - "{{ .Values.kairu.cacheCapacity }}"
+            - --log-level
+            - "{{ .Values.kairu.logLevel }}"
+            {{- if .Values.kairu.adaptiveGamma }}
+            - --adaptive-gamma
+            {{- end }}
+            {{- if .Values.redis.enabled }}
+            - --redis
+            - "{{ .Values.redis.url }}"
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            {{- if .Values.opentelemetry.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "{{ .Values.opentelemetry.endpoint }}"
+            - name: OTEL_SERVICE_NAME
+              value: "kairu"
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

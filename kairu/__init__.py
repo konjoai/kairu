@@ -14,11 +14,12 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
 from kairu.budget import TokenBudget
+from kairu.cluster_budget import ClusterTokenBudget, LocalClusterBudget
 from kairu.gamma_scheduler import DynamicGammaScheduler
 from kairu.kv_cache import CachedModel, LogitsCache
 from kairu.layered import (
@@ -29,6 +30,7 @@ from kairu.layered import (
 from kairu.metrics import GenerationMetrics
 from kairu.streaming import StreamingDecoder
 from kairu.tokenizer import MockTokenizer, TokenizerBase
+from kairu.tracing import KairuTracer, extract_trace_context
 from kairu.wrapper import ModelWrapper, wrap_model
 
 try:
@@ -76,5 +78,9 @@ __all__ = [
     "LayeredModelInterface",
     "LayerwiseEarlyExitDecoder",
     "MockLayeredModel",
+    "KairuTracer",
+    "extract_trace_context",
+    "ClusterTokenBudget",
+    "LocalClusterBudget",
     "__version__",
 ]

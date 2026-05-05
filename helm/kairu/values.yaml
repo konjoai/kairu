@@ -1,0 +1,165 @@
+# Default values for the kairu Helm chart.
+# Override these with --set or a custom values file.
+
+# ---------------------------------------------------------------------------
+# Image
+# ---------------------------------------------------------------------------
+image:
+  repository: ghcr.io/wesleyscholl/kairu
+  tag: "0.7.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# ---------------------------------------------------------------------------
+# Deployment
+# ---------------------------------------------------------------------------
+replicaCount: 2
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Pod security — matches the Dockerfile (uid 1001, non-root).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+# ---------------------------------------------------------------------------
+# Ingress (disabled by default)
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kairu.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# ---------------------------------------------------------------------------
+# Kairu application config
+# ---------------------------------------------------------------------------
+kairu:
+  model: mock           # 'mock' (no ML deps) or a HuggingFace model id
+  modelName: kairu-mock # Logical name returned in /generate responses
+  maxPromptChars: 8192
+  maxTokensCap: 512
+  requestTimeoutS: 30.0
+  rateLimit: 10         # requests per window per client IP
+  rateWindow: 10.0      # window length in seconds
+  cacheCapacity: 0      # LogitsCache slots (0 disables)
+  adaptiveGamma: false
+  logLevel: info
+
+# ---------------------------------------------------------------------------
+# Redis (optional — cluster-scoped rate limiting and token budgets)
+# ---------------------------------------------------------------------------
+redis:
+  enabled: false
+  # When enabled, point to an existing Redis service.
+  url: "redis://redis-master:6379/0"
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+# ---------------------------------------------------------------------------
+# Autoscaling
+# ---------------------------------------------------------------------------
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# ---------------------------------------------------------------------------
+# Node selection / affinity / tolerations
+# ---------------------------------------------------------------------------
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ---------------------------------------------------------------------------
+# Probes
+# ---------------------------------------------------------------------------
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# ---------------------------------------------------------------------------
+# ServiceMonitor (Prometheus Operator)
+# ---------------------------------------------------------------------------
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  namespace: ""
+  additionalLabels: {}
+
+# ---------------------------------------------------------------------------
+# OpenTelemetry
+# ---------------------------------------------------------------------------
+opentelemetry:
+  enabled: false
+  endpoint: "http://otel-collector:4317"
+  # When enabled, sets OTEL_EXPORTER_OTLP_ENDPOINT env var in the pod.
+
+# ---------------------------------------------------------------------------
+# Extra environment variables
+# ---------------------------------------------------------------------------
+extraEnv: []
+# - name: EXAMPLE_VAR
+#   value: "example"
+
+# ---------------------------------------------------------------------------
+# Extra volumes / volume mounts (e.g. for model weight caches)
+# ---------------------------------------------------------------------------
+extraVolumes: []
+extraVolumeMounts: []
+
+# ---------------------------------------------------------------------------
+# Pod Disruption Budget
+# ---------------------------------------------------------------------------
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1

@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.6.0**
+Current version: **v0.7.0**
 
 ---
 
@@ -104,10 +104,21 @@ Deliverables:
 
 ---
 
-## Phase 7 — Observability & Real-Workload Validation (v0.7.0)
+## Phase 7 — Observability & Real-Workload Validation (v0.7.0) ✅ COMPLETE
 
-- OpenTelemetry trace export from `/generate` (per-token spans, propagating client trace context)
-- Token-budget enforcement at the cluster scope via shared Redis counters
-- Real benchmark harness against `tiny-gpt2` + `gpt2` on a fixed 100-prompt corpus, scripted to publish a results JSON to `benchmarks/results/`
-- Helm chart + `kustomize` manifests for the GHCR image
-- Streaming `/generate` JSONL fallback for clients that cannot consume SSE
+**Ship Gate:** 191 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/tracing.py` — `KairuTracer` (OTel API facade + automatic `_NoOpTracer` fallback when `opentelemetry-api` is absent). W3C `traceparent`/`tracestate` extraction via `extract_trace_context(headers)`. Per-token `add_event` annotations on the `kairu.generate` root span (not child spans — avoids trace store bloat). `record_generation_complete()` / `record_error()` helpers. `headers_from_request()` normalises ASGI headers for propagation.
+- `kairu/cluster_budget.py` — `ClusterTokenBudget` (Redis `INCRBY`/`DECRBY`/`EXPIRE` with speculative-rollback on cap overflow) + `LocalClusterBudget` (in-process, `asyncio.Lock`-guarded, window-resetting). Both implement the `ClusterBudgetBackend` protocol. Configurable scope string for multi-tenant isolation.
+- `kairu/server.py` — JSONL streaming fallback: when the client sets `Accept: application/x-ndjson` the server emits the same frame objects as newline-delimited JSON (no `data:` prefix, no `[DONE]` sentinel). OTel tracing wired into the `_token_loop` shared generator — SSE and JSONL paths both get per-token span events. `create_app()` now accepts an optional `tracer: KairuTracer` kwarg. Server `version` bumped to `0.7.0`.
+- `benchmarks/run_corpus.py` — `CorpusBenchmarkRunner` driving the full 100-prompt corpus (instruction-following, Q&A, coding, summarisation, free-form) against any `ModelInterface`. `--model mock` runs fully offline. Results saved via `BenchmarkResult.save()` to `benchmarks/results/` (never overwrites). Standalone CLI: `python benchmarks/run_corpus.py --model mock --tokens 64 --runs 100`.
+- `helm/kairu/` — Helm chart v0.7.0: `Chart.yaml`, `values.yaml` (image, replicas, resources, probes, autoscaling, Redis, OTel, ServiceMonitor, PDB toggles), templates (`deployment.yaml`, `service.yaml`, `configmap.yaml`, `hpa.yaml`, `ingress.yaml`, `servicemonitor.yaml`, `pdb.yaml`, `_helpers.tpl`).
+- `kustomize/` — Kustomize base (Deployment + Service) + overlays: `production` (4 replicas, doubled resources) and `staging` (1 replica).
+- 52 new tests: `tests/test_tracing.py` (13), `tests/test_cluster_budget.py` (19), `tests/test_jsonl_stream.py` (10), `tests/test_corpus_bench.py` (10). All run offline with `MockModel`.
+- `kairu/__init__.py` — exports `KairuTracer`, `extract_trace_context`, `ClusterTokenBudget`, `LocalClusterBudget`; version `0.6.0 → 0.7.0`.
+- `pyproject.toml` — version `0.6.0 → 0.7.0`; new `otel` optional extra (`opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-grpc`).
+
+---
+
+## Phase 8 — (TBD)

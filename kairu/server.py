@@ -2,7 +2,8 @@
 
 Endpoint
 --------
-``POST /generate`` → ``text/event-stream``
+``POST /generate`` → ``text/event-stream`` (default)
+``POST /generate`` → ``application/x-ndjson``  (when ``Accept: application/x-ndjson``)
 
 Request body (JSON)::
 
@@ -13,14 +14,24 @@ Request body (JSON)::
         "stop_token_id": int|null # optional early-stop sentinel
     }
 
-Each streamed frame is OpenAI-compatible::
+Each streamed SSE frame is OpenAI-compatible::
 
     data: {"id":"kairu-...","object":"chat.completion.chunk","created":<ts>,
            "model":"<name>","choices":[{"index":0,"delta":{"content":"<piece>"},
            "finish_reason":null}],
            "kairu":{"token_id":<id>,"latency_ms":<f>,"tokens_per_s":<f>,"index":<i>}}
 
-A final ``data: [DONE]\\n\\n`` sentinel terminates the stream (OpenAI convention).
+A final ``data: [DONE]\\n\\n`` sentinel terminates the SSE stream (OpenAI convention).
+
+JSONL fallback (``Accept: application/x-ndjson``)
+--------------------------------------------------
+Clients that cannot consume ``text/event-stream`` (e.g. plain ``curl``,
+webhooks, batch processors) may set ``Accept: application/x-ndjson``.  The
+server emits the same JSON payload objects as newline-delimited JSON — one
+object per line, no ``data:`` prefix, no ``[DONE]`` sentinel::
+
+    {"id":"kairu-...","object":"chat.completion.chunk",...}\\n
+    {"id":"kairu-...","object":"chat.completion.chunk",...,"choices":[{..."finish_reason":"length"}],...}\\n
 
 Security (CLAUDE.md §Inference Server Security)
 -----------------------------------------------
@@ -29,6 +40,13 @@ Security (CLAUDE.md §Inference Server Security)
 * Per-IP token-bucket rate limit (default 10 req / 10s) on every endpoint.
 * Per-request wall-clock timeout via ``asyncio.wait_for``.
 * Prompt content is never logged at INFO+; only a SHA-256 prefix.
+
+Observability
+-------------
+* OpenTelemetry trace context is extracted from ``traceparent`` / ``tracestate``
+  headers and propagated into per-request ``kairu.generate`` spans.
+* Per-token events are recorded on the span (not child spans — at 1 k tokens/s
+  that would balloon the trace store).
 """
 from __future__ import annotations
 
@@ -52,6 +70,7 @@ from kairu.rate_limit import (
 )
 from kairu.streaming import StreamingDecoder
 from kairu.tokenizer import MockTokenizer, TokenizerBase
+from kairu.tracing import KairuTracer, extract_trace_context, headers_from_request
 
 logger = logging.getLogger("kairu.server")
 
@@ -129,6 +148,7 @@ def create_app(
     config: Optional[ServerConfig] = None,
     rate_limit_backend: Optional[RateLimiterBackend] = None,
     metrics: Optional[MetricsCollector] = None,
+    tracer: Optional[KairuTracer] = None,
 ):
     """Build a FastAPI app. Lazy-imports FastAPI so ``import kairu`` stays cheap."""
     try:
@@ -149,13 +169,15 @@ def create_app(
         backend=rate_limit_backend,
     )
     mtx = metrics if metrics is not None else MetricsCollector()
+    otel = tracer if tracer is not None else KairuTracer()
 
-    app = FastAPI(title="Kairu Inference Server", version="0.6.0")
+    app = FastAPI(title="Kairu Inference Server", version="0.7.0")
     app.state.config = cfg
     app.state.model = mdl
     app.state.tokenizer = tok
     app.state.rate_limiter = limiter
     app.state.metrics = mtx
+    app.state.tracer = otel
 
     def _client_key(request: Request) -> str:
         return request.client.host if request.client else "unknown"
@@ -208,10 +230,25 @@ def create_app(
             request_id, key, prompt_hash, req.max_tokens, req.temperature,
         )
 
+        # Determine output format: SSE (default) or JSONL fallback.
+        accept = request.headers.get("accept", "")
+        use_jsonl = "application/x-ndjson" in accept
+
+        # Extract OTel trace context from incoming headers.
+        parent_ctx = extract_trace_context(headers_from_request(request.headers))
+
         prompt_ids = tok.encode(req.prompt)
         decoder = StreamingDecoder(mdl, temperature=req.temperature)
 
-        async def event_stream() -> AsyncIterator[bytes]:
+        async def _token_loop(span, framer):
+            """Core generation loop shared by SSE and JSONL paths.
+
+            Args:
+                span:   Active OTel span (or NoOpSpan).
+                framer: Callable(frame_dict) → bytes encoding one frame.
+
+            Yields raw bytes for StreamingResponse.
+            """
             start = time.monotonic()
             deadline = start + cfg.request_timeout_s
             last_t = start
@@ -235,6 +272,10 @@ def create_app(
                     mtx.token_latency_seconds.observe(dt)
                     elapsed = now - start
                     tps = count / elapsed if elapsed > 0 else 0.0
+                    lat_ms = round(dt * 1000.0, 4)
+
+                    # Record per-token OTel event (annotation, not child span).
+                    otel.record_token(span, index, tok_id, lat_ms)
 
                     frame = {
                         "id": request_id,
@@ -249,11 +290,11 @@ def create_app(
                         "kairu": {
                             "token_id": tok_id,
                             "index": index,
-                            "latency_ms": round(dt * 1000.0, 4),
+                            "latency_ms": lat_ms,
                             "tokens_per_s": round(tps, 4),
                         },
                     }
-                    yield _sse_frame(frame)
+                    yield framer(frame)
                     # Yield to the event loop so the response actually flushes
                     # token-by-token instead of buffering the whole generation.
                     await asyncio.sleep(0)
@@ -261,6 +302,7 @@ def create_app(
                 if count >= req.max_tokens and finish_reason == "stop":
                     finish_reason = "length"
 
+                total_s = round(time.monotonic() - start, 6)
                 final = {
                     "id": request_id,
                     "object": "chat.completion.chunk",
@@ -273,11 +315,11 @@ def create_app(
                     }],
                     "kairu": {
                         "tokens_generated": count,
-                        "total_s": round(time.monotonic() - start, 6),
+                        "total_s": total_s,
                     },
                 }
-                yield _sse_frame(final)
-                yield b"data: [DONE]\n\n"
+                yield framer(final)
+                otel.record_generation_complete(span, count, finish_reason, total_s)
                 mtx.tokens_generated_total.inc(count, finish_reason=finish_reason)
                 mtx.requests_total.inc(endpoint="/generate", status="200")
                 mtx.request_duration_seconds.observe(
@@ -285,16 +327,42 @@ def create_app(
                 )
             except Exception as exc:  # noqa: BLE001 — stream errors are reported in-band
                 logger.exception("generate id=%s failed", request_id)
+                otel.record_error(span, exc)
                 err = {
                     "id": request_id,
                     "error": {"type": exc.__class__.__name__, "message": str(exc)},
                 }
-                yield _sse_frame(err)
-                yield b"data: [DONE]\n\n"
+                yield framer(err)
                 mtx.errors_total.inc(kind="stream_failed")
                 mtx.requests_total.inc(endpoint="/generate", status="500")
             finally:
                 mtx.active_streams.dec()
+
+        if use_jsonl:
+            # JSONL fallback: one JSON object per line, no SSE framing or sentinel.
+            def _jsonl_frame(payload: dict) -> bytes:
+                return f"{json.dumps(payload, ensure_ascii=False)}\n".encode("utf-8")
+
+            async def jsonl_stream() -> AsyncIterator[bytes]:
+                with otel.start_generate_span(request_id, prompt_hash, parent_ctx) as span:
+                    async for chunk in _token_loop(span, _jsonl_frame):
+                        yield chunk
+
+            return StreamingResponse(
+                jsonl_stream(),
+                media_type="application/x-ndjson",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+
+        # Default: SSE stream.
+        async def event_stream() -> AsyncIterator[bytes]:
+            with otel.start_generate_span(request_id, prompt_hash, parent_ctx) as span:
+                async for chunk in _token_loop(span, _sse_frame):
+                    yield chunk
+                yield b"data: [DONE]\n\n"
 
         return StreamingResponse(
             event_stream(),
@@ -313,4 +381,4 @@ def create_app(
     return app
 
 
-__all__ = ["ServerConfig", "RateLimiter", "create_app"]
+__all__ = ["ServerConfig", "RateLimiter", "create_app", "KairuTracer"]

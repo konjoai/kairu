@@ -4,6 +4,36 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.7.0] — 2026-05-05
+
+### Added — Observability & Real-Workload Validation
+
+- `kairu.tracing.KairuTracer` — thin OpenTelemetry API facade with automatic `_NoOpTracer` fallback when `opentelemetry-api` is not installed. `start_generate_span(request_id, prompt_hash, parent_context?)` opens a `kairu.generate` root span; `record_token(span, index, token_id, latency_ms)` adds per-token `add_event` annotations (not child spans — avoids trace store bloat at 1 k+ tok/s); `record_generation_complete` and `record_error` annotate the span with final stats and exception info respectively. `extract_trace_context(headers)` decodes W3C `traceparent`/`tracestate` from incoming HTTP headers into an OTel propagation context; `headers_from_request(headers)` normalises ASGI MutableHeaders to a plain dict for propagation.
+- `kairu.cluster_budget.ClusterTokenBudget` — cluster-scoped token budget backed by a Redis counter. `consume(n)` is atomic: `INCRBY` → compare to cap → `DECRBY` rollback on overflow. `remaining()` and `utilization()` read the live counter. Configurable `scope` string isolates multi-tenant budgets on the same Redis instance.
+- `kairu.cluster_budget.LocalClusterBudget` — in-process equivalent of `ClusterTokenBudget` (asyncio.Lock-guarded, auto-resetting window). Implements the same `ClusterBudgetBackend` protocol; zero external dependencies; drop-in for tests and single-process deployments.
+- `POST /generate` JSONL streaming fallback — when the request carries `Accept: application/x-ndjson` the server emits the same frame objects as newline-delimited JSON (one object per line, no `data:` SSE prefix, no `[DONE]` sentinel). SSE and JSONL paths share a single `_token_loop` async generator; format selection happens at the response-framing layer only, keeping the logic DRY.
+- OpenTelemetry integration in `POST /generate` — `create_app()` now accepts an optional `tracer: KairuTracer` kwarg. Client trace context is extracted from `traceparent`/`tracestate` headers and propagated into the `kairu.generate` span, enabling end-to-end traces in Jaeger, Tempo, or any OTLP backend. `app.state.tracer` exposes the active tracer for introspection.
+- `benchmarks/run_corpus.py` — standalone 100-prompt corpus benchmark harness. `CorpusBenchmarkRunner` drives any `ModelInterface` through the full corpus (instruction-following, Q&A, coding, summarisation, free-form) with configurable warmup. Results are published to `benchmarks/results/` via `BenchmarkResult.save()` (never overwrites). `--model mock` runs fully offline; `--model gpt2` / `--model sshleifer/tiny-gpt2` require `kairu[hf]`.
+- `helm/kairu/` — Helm chart v0.7.0 scaffold. `Chart.yaml` + `values.yaml` (image, replicas, resource requests/limits, health probes, HPA, Ingress, ServiceMonitor, PodDisruptionBudget, Redis, OTel, extra env/volumes all toggle-able). Templates: `deployment.yaml`, `service.yaml`, `configmap.yaml`, `hpa.yaml`, `ingress.yaml`, `servicemonitor.yaml`, `pdb.yaml`, `_helpers.tpl` (standard `kairu.fullname` / `kairu.labels` / `kairu.selectorLabels` helpers).
+- `kustomize/` — Kustomize manifests. `kustomize/base/` (Deployment + Service + `kustomization.yaml`). Overlays: `overlays/production` (4 replicas, doubled CPU/memory limits, `kairu-prod` namespace) and `overlays/staging` (1 replica, `kairu-staging` namespace).
+- 52 new tests: `tests/test_tracing.py` (13 — NoOp construction, context manager protocol, per-token recording, error annotation, W3C header extraction, header normalisation, reentrant spans), `tests/test_cluster_budget.py` (19 — local and Redis-backed: allow/reject/rollback, remaining/utilization, reset, boundary conditions, scope isolation, invalid config), `tests/test_jsonl_stream.py` (10 — NDJSON Content-Type, no SSE prefix, no `[DONE]` sentinel, valid JSON per line, OpenAI chunk shape, finish_reason, SSE still works without NDJSON Accept, token count, validation, rate limiting), `tests/test_corpus_bench.py` (10 — corpus length and non-empty, runner shape, percentile ordering, tps, JSON round-trip, no-overwrite save, CLI exit 0, CLI --help, hardware metadata).
+
+### Changed
+
+- `kairu/server.py` — `create_app()` gains `tracer: Optional[KairuTracer] = None` kwarg; OTel context propagation and per-token span events wired into both SSE and JSONL code paths via shared `_token_loop` async generator; FastAPI app `version` bumped `0.6.0 → 0.7.0`.
+- `kairu/__init__.py` — exports `KairuTracer`, `extract_trace_context`, `ClusterTokenBudget`, `LocalClusterBudget`; version `0.6.0 → 0.7.0`.
+- `pyproject.toml` — version `0.6.0 → 0.7.0`; new `otel` optional extra (`opentelemetry-api>=1.20.0`, `opentelemetry-sdk>=1.20.0`, `opentelemetry-exporter-otlp-proto-grpc>=1.20.0`); description updated.
+
+### Architecture Decisions
+
+- **OTel as additive, not mandatory.** `KairuTracer` always constructs — the `_NoOpTracer` fallback means zero `try/except` guards at every call site, and `import kairu` stays cheap regardless of whether `opentelemetry-api` is installed. The SDK initialisation (TracerProvider, BatchSpanProcessor, exporter URL) is 100% the caller's responsibility so kairu remains embeddable.
+- **Per-token `add_event`, not child spans.** At 500–2000 tok/s per stream, creating a child span per token would produce tens of thousands of spans per request, overwhelming any OTLP collector's storage budget. `add_event` annotations on the parent span carry the same indexed key/value data (token id, index, latency_ms) at a fraction of the cost.
+- **JSONL framing shares `_token_loop`.** The SSE and JSONL paths are identical from the decoder's perspective — only the byte-encoding of each frame differs. Extracting `_token_loop` as a shared async generator keeps the metrics instrumentation, OTel span recording, timeout logic, and error handling in one place, eliminating drift between the two response modes.
+- **`ClusterTokenBudget` rollback over Lua EVAL.** Two-round-trip `INCRBY` + conditional `DECRBY` rollback is portable across Redis 5+/Valkey, debuggable from `redis-cli`, and avoids the Lua scripting permissions issue on some managed Redis services. Phase 8 can swap in EVAL if throughput demands it.
+- **Helm + Kustomize both ship.** They serve different personas: Helm is preferred by teams with a release pipeline and values-override workflow; Kustomize is preferred by GitOps setups (ArgoCD, Flux) where YAML overlays live in Git and no templating engine is needed. Shipping both maximises adoption surface without duplicating logic (Helm chart values mirror Kustomize overlay patches).
+
+---
+
 ## [0.6.0] — 2026-05-03
 
 ### Added — Distributed & Production Hardening

@@ -1,0 +1,24 @@
+apiVersion: v2
+name: kairu
+description: >
+  Real-time LLM inference optimizer — speculative decoding, early-exit decoding,
+  KV-cache recycling, adaptive-gamma scheduling, SSE streaming API with JSONL
+  fallback, Prometheus metrics, Redis-backed rate limiting, and OpenTelemetry
+  trace export.
+type: application
+version: 0.7.0
+appVersion: "0.7.0"
+keywords:
+  - llm
+  - inference
+  - speculative-decoding
+  - streaming
+  - ai
+home: https://github.com/wesleyscholl/kairu
+sources:
+  - https://github.com/wesleyscholl/kairu
+maintainers:
+  - name: Wesley Scholl
+    email: wesleyscholl@gmail.com
+annotations:
+  artifacthub.io/license: BUSL-1.1
