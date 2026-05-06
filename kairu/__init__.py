@@ -11,15 +11,18 @@ Provides:
   - StreamingDecoder  : token-by-token streaming generation
   - MockTokenizer     : deterministic mock tokenizer for testing
   - TokenizerBase     : abstract tokenizer interface
+  - DecoderRouter     : automatic strategy router
+  - FeedbackLoop      : benchmark-driven gamma scheduler feedback
 """
 from __future__ import annotations
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
 from kairu.budget import TokenBudget
 from kairu.cluster_budget import ClusterTokenBudget, LocalClusterBudget
+from kairu.feedback import FeedbackLoop, FeedbackSummary
 from kairu.gamma_scheduler import DynamicGammaScheduler
 from kairu.kv_cache import CachedModel, LogitsCache
 from kairu.layered import (
@@ -28,6 +31,7 @@ from kairu.layered import (
     MockLayeredModel,
 )
 from kairu.metrics import GenerationMetrics
+from kairu.router import DecoderRouter, RouterDecision, RoutingStats
 from kairu.streaming import StreamingDecoder
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 from kairu.tracing import KairuTracer, extract_trace_context
@@ -82,5 +86,10 @@ __all__ = [
     "extract_trace_context",
     "ClusterTokenBudget",
     "LocalClusterBudget",
+    "DecoderRouter",
+    "RouterDecision",
+    "RoutingStats",
+    "FeedbackLoop",
+    "FeedbackSummary",
     "__version__",
 ]
