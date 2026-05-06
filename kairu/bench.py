@@ -165,6 +165,9 @@ class BenchmarkResult:
     hardware: dict = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
 
+    # Arbitrary key/value metadata (e.g. acceptance_rate from speculative runs)
+    metadata: dict = field(default_factory=dict)
+
     # ------------------------------------------------------------------
     # Serialization
     # ------------------------------------------------------------------
@@ -185,6 +188,7 @@ class BenchmarkResult:
             "tokens_per_s_mean": self.tokens_per_s_mean,
             "hardware": self.hardware,
             "timestamp": self.timestamp,
+            "metadata": self.metadata,
         }
 
     def to_json(self) -> str:
