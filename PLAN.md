@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.7.0**
+Current version: **v0.8.0**
 
 ---
 
@@ -63,7 +63,7 @@ Deliverables:
 - `kairu/server.py` — `create_app(model?, tokenizer?, config?)` FastAPI factory; `POST /generate` SSE endpoint, `GET /health`; OpenAI-compatible `chat.completion.chunk` frames + `kairu` extension carrying per-token `token_id`/`index`/`latency_ms`/`tokens_per_s`; final frame's `finish_reason ∈ {length, stop, timeout}`; trailing `data: [DONE]\n\n` sentinel
 - `kairu.server.ServerConfig` — `max_prompt_chars`, `max_tokens_cap`, `request_timeout_s`, `rate_limit_requests`, `rate_limit_window_s`; every limit enforced at the API boundary before the tokenizer is touched
 - `kairu.server.RateLimiter` — pure-stdlib sliding-window per-key limiter, `asyncio.Lock`-guarded
-- Boundary validation: empty/oversized prompts, control characters, max-tokens cap, temperature ∈ [0, 2], non-negative `stop_token_id`
+- Boundary validation: empty/oversized prompts, control characters, max-tokens cap, temperature ∈ [0, 2], non-positive `stop_token_id`
 - SHA-256-only prompt logging (raw content never logged)
 - 14 server tests in `tests/test_server.py` — health, OpenAI chunk shape, `[DONE]` sentinel, all validation paths, 429 rate limiting, request timeout, sliding-window unit tests, total_s monotonicity
 - `pyproject.toml` — new `server` extras (`fastapi`, `uvicorn`, `pydantic`); `dev` extras gain `pytest-asyncio` and `httpx`; `asyncio_mode = "auto"`
@@ -121,4 +121,16 @@ Deliverables:
 
 ---
 
-## Phase 8 — (TBD)
+## Phase 8 — Adaptive Router (v0.8.0) ✅ COMPLETE
+
+**Ship Gate:** 221 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/router.py` — `DecoderRouter`: given prompt token IDs and runtime signals (prompt length, draft-model availability, latency budget), deterministically selects the optimal decoding strategy (`streaming` / `speculative` / `early_exit`). Routing rules: tight budget (< 200 ms) → streaming; short prompt (< threshold) → streaming; draft available → speculative; otherwise → early_exit. EWMA latency tracking per strategy via `record_outcome(decision, metrics)`.
+- `kairu/feedback.py` — `FeedbackLoop`: ingests `BenchmarkResult` objects, buffers until `min_results` reached, then computes mean acceptance rate and drives `DynamicGammaScheduler` up (high AR > 0.75) or down (low AR < 0.40) via 100 %/0 % synthetic update rounds. Emits `FeedbackSummary` on each flush cycle.
+- `RouterDecision` dataclass — carries `strategy`, `profile` (a `DecoderProfile` with strategy overridden to match routing), `confidence`, `rationale`, `latency_budget_ms`.
+- `RoutingStats` dataclass — per-strategy decision counts, per-strategy EWMA latency, total routed.
+- `FeedbackSummary` dataclass — `n_results`, `mean_acceptance_rate`, `gamma_adjusted`, `new_gamma`, `recommendation`.
+- 16 router tests in `tests/test_router.py` — construction, all routing branches, budget override, stats accumulation, EWMA update, profile strategy alignment.
+- 14 feedback tests in `tests/test_feedback.py` — flush threshold, buffer clearing, gamma direction, summary fields, multi-cycle operation.
+- `kairu/__init__.py` — exports `DecoderRouter`, `RouterDecision`, `RoutingStats`, `FeedbackLoop`, `FeedbackSummary`; version `0.7.0 → 0.8.0`.
