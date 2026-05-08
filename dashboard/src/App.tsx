@@ -5,6 +5,8 @@ import { ThroughputCockpit } from "./views/ThroughputCockpit";
 import { LatencyHistogram } from "./views/LatencyHistogram";
 import { TokenLatencyChart } from "./views/TokenLatencyChart";
 import { SpeculativeRace } from "./views/SpeculativeRace";
+import { SpeedupGauge } from "./views/SpeedupGauge";
+import { AutoProfilePanel } from "./views/AutoProfilePanel";
 import { FinishReasonsRing } from "./views/FinishReasonsRing";
 import { PromptBar } from "./views/PromptBar";
 import { MetaInspector } from "./views/MetaInspector";
@@ -138,6 +140,11 @@ export default function App() {
         </section>
 
         <SpeculativeRace rho={0.78} gamma={4} autoPlay />
+
+        <section className="grid lg:grid-cols-2 gap-4">
+          <SpeedupGauge rho={0.78} gamma={4} />
+          <AutoProfilePanel />
+        </section>
 
         <section className="grid lg:grid-cols-[auto_1fr] gap-4 items-start">
           <FinishReasonsRing metrics={metrics} />

@@ -7,6 +7,9 @@ import type {
   GenerationResult,
   SimulateRaceRound,
   SimulateRaceResult,
+  SpeedupResult,
+  RecommendResult,
+  ModelSpec,
 } from "./types";
 
 const SAMPLE_TOKENS = [
@@ -131,3 +134,31 @@ kairu_process_uptime_seconds 3847.23
 `;
 
 export function getMockPromText(): string { return MOCK_PROM_TEXT; }
+
+/** Mock speedup calculation from closed-form formula. */
+export function buildMockSpeedup(rho: number, gamma: number): SpeedupResult {
+  const speedup = rho === 1 ? gamma + 1 : (1 - Math.pow(rho, gamma + 1)) / (1 - rho);
+  const tokensPerStep = speedup;
+  return {
+    speedup,
+    expected_tokens_per_step: tokensPerStep,
+    formula_used: "Leviathan et al. 2023 Theorem 3.8",
+    derivation: "(1 - ρ^(γ+1)) / (1 - ρ)",
+    inputs: { rho, gamma },
+    source: "mock",
+  };
+}
+
+/** Mock AutoProfile recommendation. */
+export function buildMockRecommend(_spec: ModelSpec): RecommendResult {
+  return {
+    strategy: "speculative_small_draft",
+    gamma: 4,
+    early_exit_threshold: 0.92,
+    temperature: 0.7,
+    use_cache: true,
+    cache_capacity: 2048,
+    rationale: "Recommending gamma=4 for balanced throughput. Early-exit at p=0.92 saves 8–12% tokens.",
+    model_inspected: true,
+  };
+}

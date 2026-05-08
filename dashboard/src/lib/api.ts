@@ -19,10 +19,13 @@ import type {
   FinishReason,
   SimulateRaceResult,
   PromMetric,
+  SpeedupResult,
+  RecommendResult,
+  ModelSpec,
 } from "./types";
 import { parseStreamChunk } from "./sse";
 import { parseProm } from "./prom";
-import { buildMockGeneration, buildMockSimulateRace, mockPacing, getMockPromText } from "./mock";
+import { buildMockGeneration, buildMockSimulateRace, buildMockSpeedup, buildMockRecommend, mockPacing, getMockPromText } from "./mock";
 
 const KAIRU_API = (import.meta.env.VITE_KAIRU_API as string | undefined) ?? "";
 const DEMO_API  = (import.meta.env.VITE_KAIRU_DEMO_API as string | undefined) ?? "";
@@ -159,5 +162,35 @@ export async function fetchHealth(): Promise<{ ok: boolean; model?: string; vers
     return { ok: data.status === "ok", model: data.model, version: data.version };
   } catch {
     return { ok: false };
+  }
+}
+
+export async function fetchSpeedup(rho: number, gamma: number): Promise<{ result: SpeedupResult; fromMock: boolean }> {
+  try {
+    const res = await fetch(DEMO_API + "/api/speedup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rho, gamma }),
+    });
+    if (!res.ok) throw new Error(`http ${res.status}`);
+    const result = (await res.json()) as SpeedupResult;
+    return { result, fromMock: false };
+  } catch {
+    return { result: buildMockSpeedup(rho, gamma), fromMock: true };
+  }
+}
+
+export async function fetchRecommend(spec: ModelSpec): Promise<{ result: RecommendResult; fromMock: boolean }> {
+  try {
+    const res = await fetch(DEMO_API + "/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(spec),
+    });
+    if (!res.ok) throw new Error(`http ${res.status}`);
+    const result = (await res.json()) as RecommendResult;
+    return { result, fromMock: false };
+  } catch {
+    return { result: buildMockRecommend(spec), fromMock: true };
   }
 }

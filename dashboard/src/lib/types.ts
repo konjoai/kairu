@@ -109,3 +109,33 @@ export interface CockpitMetrics {
   token_latency_count: number;
   token_latency_sum_s: number;
 }
+
+/** Result from /api/speedup: closed-form speedup formula. */
+export interface SpeedupResult {
+  speedup: number;
+  expected_tokens_per_step: number;
+  formula_used: string;
+  derivation: string;
+  inputs: { rho: number; gamma: number };
+  source: string;
+}
+
+/** Model spec for /api/recommend AutoProfile. */
+export interface ModelSpec {
+  model_name: string;
+  vocab_size: number;
+  has_draft: boolean;
+  layered: boolean;
+}
+
+/** Result from /api/recommend: strategy recommendation. */
+export interface RecommendResult {
+  strategy: string;
+  gamma: number;
+  early_exit_threshold: number;
+  temperature: number;
+  use_cache: boolean;
+  cache_capacity: number;
+  rationale: string;
+  model_inspected: boolean;
+}
