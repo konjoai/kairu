@@ -1,0 +1,11 @@
+@import "@konjoai/ui/styles";
+
+@source "../node_modules/@konjoai/ui/src";
+
+@theme {
+  /* kairu accent — fast electric green for "speed gained". */
+  --color-kairu-fast: #6ee7a3;
+}
+
+:root { color-scheme: dark; }
+html, body, #root { height: 100%; margin: 0; }
