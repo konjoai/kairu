@@ -13,10 +13,12 @@ Provides:
   - TokenizerBase     : abstract tokenizer interface
   - DecoderRouter     : automatic strategy router
   - FeedbackLoop      : benchmark-driven gamma scheduler feedback
+  - WatermarkLogitsProcessor : green/red list logit bias (Kirchenbauer 2023)
+  - WatermarkDetector        : z-score watermark detector
 """
 from __future__ import annotations
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
@@ -35,6 +37,7 @@ from kairu.router import DecoderRouter, RouterDecision, RoutingStats
 from kairu.streaming import StreamingDecoder
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 from kairu.tracing import KairuTracer, extract_trace_context
+from kairu.watermark import WatermarkDetector, WatermarkLogitsProcessor, WatermarkResult
 from kairu.wrapper import ModelWrapper, wrap_model
 
 try:
@@ -91,5 +94,8 @@ __all__ = [
     "RoutingStats",
     "FeedbackLoop",
     "FeedbackSummary",
+    "WatermarkLogitsProcessor",
+    "WatermarkDetector",
+    "WatermarkResult",
     "__version__",
 ]

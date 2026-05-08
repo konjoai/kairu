@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.8.0**
+Current version: **v0.9.0**
 
 ---
 
@@ -134,3 +134,32 @@ Deliverables:
 - 16 router tests in `tests/test_router.py` — construction, all routing branches, budget override, stats accumulation, EWMA update, profile strategy alignment.
 - 14 feedback tests in `tests/test_feedback.py` — flush threshold, buffer clearing, gamma direction, summary fields, multi-cycle operation.
 - `kairu/__init__.py` — exports `DecoderRouter`, `RouterDecision`, `RoutingStats`, `FeedbackLoop`, `FeedbackSummary`; version `0.7.0 → 0.8.0`.
+
+---
+
+## Phase 9 — Token Watermarking & Integrity (v0.9.0) ✅ COMPLETE
+
+**Ship Gate:** 239 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/watermark.py` — Kirchenbauer et al. (2023) green/red list watermarking scheme implemented with pure NumPy + stdlib (`hashlib`, `math`, `struct`). No ML framework dependency.
+  - `WatermarkLogitsProcessor` — at each decoding step, hash-seeds a green/red partition of the vocabulary using the preceding token (or a context window) then adds a scalar bias `δ` to all green-list logits before softmax. Supports `seeding_scheme ∈ {"single", "context"}`. Never mutates the input logits array.
+  - `WatermarkDetector` — given a token sequence + optional prompt prefix, reconstructs the per-step green lists (identical seeding parameters) and counts green tokens. Computes z-score against the Binomial(T, 0.5) null (well-approximated by N for T ≥ 20) and one-sided p-value via `math.erfc` (no scipy). Returns a frozen `WatermarkResult` dataclass.
+  - `WatermarkResult` — frozen dataclass carrying `num_tokens`, `num_green`, `green_fraction`, `z_score`, `p_value`, `decision`, `threshold`.
+  - `_norm_sf(z)` — exact normal survival function via `math.erfc`; no scipy dependency.
+- `kairu/streaming.py` — `StreamingDecoder` gains optional `watermark: WatermarkLogitsProcessor | None` constructor kwarg. When set, `process()` is called on every logit array before sampling; when None the code path is identical to v0.8.0 (zero overhead).
+- 18 new tests in `tests/test_watermark.py` — covering: seed determinism, seed uniqueness, green-list shape/fraction/reproducibility, processor construction validation, logit bias correctness, immutability of input, shape-mismatch error, empty context, scheme divergence, detector construction, empty sequence error, result fields, watermarked-sequence z-score direction, unwatermarked no false positive, frozen result mutation, `_norm_sf` edge cases and monotonicity.
+- `kairu/__init__.py` — exports `WatermarkLogitsProcessor`, `WatermarkDetector`, `WatermarkResult`; version `0.8.0 → 0.9.0`.
+- `pyproject.toml` — version `0.8.0 → 0.9.0`; description updated.
+
+---
+
+## Phase 10 — Prompt Shield & Content Policy (v0.10.0) 🔜 NEXT
+
+**Goal:** Production-safe content screening at the API boundary, prior to tokenization.
+
+Proposed deliverables:
+- `kairu/shield.py` — `PromptShield`: rule-based (regex + keyword) + configurable heuristic classifier. Checks for prompt-injection patterns, PII leakage templates, jailbreak canonical phrases. Returns a `ShieldVerdict` (allowed / blocked / flagged) with a `reason` string and `confidence` float.
+- `ShieldConfig` dataclass — configurable rule sets, PII patterns, injection signatures, custom allow/block lists.
+- Server integration: `create_app()` accepts optional `shield: PromptShield`; if present it runs *before* rate limiting (fail-fast, cheapest guard first).
+- 16+ tests in `tests/test_shield.py` — all offline, covering clean prompts, injection patterns, PII patterns, custom rules, server integration.
