@@ -1,0 +1,35 @@
+# Render blueprint — kairu evaluation API.
+# https://render.com/docs/blueprint-spec
+#
+# Deploy:
+#   1. Push this repo to GitHub.
+#   2. In Render: New → Blueprint → connect repo → Apply.
+#   3. The build uses api/Dockerfile; PORT is injected by Render.
+#
+# To switch from Docker to native Python:
+#   - Comment out `dockerfilePath` and `dockerContext` lines.
+#   - Uncomment the `runtime: python` and `buildCommand` block.
+
+services:
+  - type: web
+    name: kairu-eval
+    runtime: docker
+    plan: starter
+    region: oregon
+    branch: main
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: KAIRU_API_MAX_TEXT
+        value: "32768"
+      - key: KAIRU_API_MAX_BATCH
+        value: "256"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+    # Native Python alternative (no Docker) — uncomment to use.
+    # runtime: python
+    # buildCommand: pip install -r api/requirements.txt && pip install --no-deps .
+    # startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT

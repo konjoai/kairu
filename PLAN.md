@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.9.0**
+Current version: **v0.10.0**
 
 ---
 
@@ -169,11 +169,25 @@ Deliverables:
 - 20 new tests (`tests/test_squish_eval.py` + `tests/test_server.py`) covering identical/degraded/garbage tiers, empty inputs, length mismatches, recommendation thresholds, frozen-dataclass invariants, JSON round-trip, and HTTP-level integration.
 - `kairu/__init__.py` and `pyproject.toml`: version `0.9.0 → 0.10.0`; description updated.
 
-Phase 10 (Prompt Shield) is deferred — the squish-integration work was higher leverage given the active KonjoAI quantization workstream.
+---
+
+## Phase 12 — Evaluation API & A/B Comparison (v0.11.0) ✅ COMPLETE
+
+**Ship Gate:** 294 Python tests passing, 4 skipped HF-gated (32 evaluation + 16 HTTP-boundary tests added).
+
+Deliverables:
+- `kairu/evaluation.py` — seven heuristic scorers (relevance F1, coherence trigram-uniqueness, conciseness Gaussian, safety regex categories, fluency sentence-length + TTR, specificity entity density, completeness recall). All deterministic, pure-stdlib, bounded to [0, 1].
+- Five built-in rubrics: `default`, `helpfulness`, `safety_focused`, `concise_qa`, `creative` — composable with `weights={…}` overrides per call.
+- `compare()` returns `Comparison` with absolute margin and per-criterion winner using a `TIE_EPSILON = 0.005` noise floor.
+- `evaluate_batch()` + `to_csv()` — batch driver returning JSON or CSV-ready rows.
+- `api/main.py` — FastAPI app exposing `POST /evaluate`, `POST /compare`, `GET /rubrics`, `POST /batch`, `GET /health`; pydantic v2 models, 413 on oversize, 422 on bad rubric/criterion.
+- `api/Dockerfile` (slim, non-root, `$PORT`-aware), `api/requirements.txt`, `render.yaml` — deployable to Render / Fly / GKE.
+- `demo/sample_comparisons/` — 3 runnable A/B fixtures with `expected_winner` for regression validation.
+- `kairu/__init__.py` — re-exports `evaluate`, `compare`, `evaluate_batch`, `to_csv`, `Evaluation`, `Comparison`, `Rubric`, `CRITERIA`, `RUBRICS`; version `0.10.0 → 0.11.0`.
 
 ---
 
-## Phase 10 — Prompt Shield & Content Policy 🔜 DEFERRED
+## Phase 13 — Prompt Shield & Content Policy 🔜 DEFERRED
 
 **Goal:** Production-safe content screening at the API boundary, prior to tokenization.
 

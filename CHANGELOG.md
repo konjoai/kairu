@@ -4,6 +4,36 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.11.0] — 2026-05-10
+
+### Added — Evaluation API & A/B Comparison
+
+- `kairu/evaluation.py` — rubric-based response evaluation, deterministic and pure-stdlib (no NumPy / HF / torch in the hot path). Seven heuristic scorers each return a bounded [0, 1] float plus a `detail` dict: `score_relevance` (F1 of content-token overlap, ROUGE-1 family), `score_coherence` (1 − repeated-trigram fraction, with bigram/word fallbacks for short responses), `score_conciseness` (Gaussian on log(response/prompt) length ratio, peak at 4×), `score_safety` (regex-matched PII/secret categories: SSN, credit-card, email, phone, api-key, IP), `score_fluency` (sentence-length sanity in [5, 35] words plus type-token ratio), `score_specificity` (density of numerics + proper nouns), `score_completeness` (recall of prompt content tokens addressed in the response).
+- `kairu.evaluation.RUBRICS` — five built-in rubrics: `default` (balanced), `helpfulness` (skews toward relevance + completeness), `safety_focused` (4× weight on safety), `concise_qa` (rewards specificity + conciseness), `creative` (fluency + coherence dominate). Custom criteria lists and per-call weight overrides accepted via `evaluate(rubric=..., criteria=..., weights=...)`.
+- `kairu.evaluation.compare()` — A/B-compare two responses to one prompt; returns `Comparison` with absolute aggregate margin, overall winner, and per-criterion winner using a `TIE_EPSILON = 0.005` floor (heuristic noise budget).
+- `kairu.evaluation.evaluate_batch()` + `to_csv()` — batch driver returning JSON-shaped records ready for `text/csv` serialisation; pure-stdlib CSV emitter avoids the `csv` module import.
+- `api/main.py` — FastAPI HTTP layer (`POST /evaluate`, `POST /compare`, `GET /rubrics`, `POST /batch`, `GET /health`). Boundary validation: `MAX_TEXT_CHARS = 32 768` (413 on overflow), `MAX_BATCH_ITEMS = 256` (413), pydantic v2 models for request shape (422 on missing fields), unknown rubric/criterion → 422. Every endpoint delegates to a real function in `kairu.evaluation` — no business logic in the HTTP layer.
+- `api/Dockerfile` — multi-stage slim image, non-root uid 1001, `$PORT`-aware (Render/Fly/Heroku friendly), HEALTHCHECK against `/health`.
+- `api/requirements.txt` — minimal runtime: `fastapi`, `uvicorn[standard]`, `pydantic`, `numpy`.
+- `render.yaml` — Render blueprint targeting `api/Dockerfile` with `KAIRU_API_MAX_TEXT` / `KAIRU_API_MAX_BATCH` env vars; native-Python alternative documented inline.
+- `demo/sample_comparisons/` — three runnable A/B fixtures: `01_helpful_vs_unhelpful` (helpfulness rubric, verbose specialist beats vague generalist), `02_concise_vs_verbose` (concise_qa rubric, tight answer beats padded ramble), `03_safe_vs_pii_leak` (safety_focused rubric, placeholder PII beats real-looking PII via the safety scorer's category penalties). Each file ships `expected_winner` + `expected_rationale` so the heuristics can be regression-checked.
+- 32 evaluation unit tests in `tests/test_evaluation.py` (per-criterion scorers, rubric resolution, weight overrides, aggregate-as-weighted-mean, JSON round-trip, comparison winner consistency, tie-within-epsilon, batch + CSV).
+- 16 HTTP boundary tests in `api/test_api.py` (httpx ASGI transport, no live port; covers all five endpoints, success and error paths, oversize 413, unknown-rubric 422, missing-field 422, CSV content-type).
+
+### Changed
+
+- `kairu/__init__.py` — re-exports `evaluate`, `compare`, `evaluate_batch`, `to_csv`, `Evaluation`, `Comparison`, `Rubric`, `CRITERIA`, `RUBRICS`; version `0.10.0 → 0.11.0`.
+- `pyproject.toml` — version `0.10.0 → 0.11.0`; description extended.
+
+### Architecture Decisions
+
+- **Heuristic scorers, not LLM-as-judge.** Reproducibility and zero-cost CI matter more than semantic precision for the v0 cut. An LLM judge plugs in later as another `Scorer` callable behind the same API contract.
+- **F1, not Jaccard, for relevance.** Jaccard inflates the union with the response's full vocabulary, punishing long technically-rich answers. F1 (precision × recall harmonic mean) is symmetric across length asymmetry — same family as ROUGE-1.
+- **Thin HTTP layer.** `api/main.py` does input validation and shape mapping; every business call is a single function in `kairu.evaluation`. The API is interchangeable with a CLI or a notebook driver.
+- **`TIE_EPSILON = 0.005`.** Heuristic scores are quantised by token counts, so anything under ~0.5 % is below the noise floor and should not produce a winner.
+
+---
+
 ## [0.10.0] — 2026-05-09
 
 ### Added — Squish Integration: Quantization-Tier Quality Eval (K11)

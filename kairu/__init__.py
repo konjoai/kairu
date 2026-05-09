@@ -18,12 +18,25 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.10.0"
+__version__ = "0.11.0"
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
 from kairu.budget import TokenBudget
 from kairu.cluster_budget import ClusterTokenBudget, LocalClusterBudget
+from kairu.evaluation import (
+    CRITERIA,
+    RUBRICS,
+    Comparison,
+    CriterionComparison,
+    CriterionScore,
+    Evaluation,
+    Rubric,
+    compare,
+    evaluate,
+    evaluate_batch,
+    to_csv,
+)
 from kairu.feedback import FeedbackLoop, FeedbackSummary
 from kairu.gamma_scheduler import DynamicGammaScheduler
 from kairu.kv_cache import CachedModel, LogitsCache
@@ -113,5 +126,16 @@ __all__ = [
     "DegradationReport",
     "quality_degradation_report",
     "recommended_quant_tier",
+    "evaluate",
+    "compare",
+    "evaluate_batch",
+    "to_csv",
+    "Evaluation",
+    "Comparison",
+    "CriterionScore",
+    "CriterionComparison",
+    "Rubric",
+    "CRITERIA",
+    "RUBRICS",
     "__version__",
 ]
