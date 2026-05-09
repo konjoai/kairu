@@ -1,0 +1,56 @@
+{
+  "$schema_version": "1.0",
+  "title": "GPT-4 baseline vs INT4-quantized — 5 prompts",
+  "description": "Realistic side-by-side outputs across quantization tiers. Submit the `request` payload to POST /compare/quantization to get a full degradation report and recommendation.",
+  "prompts": [
+    "What is the capital of France?",
+    "Explain photosynthesis in one sentence.",
+    "Write a haiku about the ocean.",
+    "What is 17 * 23?",
+    "Summarize the plot of Hamlet in two sentences."
+  ],
+  "request": {
+    "baseline_outputs": [
+      "The capital of France is Paris, located in the north-central region along the Seine River.",
+      "Photosynthesis is the process by which plants convert sunlight, water, and carbon dioxide into glucose and oxygen.",
+      "Endless rolling waves\nWhisper secrets to the shore\nMoonlight on blue depths",
+      "17 multiplied by 23 equals 391.",
+      "Hamlet is a Danish prince who learns from his father's ghost that his uncle Claudius murdered the king to seize the throne. Driven by grief and a quest for vengeance, Hamlet's hesitation and feigned madness culminate in a tragic finale where nearly every major character, including himself, dies."
+    ],
+    "quant_tiers": {
+      "int8": [
+        "The capital of France is Paris, located in the north of the country along the Seine River.",
+        "Photosynthesis is the process by which plants convert sunlight, water, and carbon dioxide into glucose and oxygen.",
+        "Endless rolling waves\nWhisper secrets to the shore\nMoonlight on blue depths",
+        "17 multiplied by 23 equals 391.",
+        "Hamlet is a prince of Denmark who is told by his father's ghost that his uncle killed the king to take the throne. His hesitation and pretended madness end in a tragedy where nearly every major character dies."
+      ],
+      "int4": [
+        "The capital of France is Paris, in the north along the Seine.",
+        "Photosynthesis is when plants use sunlight and water to make food and oxygen.",
+        "Rolling ocean waves\nWhisper to the sandy shore\nBlue depths under moon",
+        "17 times 23 is 391.",
+        "Hamlet is a prince of Denmark whose father was killed by his uncle. He seeks revenge and most characters die."
+      ],
+      "int2": [
+        "Paris is in France.",
+        "Plants use light to make food.",
+        "Ocean waves\nShore sand\nMoon blue",
+        "17 * 23 = 391",
+        "Prince wants revenge. Many die."
+      ]
+    },
+    "tolerance": 0.10
+  },
+  "notes": [
+    "INT8 preserves nearly all rubric criteria — retains ~96% of baseline aggregate quality.",
+    "INT4 shows visible compression: shorter outputs, simpler vocabulary; retention drops to ~78%.",
+    "INT2 is heavily compressed — answers carry the gist but lose nuance and completeness; retention ~62%.",
+    "Recommended tier at tolerance=0.10 is int8 (within 10% retention loss). Loosening tolerance to ~0.25 would surface int4."
+  ],
+  "expected_response_summary": {
+    "baseline_aggregate": 0.9941,
+    "tier_retention_pct": {"int8": 95.88, "int4": 78.21, "int2": 62.26},
+    "recommended_tier_at_tol_0_10": "int8"
+  }
+}
