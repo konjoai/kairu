@@ -68,6 +68,11 @@ from kairu.rate_limit import (
     RateLimiter,
     RateLimiterBackend,
 )
+from kairu.squish_eval import (
+    SquishEvaluator,
+    quality_degradation_report,
+    recommended_quant_tier,
+)
 from kairu.streaming import StreamingDecoder
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 from kairu.tracing import KairuTracer, extract_trace_context, headers_from_request
@@ -124,8 +129,25 @@ try:  # Pydantic is required for the server but optional for the package
         max_tokens: int = Field(default=64, ge=1, le=100_000)
         temperature: float = Field(default=1.0, ge=0.0, le=2.0)
         stop_token_id: Optional[int] = Field(default=None, ge=0)
+
+    class QuantCompareRequest(BaseModel):
+        """Side-by-side quantization comparison request.
+
+        ``baseline_outputs``  — model outputs at full precision (typically FP16).
+        ``quant_tiers``       — ``{tier_name: [outputs...]}`` aligned with baseline.
+        ``references``        — optional gold answers, used in place of baseline as
+                                ground truth when present.
+        ``tolerance``         — fraction of aggregate quality the caller is willing
+                                to lose for the recommendation (default 0.05 = 5%).
+        """
+
+        baseline_outputs: list[str] = Field(..., min_length=1, max_length=512)
+        quant_tiers: dict[str, list[str]] = Field(..., min_length=1, max_length=8)
+        references: Optional[list[str]] = Field(default=None)
+        tolerance: float = Field(default=0.05, ge=0.0, le=1.0)
 except ImportError:  # pragma: no cover — server extras not installed
     GenerateRequest = None  # type: ignore[assignment,misc]
+    QuantCompareRequest = None  # type: ignore[assignment,misc]
 
 
 def _enforce_limits(req: "GenerateRequest", cfg: ServerConfig) -> None:
@@ -371,6 +393,63 @@ def create_app(
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",
+            },
+        )
+
+    squish_evaluator = SquishEvaluator()
+
+    @app.post("/compare/quantization")
+    async def compare_quantization(request: Request):
+        """Score baseline vs. quantized outputs and recommend a tier.
+
+        Rate-limited like /generate. Pure CPU work — no model call, no
+        streaming. Returns a single JSON payload."""
+        req_start = time.monotonic()
+        try:
+            payload = await request.json()
+            req = QuantCompareRequest.model_validate(payload)
+        except ValidationError as e:
+            mtx.requests_total.inc(endpoint="/compare/quantization", status="422")
+            mtx.errors_total.inc(kind="validation")
+            return JSONResponse(status_code=422, content={"detail": e.errors()})
+        except Exception as e:  # noqa: BLE001 — invalid JSON
+            mtx.requests_total.inc(endpoint="/compare/quantization", status="422")
+            mtx.errors_total.inc(kind="invalid_json")
+            return JSONResponse(status_code=422, content={"detail": str(e)})
+
+        key = _client_key(request)
+        if not await limiter.check(key):
+            mtx.requests_total.inc(endpoint="/compare/quantization", status="429")
+            mtx.rate_limited_total.inc()
+            raise HTTPException(
+                status_code=429,
+                detail=f"rate limit exceeded ({cfg.rate_limit_requests}/{cfg.rate_limit_window_s}s)",
+            )
+
+        try:
+            report = quality_degradation_report(
+                baseline_outputs=req.baseline_outputs,
+                quantized_outputs=req.quant_tiers,
+                references=req.references,
+                evaluator=squish_evaluator,
+            )
+        except ValueError as e:
+            mtx.requests_total.inc(endpoint="/compare/quantization", status="422")
+            mtx.errors_total.inc(kind="limit_violation")
+            return JSONResponse(status_code=422, content={"detail": str(e)})
+
+        recommendation = recommended_quant_tier(report, tolerance=req.tolerance)
+
+        mtx.requests_total.inc(endpoint="/compare/quantization", status="200")
+        mtx.request_duration_seconds.observe(
+            time.monotonic() - req_start, endpoint="/compare/quantization"
+        )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "report": report.as_dict(),
+                "recommended_tier": recommendation,
+                "tolerance": req.tolerance,
             },
         )
 

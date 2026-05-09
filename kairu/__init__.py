@@ -18,7 +18,7 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
@@ -34,6 +34,15 @@ from kairu.layered import (
 )
 from kairu.metrics import GenerationMetrics
 from kairu.router import DecoderRouter, RouterDecision, RoutingStats
+from kairu.squish_eval import (
+    DegradationReport,
+    QuantTier,
+    RubricScore,
+    SquishEvaluator,
+    TierDelta,
+    quality_degradation_report,
+    recommended_quant_tier,
+)
 from kairu.streaming import StreamingDecoder
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 from kairu.tracing import KairuTracer, extract_trace_context
@@ -97,5 +106,12 @@ __all__ = [
     "WatermarkLogitsProcessor",
     "WatermarkDetector",
     "WatermarkResult",
+    "SquishEvaluator",
+    "QuantTier",
+    "RubricScore",
+    "TierDelta",
+    "DegradationReport",
+    "quality_degradation_report",
+    "recommended_quant_tier",
     "__version__",
 ]

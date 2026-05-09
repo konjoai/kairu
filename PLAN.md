@@ -154,7 +154,26 @@ Deliverables:
 
 ---
 
-## Phase 10 — Prompt Shield & Content Policy (v0.10.0) 🔜 NEXT
+## Phase 11 — Squish Integration: Quantization-Tier Quality Eval (v0.10.0) ✅ COMPLETE
+
+**Ship Gate:** 286 Python tests passing (4 gated HF integration tests skipped without `KAIRU_TEST_HF=1`).
+
+Deliverables:
+- `kairu/squish_eval.py` — pure-stdlib quality rubric for evaluating LLM outputs across quantization tiers (FP16 baseline vs INT8/INT4/INT2 quantized).
+  - 5-criterion `SquishEvaluator` (correctness, fluency, faithfulness, completeness, safety) — every score in `[0, 1]`, aggregate is unweighted mean.
+  - `quality_degradation_report(...)` — per-criterion delta + retention% per tier; tiers ordered by descending bit-width.
+  - `recommended_quant_tier(report, tolerance)` — returns the deepest tier still within `(1 - tolerance) * 100`% retention.
+  - All result types are frozen dataclasses with `as_dict()` for JSON transport.
+- `POST /compare/quantization` in `kairu/server.py` — Pydantic-validated, rate-limited, pure-CPU endpoint that wraps the module-level functions and returns `{report, recommended_tier, tolerance}`.
+- `demo/sample_comparisons/04_quantization_comparison.json` — realistic GPT-4 vs INT8/INT4/INT2 sample over 5 prompts with verified retention numbers and ready-to-POST request body.
+- 20 new tests (`tests/test_squish_eval.py` + `tests/test_server.py`) covering identical/degraded/garbage tiers, empty inputs, length mismatches, recommendation thresholds, frozen-dataclass invariants, JSON round-trip, and HTTP-level integration.
+- `kairu/__init__.py` and `pyproject.toml`: version `0.9.0 → 0.10.0`; description updated.
+
+Phase 10 (Prompt Shield) is deferred — the squish-integration work was higher leverage given the active KonjoAI quantization workstream.
+
+---
+
+## Phase 10 — Prompt Shield & Content Policy 🔜 DEFERRED
 
 **Goal:** Production-safe content screening at the API boundary, prior to tokenization.
 

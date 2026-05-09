@@ -219,6 +219,43 @@ async def test_metrics_endpoint_records_429_after_rate_limit():
 
 
 @pytest.mark.asyncio
+async def test_compare_quantization_returns_report_and_recommendation():
+    app = create_app()
+    body = {
+        "baseline_outputs": ["Paris is the capital of France."],
+        "quant_tiers": {
+            "int8": ["Paris is the capital of France."],
+            "int4": ["Lyon is the capital of France."],
+            "int2": ["bla bla."],
+        },
+        "tolerance": 0.05,
+    }
+    async with _client(app) as c:
+        r = await c.post("/compare/quantization", json=body)
+    assert r.status_code == 200
+    payload = r.json()
+    assert "report" in payload and "recommended_tier" in payload
+    tiers = {t["tier"]: t for t in payload["report"]["tiers"]}
+    # int8 (identical to baseline) must retain 100%, int2 should retain less.
+    assert tiers["int8"]["retention_pct"] == pytest.approx(100.0)
+    assert tiers["int2"]["retention_pct"] < tiers["int8"]["retention_pct"]
+    # At 5% tolerance, int8 is the only safe pick.
+    assert payload["recommended_tier"] == "int8"
+
+
+@pytest.mark.asyncio
+async def test_compare_quantization_validates_lengths():
+    app = create_app()
+    body = {
+        "baseline_outputs": ["a", "b"],
+        "quant_tiers": {"int4": ["only-one"]},
+    }
+    async with _client(app) as c:
+        r = await c.post("/compare/quantization", json=body)
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_kairu_metrics_total_s_monotonic():
     """The final frame's total_s must be ≥ sum of latencies (within float tolerance)."""
     app = create_app()

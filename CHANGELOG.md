@@ -4,6 +4,23 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.10.0] — 2026-05-09
+
+### Added — Squish Integration: Quantization-Tier Quality Eval (K11)
+
+- `kairu/squish_eval.py` — module for comparing model outputs across quantization tiers (FP16, INT8, INT4, INT2).
+  - `SquishEvaluator` — scores any output string against a deterministic 5-criterion rubric (`correctness`, `fluency`, `faithfulness`, `completeness`, `safety`). Pure Python + stdlib; no NumPy or ML framework dependency. Each criterion is in `[0, 1]`; the aggregate is the unweighted mean.
+  - `quality_degradation_report(baseline_outputs, quantized_outputs, references=None, evaluator=None)` — returns a frozen `DegradationReport` with per-criterion score deltas and aggregate retention percentage for every tier. Tiers are ordered by descending bit-width (least → most aggressive compression). When `references` is omitted, the baseline outputs themselves serve as the gold standard.
+  - `recommended_quant_tier(report, tolerance=0.05)` — returns the most aggressive (lowest-bit) tier whose retention is within `(1 - tolerance) * 100`% of baseline. Returns `None` if no tier meets the bar.
+  - Frozen dataclasses: `RubricScore`, `QuantTier`, `TierDelta`, `DegradationReport`. All `as_dict()` outputs are JSON-serialisable.
+- `POST /compare/quantization` — new endpoint in `kairu/server.py`. Accepts `{baseline_outputs, quant_tiers, references?, tolerance?}`; returns `{report, recommended_tier, tolerance}`. Rate-limited under the same per-IP token bucket as `/generate`. Pure CPU work — no model call, no streaming. Validates body via Pydantic (`QuantCompareRequest`) with bounds `1 ≤ baseline ≤ 512`, `1 ≤ tiers ≤ 8`, `0 ≤ tolerance ≤ 1`.
+- `kairu/__init__.py` — exports `SquishEvaluator`, `QuantTier`, `RubricScore`, `TierDelta`, `DegradationReport`, `quality_degradation_report`, `recommended_quant_tier`. Version `0.9.0 → 0.10.0`.
+- `pyproject.toml` — version `0.9.0 → 0.10.0`; description updated.
+- `demo/sample_comparisons/04_quantization_comparison.json` — realistic GPT-4 vs INT8/INT4/INT2 comparison across 5 prompts (capital query, photosynthesis, haiku, multiplication, Hamlet summary). Includes ready-to-POST request body, prose notes, and an `expected_response_summary` block with verified retention numbers (`int8: 95.88%, int4: 78.21%, int2: 62.26%`).
+- 20 new tests: `tests/test_squish_eval.py` (18) — single-output scoring (identical, empty, no-reference), safety penalty, batch length validation, type rejection, repetition-window validation, identical-tier zero-delta, monotonic retention degradation, length mismatch, empty baseline, explicit references, recommendation at strict/loose tolerance, none-when-all-fail, tolerance bounds, threshold edge, frozen dataclass, JSON round-trip. `tests/test_server.py` (2) — `/compare/quantization` end-to-end (report + recommendation) and length-mismatch 422.
+
+---
+
 ## [0.7.0] — 2026-05-05
 
 ### Added — Observability & Real-Workload Validation
