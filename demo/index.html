@@ -520,6 +520,226 @@
     h1.hero-title { font-size: 64px; }
     section { padding: 56px 0; }
   }
+
+  /* ════════════════════════════════════════════════════════════════════
+     PRISM — 3D centerpiece, particles, halos, beams, floor shadows
+     ════════════════════════════════════════════════════════════════════ */
+  #prism { padding-top: 96px; padding-bottom: 96px; }
+  .prism-stage {
+    position: relative;
+    margin: 40px 0 0;
+    height: 560px;
+    perspective: 1100px;
+    perspective-origin: 35% 45%;
+    border-radius: 24px;
+    background:
+      radial-gradient(ellipse 90% 60% at 70% 110%, rgba(124,58,237,.15), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 25% 10%, rgba(76,214,230,.12), transparent 60%),
+      linear-gradient(180deg, rgba(7,8,13,.4) 0%, rgba(7,8,13,.85) 100%);
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .prism-stage::before {
+    /* floor — receives the colored beam shadows */
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 38%;
+    background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,.025) 100%);
+    pointer-events: none;
+  }
+  .prism-floor {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 38%;
+    pointer-events: none;
+  }
+  .prism-particles {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+
+  /* ── Tilt wrapper holds mouse-driven parallax (no infinite anim) ── */
+  .prism-tilt {
+    position: absolute; left: 50%; top: 48%;
+    width: 240px; height: 240px;
+    transform: translate(-50%, -50%);
+    transform-style: preserve-3d;
+    transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1);
+    will-change: transform;
+  }
+  /* ── Spin wrapper carries the steady Y-axis rotation ── */
+  .prism-spin {
+    width: 100%; height: 100%;
+    transform-style: preserve-3d;
+    animation: rotatePrism 30s linear infinite;
+  }
+  .prism-tilt:hover .prism-spin { animation-play-state: paused; }
+  @keyframes rotatePrism {
+    0%   { transform: rotateY(0deg)   rotateX(-8deg); }
+    100% { transform: rotateY(360deg) rotateX(-8deg); }
+  }
+
+  /* triangular-prism faces. 3 rectangular side faces (120° apart) + top/bottom caps */
+  .prism-face {
+    position: absolute; inset: 0;
+    transform-style: preserve-3d;
+    backface-visibility: visible;
+  }
+  .prism-side {
+    width: 240px; height: 240px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.02) 100%),
+      conic-gradient(from 220deg at 50% 50%,
+        hsla(280,90%,65%,.18), hsla(200,90%,65%,.18),
+        hsla(160,90%,65%,.18), hsla(50,90%,65%,.18),
+        hsla(0,90%,65%,.18), hsla(280,90%,65%,.18));
+    border: 1px solid rgba(255,255,255,.18);
+    box-shadow:
+      inset 0 0 60px rgba(124,58,237,.18),
+      0 0 24px rgba(76,214,230,.12);
+    backdrop-filter: blur(2px) saturate(140%);
+  }
+  .prism-side.s1 { transform: rotateY(  0deg) translateZ(70px); }
+  .prism-side.s2 { transform: rotateY(120deg) translateZ(70px); }
+  .prism-side.s3 { transform: rotateY(240deg) translateZ(70px); }
+
+  /* Top / bottom caps: triangle via clip-path */
+  .prism-cap {
+    width: 240px; height: 240px;
+    background: linear-gradient(135deg, rgba(124,58,237,.25), rgba(76,214,230,.18));
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    border: 1px solid rgba(255,255,255,.22);
+    box-shadow: inset 0 0 30px rgba(255,255,255,.08);
+  }
+  .prism-cap.top    { transform: rotateX( 90deg) translateZ(120px); }
+  .prism-cap.bottom { transform: rotateX(-90deg) translateZ(120px) rotate(180deg); }
+
+  /* SVG halos rendered on a 2D plane that follows the prism rotation */
+  .prism-halos {
+    position: absolute; left: 50%; top: 50%;
+    width: 260px; height: 260px;
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+    overflow: visible;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,.15));
+  }
+  .halo-edge {
+    fill: none; stroke-width: 3; stroke-linecap: round;
+    animation: haloBreath 2.6s ease-in-out infinite;
+  }
+  .halo-edge.e2 { animation-delay: -0.7s; }
+  .halo-edge.e3 { animation-delay: -1.4s; }
+  @keyframes haloBreath {
+    0%, 100% { opacity: .25; filter: blur(4px); }
+    50%      { opacity: .85; filter: blur(2px); }
+  }
+
+  /* ── 8 spectral output beams to the right of the prism ── */
+  .prism-beams {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 50%;
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 18px; padding: 36px 36px 36px 0;
+  }
+  .beam {
+    display: grid;
+    grid-template-columns: 1fr 110px; align-items: center;
+    gap: 14px; height: 30px;
+    opacity: 0; transform: translateX(-12px);
+    animation: beamReveal 700ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  @keyframes beamReveal {
+    0%   { opacity: 0; transform: translateX(-12px) scaleX(0); transform-origin: left; }
+    60%  { opacity: 1; }
+    100% { opacity: 1; transform: translateX(0)    scaleX(1); transform-origin: left; }
+  }
+  .beam-line {
+    position: relative;
+    height: 6px; border-radius: 99px;
+    background: linear-gradient(90deg,
+      hsla(var(--hue), 95%, 70%, 0) 0%,
+      hsla(var(--hue), 95%, 70%, .28) 12%,
+      hsl(var(--hue), 100%, 65%) 60%,
+      hsl(var(--hue), 100%, 78%) 100%);
+    box-shadow:
+      0 0 12px hsla(var(--hue), 100%, 60%, .55),
+      0 0 28px hsla(var(--hue), 100%, 60%, .25);
+    transform-origin: left center;
+    transition: filter 200ms;
+  }
+  .beam-line::after {
+    /* glowing terminus dot */
+    content: "";
+    position: absolute; right: -6px; top: 50%;
+    width: 14px; height: 14px;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: hsl(var(--hue), 100%, 80%);
+    box-shadow:
+      0 0 14px hsl(var(--hue), 100%, 65%),
+      0 0 28px hsla(var(--hue), 100%, 60%, .6);
+  }
+  .beam-meta { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+  .beam-name { font-size: 11px; font-family: var(--mono); letter-spacing: .12em; color: var(--muted); }
+  .beam-score {
+    font-size: 14px; font-weight: 700; font-family: var(--mono);
+    color: hsl(var(--hue), 100%, 80%);
+    text-shadow: 0 0 10px hsla(var(--hue), 100%, 60%, .4);
+  }
+  .beam:hover .beam-line { filter: brightness(1.3) saturate(1.2); }
+
+  /* Score panel below the prism — explains what each beam represents */
+  .prism-legend {
+    margin-top: 22px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  }
+  .prism-legend .lcell {
+    padding: 12px 14px; border-radius: 10px;
+    background: rgba(255,255,255,.025);
+    border: 1px solid var(--line);
+    font-size: 12.5px; line-height: 1.45;
+  }
+  .prism-legend .lcell .ldot {
+    display: inline-block; width: 9px; height: 9px;
+    border-radius: 50%; margin-right: 7px; vertical-align: 1px;
+    background: hsl(var(--hue), 100%, 65%);
+    box-shadow: 0 0 8px hsl(var(--hue), 100%, 60%);
+  }
+  .prism-legend .lcell .lname { color: var(--text); font-weight: 700; font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; }
+  .prism-legend .lcell .ldesc { color: var(--muted); }
+
+  @media (max-width: 880px) {
+    .prism-stage { height: 460px; }
+    .prism-tilt { left: 35%; }
+    .prism-beams { padding-right: 18px; gap: 10px; }
+    .prism-legend { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Glass-morphism applied to AutoProfile + simulator inputs ── */
+  .ap-form input[type=text],
+  .ap-form input[type=number],
+  .ap-form textarea {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    transition: border-color 200ms, box-shadow 200ms, background 200ms;
+  }
+  .ap-form input[type=text]:focus,
+  .ap-form input[type=number]:focus,
+  .ap-form textarea:focus {
+    border-color: rgba(124, 58, 237, 0.6) !important;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+    background: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  /* ── Clip-path morph on AutoProfile meta cells when strategy flips ── */
+  .ap-result .meta .cell {
+    transition:
+      clip-path 420ms cubic-bezier(0.23, 1, 0.32, 1),
+      background 420ms,
+      border-color 420ms;
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  }
+  .ap-result .meta .cell.morph {
+    /* hexagon-ish notch corners during the morph instant */
+    clip-path: polygon(8% 0%, 100% 0%, 100% 92%, 92% 100%, 0% 100%, 0% 8%);
+  }
 </style>
 </head>
 <body>
@@ -564,6 +784,66 @@
     </span>
   </div>
 </header>
+
+<!-- ─────────────────────────────────────── PRISM ─────────────────────────────────────── -->
+<section id="prism" class="wrap">
+  <div class="center">
+    <div class="eyebrow">流 · spectral decomposition</div>
+    <h2>One input. Eight optimization passes. One unified spectrum.</h2>
+    <p class="section-lede">
+      White light enters from the upper left. The prism splits it into eight beams — one per
+      kairu primitive — and each beam's brightness is its measured contribution. Hover the
+      prism to pause the rotation. Move your cursor inside the stage to tilt it.
+    </p>
+  </div>
+
+  <div class="prism-stage" id="prism-stage">
+    <canvas class="prism-floor" id="prism-floor" width="1000" height="220"></canvas>
+    <canvas class="prism-particles" id="prism-particles" width="1200" height="560"></canvas>
+
+    <div class="prism-tilt" id="prism-tilt">
+      <div class="prism-spin" id="prism-spin">
+        <div class="prism-face prism-side s1"></div>
+        <div class="prism-face prism-side s2"></div>
+        <div class="prism-face prism-side s3"></div>
+        <div class="prism-face prism-cap top"></div>
+        <div class="prism-face prism-cap bottom"></div>
+      </div>
+
+      <svg class="prism-halos" viewBox="-130 -130 260 260" aria-hidden="true">
+        <defs>
+          <linearGradient id="haloRainbow" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stop-color="hsl(0,100%,65%)"/>
+            <stop offset="14%"  stop-color="hsl(40,100%,60%)"/>
+            <stop offset="28%"  stop-color="hsl(70,100%,55%)"/>
+            <stop offset="42%"  stop-color="hsl(140,100%,55%)"/>
+            <stop offset="56%"  stop-color="hsl(190,100%,60%)"/>
+            <stop offset="70%"  stop-color="hsl(220,100%,65%)"/>
+            <stop offset="84%"  stop-color="hsl(270,100%,70%)"/>
+            <stop offset="100%" stop-color="hsl(320,100%,70%)"/>
+          </linearGradient>
+        </defs>
+        <!-- 3 edges of the visible-front prism — each a curved arc with the rainbow gradient -->
+        <path class="halo-edge e1" d="M -110 70 Q 0 -130 110 70" stroke="url(#haloRainbow)"/>
+        <path class="halo-edge e2" d="M -110 70 L 110 70"        stroke="url(#haloRainbow)"/>
+        <path class="halo-edge e3" d="M 0 -130 L 0 70"            stroke="url(#haloRainbow)" opacity=".55"/>
+      </svg>
+    </div>
+
+    <div class="prism-beams" id="prism-beams"></div>
+  </div>
+
+  <div class="prism-legend">
+    <div class="lcell" style="--hue:0">  <span class="ldot"></span><span class="lname">SPECULATIVE</span><br><span class="ldesc">draft+verify; γ tokens at a time</span></div>
+    <div class="lcell" style="--hue:35"> <span class="ldot"></span><span class="lname">EARLY EXIT</span><br><span class="ldesc">stop when confident, skip layers</span></div>
+    <div class="lcell" style="--hue:55"> <span class="ldot"></span><span class="lname">KV CACHE</span><br><span class="ldesc">memoize logits across calls</span></div>
+    <div class="lcell" style="--hue:135"><span class="ldot"></span><span class="lname">GAMMA AIMD</span><br><span class="ldesc">grow / shrink lookahead live</span></div>
+    <div class="lcell" style="--hue:175"><span class="ldot"></span><span class="lname">AUTOPROFILE</span><br><span class="ldesc">strategy from model metadata</span></div>
+    <div class="lcell" style="--hue:215"><span class="ldot"></span><span class="lname">STREAMING</span><br><span class="ldesc">SSE token-by-token transport</span></div>
+    <div class="lcell" style="--hue:265"><span class="ldot"></span><span class="lname">METRICS</span><br><span class="ldesc">Prometheus exposition, native</span></div>
+    <div class="lcell" style="--hue:310"><span class="ldot"></span><span class="lname">RATE LIMIT</span><br><span class="ldesc">sliding window, in-mem or Redis</span></div>
+  </div>
+</section>
 
 <!-- ─────────────────────────────────────── RACE ─────────────────────────────────────── -->
 <section id="race" class="wrap">
@@ -1584,6 +1864,224 @@ const Kairu = {
   layeredRadios.forEach(r => r.addEventListener('change', update));
   document.addEventListener('kairu-live-ready', update);
   update();
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// 7. PRISM — 3D centerpiece, particle stream, floor shadows, beam reveal
+// ═══════════════════════════════════════════════════════════════════════
+(function () {
+  const SPEC = [
+    { name: 'SPECULATIVE',  hue: 0,   score: 2.42 },
+    { name: 'EARLY EXIT',   hue: 35,  score: 1.62 },
+    { name: 'KV CACHE',     hue: 55,  score: 1.31 },
+    { name: 'GAMMA AIMD',   hue: 135, score: 1.15 },
+    { name: 'AUTOPROFILE',  hue: 175, score: 0.96 },
+    { name: 'STREAMING',    hue: 215, score: 0.88 },
+    { name: 'METRICS',      hue: 265, score: 0.72 },
+    { name: 'RATE LIMIT',   hue: 310, score: 0.55 },
+  ];
+  const stage    = document.getElementById('prism-stage');
+  const tilt     = document.getElementById('prism-tilt');
+  const beamsRoot = document.getElementById('prism-beams');
+  const floor    = document.getElementById('prism-floor');
+  const particleCanvas = document.getElementById('prism-particles');
+  if (!stage) return;
+
+  // ── Build beam rows. Order: weakest first so the strongest reveals last
+  //    with the visual "flourish". Stagger = 60ms × rank.
+  const sorted = [...SPEC].sort((a, b) => a.score - b.score);
+  sorted.forEach((b, i) => {
+    const row = document.createElement('div');
+    row.className = 'beam';
+    row.style.setProperty('--hue', b.hue);
+    row.style.animationDelay = `${i * 60}ms`;
+    // width scales with score relative to max score
+    const widthPct = 35 + (b.score / 2.5) * 60;
+    row.innerHTML = `
+      <div class="beam-line" style="width:${widthPct}%"></div>
+      <div class="beam-meta">
+        <span class="beam-name">${b.name}</span>
+        <span class="beam-score">${b.score.toFixed(2)}×</span>
+      </div>`;
+    beamsRoot.appendChild(row);
+  });
+
+  // ── Re-trigger the stagger reveal whenever live mode flips on.
+  document.addEventListener('kairu-live-ready', () => {
+    [...beamsRoot.children].forEach((row, i) => {
+      row.style.animation = 'none';
+      row.offsetHeight; // reflow
+      row.style.animation = `beamReveal 700ms cubic-bezier(0.23,1,0.32,1) ${i * 60}ms forwards`;
+    });
+  });
+
+  // ── Mouse-driven parallax tilt over the prism stage.
+  //    Composes cleanly with the inner @keyframes spin.
+  let restTimer = null;
+  stage.addEventListener('mousemove', (e) => {
+    const r = stage.getBoundingClientRect();
+    const nx = ((e.clientX - r.left) / r.width  - 0.5) * 2;   // [-1, 1]
+    const ny = ((e.clientY - r.top)  / r.height - 0.5) * 2;
+    tilt.style.transform = `translate(-50%,-50%) rotateY(${ -nx * 8 }deg) rotateX(${ ny * 6 }deg)`;
+    clearTimeout(restTimer);
+  });
+  stage.addEventListener('mouseleave', () => {
+    restTimer = setTimeout(() => {
+      tilt.style.transform = 'translate(-50%,-50%) rotateY(0deg) rotateX(0deg)';
+    }, 60);
+  });
+
+  // ── Floor shadows: one soft colored ellipse per beam, intensity = score.
+  function paintFloor() {
+    const dpr = window.devicePixelRatio || 1;
+    const W = floor.clientWidth, H = floor.clientHeight;
+    if (W === 0) return;
+    floor.width  = W * dpr;
+    floor.height = H * dpr;
+    const ctx = floor.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+    const beams = [...beamsRoot.children];
+    beams.forEach((row, i) => {
+      const hue = +row.style.getPropertyValue('--hue');
+      const data = sorted[i] || { score: 1 };
+      // Project beam terminus onto floor: beams are right-half of stage,
+      // distributed vertically; floor occupies bottom 38% of stage.
+      const stageRect = stage.getBoundingClientRect();
+      const beamRect  = row.getBoundingClientRect();
+      const cx = (beamRect.right  - stageRect.left);
+      const beamY = (beamRect.top + beamRect.height / 2) - stageRect.top;
+      // Floor canvas is bottom 38% of stage; map beamY → floor X axis.
+      const floorX = cx - (stageRect.width - W);
+      const floorY = H * 0.55 + ((beamY / stageRect.height) - 0.5) * H * 0.4;
+      const intensity = Math.min(1, data.score / 2.5);
+      const grad = ctx.createRadialGradient(floorX, floorY, 0, floorX, floorY, 130);
+      grad.addColorStop(0,    `hsla(${hue}, 100%, 60%, ${0.25 * intensity})`);
+      grad.addColorStop(0.45, `hsla(${hue}, 100%, 55%, ${0.10 * intensity})`);
+      grad.addColorStop(1,    `hsla(${hue}, 100%, 50%, 0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(floorX, floorY, 140, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+  paintFloor();
+  window.addEventListener('resize', paintFloor);
+
+  // ── Particle stream: white motes flow into the prism center, split.
+  const pctx = particleCanvas.getContext('2d');
+  let particles = [];
+  let pwidth = 0, pheight = 0;
+
+  function sizeParticleCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    pwidth  = particleCanvas.clientWidth;
+    pheight = particleCanvas.clientHeight;
+    particleCanvas.width  = pwidth  * dpr;
+    particleCanvas.height = pheight * dpr;
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  sizeParticleCanvas();
+  window.addEventListener('resize', () => { sizeParticleCanvas(); paintFloor(); });
+
+  function spawnIncoming(now) {
+    // Center of prism (in stage-local px). The .prism-tilt is at left:50% top:48%.
+    const cx = pwidth * 0.5;
+    const cy = pheight * 0.48;
+    // Source: top-left, just outside the stage border.
+    const sx = -10, sy = pheight * 0.18 + (Math.random() - 0.5) * 30;
+    particles.push({
+      kind: 'incoming',
+      x: sx, y: sy,
+      tx: cx, ty: cy,
+      vx: 0, vy: 0,
+      hue: 0, sat: 0,
+      life: 0,
+      ttl: 1800,
+      born: now,
+    });
+  }
+
+  function splitAtPrism(p, now) {
+    // Eight colored particles, one per spectrum band, shooting toward each beam.
+    const beams = [...beamsRoot.children];
+    beams.forEach((row, i) => {
+      const stageRect = stage.getBoundingClientRect();
+      const r = row.getBoundingClientRect();
+      const tx = (r.left + r.width * 0.92) - stageRect.left;
+      const ty = (r.top  + r.height * 0.5)  - stageRect.top;
+      const hue = +row.style.getPropertyValue('--hue');
+      particles.push({
+        kind: 'split',
+        x: p.x, y: p.y,
+        tx, ty,
+        hue, sat: 100,
+        life: 0,
+        ttl: 1100 + Math.random() * 200,
+        born: now,
+      });
+    });
+  }
+
+  function step(now) {
+    pctx.clearRect(0, 0, pwidth, pheight);
+    pctx.globalCompositeOperation = 'lighter';
+    const next = [];
+    for (const p of particles) {
+      const t = (now - p.born) / p.ttl;
+      if (t >= 1) continue;
+      // Smooth ease-in-out toward target.
+      const ease = 1 - Math.pow(1 - t, 2.5);
+      const x = p.x + (p.tx - p.x) * ease;
+      const y = p.y + (p.ty - p.y) * ease;
+      p.life = t;
+
+      const r = p.kind === 'incoming' ? 2.4 : 2.0;
+      const alpha = (1 - t) * (p.kind === 'incoming' ? 0.95 : 0.85);
+
+      pctx.beginPath();
+      pctx.fillStyle = p.kind === 'incoming'
+        ? `rgba(255,255,255,${alpha})`
+        : `hsla(${p.hue}, 100%, 70%, ${alpha})`;
+      pctx.shadowBlur = p.kind === 'incoming' ? 14 : 12;
+      pctx.shadowColor = p.kind === 'incoming'
+        ? '#ffffff'
+        : `hsl(${p.hue}, 100%, 60%)`;
+      pctx.arc(x, y, r, 0, Math.PI * 2);
+      pctx.fill();
+
+      // When an incoming particle reaches the prism core, fork it into 8 colored.
+      if (p.kind === 'incoming' && t > 0.92 && !p.split) {
+        p.split = true;
+        splitAtPrism({ x, y }, now);
+      } else if (t < 1) {
+        next.push(p);
+      }
+    }
+    pctx.shadowBlur = 0;
+    particles = next;
+
+    // ~6 incoming per second when the tab is active.
+    if (Math.random() < 0.10) spawnIncoming(now);
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+
+  // ── AutoProfile clip-path morph: tag .cell with .morph briefly when
+  //    the strategy text changes, then remove it so the transition runs.
+  const strategyEl = document.getElementById('ap-strategy');
+  if (strategyEl) {
+    let prev = strategyEl.textContent;
+    new MutationObserver(() => {
+      if (strategyEl.textContent === prev) return;
+      prev = strategyEl.textContent;
+      const cells = document.querySelectorAll('#ap-result .meta .cell');
+      cells.forEach((c, i) => {
+        c.classList.add('morph');
+        setTimeout(() => c.classList.remove('morph'), 200 + i * 60);
+      });
+    }).observe(strategyEl, { childList: true, characterData: true, subtree: true });
+  }
 })();
 </script>
 </body>
