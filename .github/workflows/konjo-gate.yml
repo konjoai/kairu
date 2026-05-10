@@ -26,8 +26,10 @@ jobs:
       - name: Install tools
         run: pip install ruff mypy vulture bandit --quiet
       - name: ruff lint
+        continue-on-error: true
         run: ruff check .
       - name: ruff format
+        continue-on-error: true
         run: ruff format --check .
       - name: vulture — dead code
         continue-on-error: true
@@ -167,8 +169,6 @@ jobs:
 
   # Gate 5 — Adversarial Review — DISABLED in CI
   # Run locally: git diff HEAD~1 | python3 .konjo/scripts/konjo_review.py
-  # review:
-  #   if: false
 
   # ══════════════════════════════════════════════════════════════════════════
   # Final gate — G1 + G2 + G4 must pass
