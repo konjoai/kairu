@@ -26,13 +26,21 @@
     --beam-tone:        #FF9466;
     --mono: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     --sans: -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
+
+    /* live-controlled by JS for parallax + speedup */
+    --tilt-x: 0deg;
+    --tilt-y: 0deg;
+    --spin-duration: 20s;
+    --glass-blur: 18px;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
   body {
     font: 15px/1.6 var(--sans);
     color: var(--text);
-    background: var(--bg);
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 100%, rgba(255,255,255,.025) 0%, transparent 60%),
+      var(--bg);
     min-height: 100vh;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
@@ -62,6 +70,8 @@
     border-radius: 999px;
     padding: 4px;
     pointer-events: auto;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
   .pill {
     background: transparent;
@@ -76,10 +86,7 @@
     transition: all .25s ease;
   }
   .pill:hover { color: var(--text); }
-  .pill.active {
-    background: rgba(255,255,255,.08);
-    color: var(--hi);
-  }
+  .pill.active { background: rgba(255,255,255,.08); color: var(--hi); }
 
   /* ── stage ─────────────────────────────────────────────────────────── */
   main {
@@ -98,50 +105,309 @@
     margin: 0 auto;
     pointer-events: none;
   }
-  .stage svg { width: 100%; height: 100%; display: block; }
+  .stage svg.beams-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; display: block;
+    z-index: 2;
+  }
+  .stage .floor-pool {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 80%;
+    height: 28%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 1;
+    filter: blur(28px) saturate(140%);
+    opacity: .55;
+    mix-blend-mode: screen;
+  }
+  .stage .floor-pool .pool-shadow {
+    position: absolute;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: opacity .8s ease, transform .8s ease;
+  }
 
-  /* The whole prism group rotates idly; click triggers a separate flash. */
-  .prism-group {
-    transform-origin: 700px 350px;
-    animation: prism-idle 22s linear infinite;
+  /* ── 3D prism scene (HTML/CSS) ─────────────────────────────────────── */
+  .prism-scene {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0; height: 0;
+    transform: translate(-50%, -50%);
+    perspective: 800px;
+    perspective-origin: 50% 50%;
+    pointer-events: none;
+    z-index: 3;
   }
-  @keyframes prism-idle {
-    0%   { transform: rotate(-2deg); }
-    50%  { transform: rotate(2deg); }
-    100% { transform: rotate(-2deg); }
+  /* parallax wrapper — tilts toward cursor (max ±5deg, set via JS) */
+  .prism-parallax {
+    transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+    transform-style: preserve-3d;
+    transition: transform 220ms ease-out;
+    will-change: transform;
   }
-  .prism-group.flashing { animation: prism-flash .9s cubic-bezier(.4,.1,.4,1); }
+  /* idle rotation about the vertical (Y) axis */
+  .prism-3d {
+    position: relative;
+    width: 0; height: 0;
+    transform-style: preserve-3d;
+    animation: prism-rotate var(--spin-duration) linear infinite;
+    will-change: transform;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .prism-3d:hover { animation-play-state: paused; }
+  @keyframes prism-rotate {
+    0%   { transform: rotateY(0deg); }
+    100% { transform: rotateY(360deg); }
+  }
+  /* on evaluate: brief flash + subtle scale */
+  .prism-3d.flashing { animation-name: prism-rotate, prism-flash; animation-duration: var(--spin-duration), 900ms; animation-timing-function: linear, cubic-bezier(.4,.1,.4,1); animation-iteration-count: infinite, 1; }
   @keyframes prism-flash {
-    0%   { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: scale(1) rotate(-2deg); }
-    20%  { filter: drop-shadow(0 0 28px rgba(255,255,255,.8)) drop-shadow(0 0 60px rgba(255,255,255,.4)); transform: scale(1.04) rotate(0deg); }
-    100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: scale(1) rotate(-2deg); }
+    0%   { filter: drop-shadow(0 0 0 rgba(255,255,255,0));   }
+    25%  { filter: drop-shadow(0 0 32px rgba(255,255,255,.85))
+                   drop-shadow(0 0 80px rgba(255,255,255,.4)); }
+    100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0));   }
   }
 
-  /* ── incident beam pulses faintly while idle ───────────────────────── */
-  .incident { animation: incident-pulse 4s ease-in-out infinite; }
-  @keyframes incident-pulse {
-    0%, 100% { opacity: .55; }
-    50%      { opacity: .9; }
+  /* face shared base */
+  .face {
+    position: absolute;
+    left: 0; top: 0;
+    transform-style: preserve-3d;
+    backface-visibility: visible;
   }
 
-  /* ── outgoing beams ────────────────────────────────────────────────── */
+  /* equilateral triangle, side 260, height 225 — caps + sides sized off these */
+  /* Apex up: A = (0,-150), B = (-130,75), C = (130,75); centered on origin */
+  /* Depth (extrusion along Z) = 100 */
+
+  /* Triangular caps (front + back) — 260×260 box, clipped to triangle */
+  .face-cap {
+    width: 260px; height: 226px;
+    margin-left: -130px; margin-top: -113px;  /* center on origin */
+    /* NB: y in CSS is down; apex-up triangle in clip-path coords is also y-down */
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    background:
+      linear-gradient(155deg,
+        rgba(255,255,255,.18) 0%,
+        rgba(70,75,100,.55)  60%,
+        rgba(20,22,32,.92)  100%);
+    border-radius: 1px;
+  }
+  .face-cap.front { transform: translateZ(50px); }
+  .face-cap.back  { transform: translateZ(-50px) rotateY(180deg); filter: brightness(.55); }
+
+  /* Three side faces — rectangles 260×100 (edge length × depth) */
+  .face-side {
+    width: 260px; height: 100px;
+    margin-left: -130px; margin-top: -50px;
+  }
+
+  /* Right side (edge AC) — outward normal at -30° in xy. Compose:
+       translate to edge midpoint → rotateZ(60deg) → rotateX(90deg)
+     Edge AC midpoint = (65, -37.5). */
+  .face-right {
+    transform:
+      translate3d(65px, -37.5px, 0)
+      rotateZ(60deg)
+      rotateX(90deg);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(40,42,60,.85) 100%);
+    filter: brightness(.92);
+  }
+  /* Left side (edge AB), edge midpoint = (-65, -37.5), rotateZ(-60deg). */
+  .face-left {
+    transform:
+      translate3d(-65px, -37.5px, 0)
+      rotateZ(-60deg)
+      rotateX(90deg);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(30,32,48,.88) 100%);
+    filter: brightness(.78);
+  }
+  /* Bottom side (edge BC), midpoint = (0, 75), rotateZ(180deg). */
+  .face-bottom {
+    transform:
+      translate3d(0, 75px, 0)
+      rotateZ(180deg)
+      rotateX(90deg);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(18,20,30,.92) 100%);
+    filter: brightness(.62);
+  }
+
+  /* Internal reflections — faint diagonal light paths inside the prism cap.
+     Sit on the front cap; positioned absolutely against its bounding box. */
+  .face-cap.front::before,
+  .face-cap.front::after {
+    content: "";
+    position: absolute;
+    background: linear-gradient(110deg,
+      transparent 30%,
+      rgba(255,255,255,.18) 50%,
+      transparent 70%);
+    pointer-events: none;
+  }
+  .face-cap.front::before {
+    left: 30%; top: 25%;
+    width: 50%; height: 2px;
+    transform: rotate(-30deg);
+    filter: blur(.8px);
+    opacity: .55;
+  }
+  .face-cap.front::after {
+    left: 18%; top: 60%;
+    width: 38%; height: 1.4px;
+    transform: rotate(28deg);
+    filter: blur(1.2px);
+    opacity: .35;
+  }
+
+  /* ── prismatic edge halos ──────────────────────────────────────────────
+     Each edge of the front cap is overlaid with a thin rainbow gradient,
+     blurred and screen-blended — light dispersing along the seam. */
+  .edge-halo {
+    position: absolute;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    filter: blur(1.2px);
+    opacity: .85;
+  }
+  /* Edge AB (apex to bot-left): from (0,-113) to (-130, 113) on the cap div */
+  .edge-halo.ab {
+    left: 50%; top: 0;
+    width: 2.5px;
+    height: 268px;  /* hypotenuse */
+    transform-origin: 50% 0;
+    transform: translateX(-50%) rotate(30deg);
+    background: linear-gradient(180deg,
+      rgba(155,107,255,.7) 0%,
+      rgba(77,168,255,.7) 30%,
+      rgba(61,221,230,.7) 55%,
+      rgba(91,255,208,.7) 80%,
+      rgba(107,255,142,.6) 100%);
+  }
+  /* Edge AC (apex to bot-right) */
+  .edge-halo.ac {
+    left: 50%; top: 0;
+    width: 2.5px;
+    height: 268px;
+    transform-origin: 50% 0;
+    transform: translateX(-50%) rotate(-30deg);
+    background: linear-gradient(180deg,
+      rgba(155,107,255,.7) 0%,
+      rgba(255,107,208,.7) 25%,
+      rgba(255,148,102,.7) 55%,
+      rgba(245,200,75,.7) 80%,
+      rgba(107,255,142,.6) 100%);
+  }
+  /* Edge BC (bottom) */
+  .edge-halo.bc {
+    left: 0; top: 100%;
+    width: 260px;
+    height: 2.5px;
+    transform: translate(0, -100%);
+    background: linear-gradient(90deg,
+      rgba(91,255,208,.6) 0%,
+      rgba(107,255,142,.7) 25%,
+      rgba(245,200,75,.7) 50%,
+      rgba(255,148,102,.7) 75%,
+      rgba(255,107,208,.6) 100%);
+  }
+  /* soft halo behind the prism (sits on the back cap so it rotates in 3D) */
+  .prism-halo {
+    position: absolute;
+    left: 0; top: 0;
+    width: 360px; height: 360px;
+    margin-left: -180px; margin-top: -180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 65%);
+    transform: translateZ(-100px);
+    pointer-events: none;
+  }
+
+  /* ── shape-morph overlay (sits in front of cap during morph) ──────────
+     Used when the user focuses a single rubric — the cap clip-path morphs
+     to a polygon whose sides match the focused rubric's criteria count. */
+  .face-cap.morph { transition: clip-path 700ms cubic-bezier(.4,.1,.3,1); }
+
+  /* ── incident beam (SVG handles the line; particles are HTML) ─────── */
+  .incident-particles {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 50%;
+    height: 4px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 4;
+  }
+  .particle {
+    position: absolute;
+    top: 50%;
+    width: 4px; height: 4px;
+    background: #f5f7ff;
+    transform: translateY(-50%);
+    box-shadow: 0 0 6px rgba(255,255,255,.9);
+    animation: particle-flow 2.4s linear infinite;
+    will-change: transform, opacity;
+  }
+  @keyframes particle-flow {
+    0%   { left: -3%;  opacity: 0;   transform: translateY(-50%) scale(.6); }
+    8%   { opacity: .9;                                                     }
+    85%  { opacity: 1; transform: translateY(-50%) scale(1);                }
+    100% { left: 100%; opacity: 0;  transform: translateY(-50%) scale(.4);  }
+  }
+
+  /* ── outgoing SVG beams ──────────────────────────────────────────────── */
   .beam {
-    transition: opacity .9s cubic-bezier(.2,.8,.2,1),
-                stroke-width .9s cubic-bezier(.2,.8,.2,1);
     pointer-events: stroke;
     cursor: pointer;
+    transition: stroke-width .35s cubic-bezier(.2,.8,.2,1),
+                opacity      .35s cubic-bezier(.2,.8,.2,1);
+    transform-box: fill-box;
   }
   .beam.unlit { opacity: .12; }
   .beam.lit   { opacity: var(--beam-opacity, .95); }
-  .beam-reveal { animation: beam-reveal 1s cubic-bezier(.2,.8,.2,1) both; }
+  .beam.beam-reveal { animation: beam-reveal .9s cubic-bezier(.2,.85,.25,1) both; }
   @keyframes beam-reveal {
-    0%   { stroke-dasharray: 0 1200; opacity: 0; }
-    40%  { opacity: 1; }
-    100% { stroke-dasharray: 1200 0; opacity: var(--beam-opacity, .95); }
+    0%   { stroke-dasharray: 0 1400; opacity: 0; }
+    25%  { opacity: 1; }
+    100% { stroke-dasharray: 1400 0; opacity: var(--beam-opacity, .95); }
   }
-  .beam-pair-b { stroke-dasharray: 6 5; }
+  .beam.hovered { stroke-width: 7 !important; }
+  .beam.dimmed  { opacity: .08 !important; }
+  .beam-pair-b  { stroke-dasharray: 6 5; }
 
-  /* ── input panels ──────────────────────────────────────────────────── */
+  /* ── score number, projects up from the beam on hover ──────────────── */
+  .score-projection {
+    pointer-events: none;
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 36px;
+    letter-spacing: -.02em;
+    fill: var(--hi);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity .25s ease-out, transform .35s cubic-bezier(.2,.8,.2,1);
+  }
+  .score-projection.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .score-projection .label {
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    fill-opacity: .55;
+  }
+
+  /* ── input panels — true glass morphism ─────────────────────────────── */
   .panels {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -154,18 +420,45 @@
   .panels.ab { grid-template-columns: 1fr 1fr 1fr; }
   .panel {
     position: relative;
-    background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.01));
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
     border: 1px solid var(--line);
     border-radius: 14px;
     padding: 16px 18px;
-    transition: border-color .3s ease, background .3s ease;
+    transition:
+      border-color .3s ease,
+      background .3s ease,
+      backdrop-filter .8s ease;
+    overflow: hidden;
   }
   .panel:focus-within {
     border-color: var(--line-2);
-    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
+    background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
   }
+  /* Shimmer that rides across the panel border while the user types. */
+  .panel::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 14px;
+    padding: 1px;
+    background: linear-gradient(
+      var(--shimmer-angle, 90deg),
+      transparent 30%,
+      rgba(255,255,255,.32) 50%,
+      transparent 70%);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .35s ease;
+  }
+  .panel.shimmer::after { opacity: 1; }
   .panel textarea {
     width: 100%;
     min-height: 92px;
@@ -176,6 +469,8 @@
     color: var(--text);
     font: 14px/1.55 var(--sans);
     caret-color: var(--hi);
+    position: relative;
+    z-index: 1;
   }
   .panel textarea::placeholder { color: var(--dim); }
   .panel-tag {
@@ -186,17 +481,13 @@
     color: var(--dim);
     text-transform: uppercase;
     pointer-events: none;
+    z-index: 2;
   }
-  .panel.b-panel { border-color: rgba(255,255,255,.04); }
 
-  /* ── controls ──────────────────────────────────────────────────────── */
+  /* ── controls + tooltip + error ──────────────────────────────────────── */
   .controls {
-    width: 100%;
-    max-width: 1280px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    width: 100%; max-width: 1280px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
     gap: 14px;
     pointer-events: auto;
   }
@@ -217,14 +508,23 @@
   }
   .winner-badge.show { opacity: 1; }
   .winner-badge b { color: var(--hi); font-weight: 600; }
+  .focus-hint {
+    font: 11px/1 var(--mono);
+    color: var(--dim);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-left: 14px;
+    opacity: 0;
+    transition: opacity .3s ease;
+  }
+  .focus-hint.show { opacity: 1; }
 
-  /* ── tooltip ───────────────────────────────────────────────────────── */
   .tooltip {
     position: fixed;
     pointer-events: none;
     background: rgba(8,8,16,.92);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border: 1px solid var(--line-2);
     border-radius: 10px;
     padding: 10px 14px;
@@ -232,7 +532,7 @@
     color: var(--text);
     max-width: 280px;
     opacity: 0;
-    transform: translate(0, -50%) translateX(14px);
+    transform: translateX(14px);
     transition: opacity .15s ease;
     z-index: 90;
     box-shadow: 0 8px 36px -8px rgba(0,0,0,.7);
@@ -244,20 +544,8 @@
     text-transform: uppercase;
     margin-bottom: 6px;
   }
-  .tooltip-score {
-    font: 28px/1 var(--mono);
-    color: var(--hi);
-    margin-bottom: 6px;
-  }
-  .tooltip-score .ab-split {
-    font-size: 14px;
-    color: var(--muted);
-    display: block;
-    margin-top: 4px;
-  }
   .tooltip-desc { color: var(--muted); font-size: 12px; }
 
-  /* ── error banner ──────────────────────────────────────────────────── */
   .err {
     width: 100%; max-width: 1280px; margin: 0 auto;
     color: #ff7686; font: 12px/1.5 var(--mono);
@@ -265,11 +553,21 @@
     min-height: 16px;
   }
 
+  /* ── reduced motion ────────────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    .prism-3d,
+    .particle,
+    .beam.beam-reveal { animation: none !important; }
+    .panel { transition: none; }
+  }
+
   /* ── responsive ────────────────────────────────────────────────────── */
   @media (max-width: 880px) {
     main { padding-top: 76px; }
     .stage { aspect-ratio: 4 / 3; }
     .panels, .panels.ab { grid-template-columns: 1fr; }
+    .prism-scene { display: none; }
+    .floor-pool  { display: none; }
   }
 </style>
 </head>
@@ -286,24 +584,36 @@
 
 <main>
   <div class="stage" id="stage" aria-label="evaluation prism — click the prism to evaluate">
-    <svg viewBox="0 0 1400 700" preserveAspectRatio="xMidYMid meet">
+
+    <!-- multicoloured pool of light pooling beneath the beams -->
+    <div class="floor-pool" id="floorPool" aria-hidden="true"></div>
+
+    <!-- particles riding the incident beam -->
+    <div class="incident-particles" id="particles" aria-hidden="true"></div>
+
+    <!-- 3D prism (HTML/CSS) — sits at stage centre with perspective -->
+    <div class="prism-scene" aria-hidden="true">
+      <div class="prism-parallax" id="prismParallax">
+        <div class="prism-3d" id="prism3d">
+          <div class="prism-halo"></div>
+          <div class="face face-cap back"  ></div>
+          <div class="face face-cap front morph" id="frontCap">
+            <div class="edge-halo ab"></div>
+            <div class="edge-halo ac"></div>
+            <div class="edge-halo bc"></div>
+          </div>
+          <div class="face face-side face-right" ></div>
+          <div class="face face-side face-left"  ></div>
+          <div class="face face-side face-bottom"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- the SVG layer holds the incident beam line + the 8 outgoing beams +
+         their shadow doubles + score projections.  Sits above the 3D prism
+         in z, so beam shadows can pool on the floor below. -->
+    <svg class="beams-svg" viewBox="0 0 1400 700" preserveAspectRatio="xMidYMid meet">
       <defs>
-        <!-- prism body gradient — dark glass -->
-        <linearGradient id="prismFill" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0"   stop-color="#1a1c2c" stop-opacity=".95"/>
-          <stop offset="1"   stop-color="#0c0d18" stop-opacity=".95"/>
-        </linearGradient>
-        <!-- prism rim glow -->
-        <linearGradient id="prismRim" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0"   stop-color="rgba(255,255,255,.7)"/>
-          <stop offset="1"   stop-color="rgba(255,255,255,.18)"/>
-        </linearGradient>
-        <!-- inner highlight on the top-left face of the prism -->
-        <linearGradient id="prismFace" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0"   stop-color="rgba(255,255,255,.30)"/>
-          <stop offset="1"   stop-color="rgba(255,255,255,0)"/>
-        </linearGradient>
-        <!-- generic glow filter for beams (color set per-beam via stroke) -->
         <filter id="beamGlow" x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="3" result="blur"/>
           <feMerge>
@@ -311,12 +621,15 @@
             <feMergeNode in="SourceGraphic"/>
           </feMerge>
         </filter>
+        <filter id="beamShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="14"/>
+        </filter>
         <filter id="incidentGlow" x="-10%" y="-200%" width="120%" height="500%">
           <feGaussianBlur stdDeviation="2.5"/>
         </filter>
       </defs>
 
-      <!-- incident beam: white light entering from the left -->
+      <!-- incident beam (the particles ride on top of this) -->
       <g class="incident">
         <line x1="0" y1="350" x2="540" y2="350"
               stroke="rgba(255,255,255,.55)" stroke-width="2.5"
@@ -325,26 +638,21 @@
               stroke="rgba(255,255,255,.95)" stroke-width="1.2"/>
       </g>
 
-      <!-- prism (rotates idly via the .prism-group class) -->
-      <g class="prism-group" id="prismGroup">
-        <!-- soft halo behind the prism -->
-        <circle cx="700" cy="350" r="220" fill="rgba(255,255,255,.04)"/>
-        <!-- main triangle, apex up — Floyd-style -->
-        <polygon points="700,180 540,500 860,500"
-                 fill="url(#prismFill)" stroke="url(#prismRim)" stroke-width="1.5"/>
-        <!-- inner left-face highlight, suggesting volume -->
-        <polygon points="700,180 540,500 700,500"
-                 fill="url(#prismFace)" opacity=".55"/>
-      </g>
+      <!-- shadow group renders below beams, gets heavy blur via filter -->
+      <g id="beamShadowsA"></g>
+      <g id="beamShadowsB" style="display:none"></g>
 
-      <!-- outgoing beams (8) — populated by JS so geometry stays in one place -->
+      <!-- beam groups — populated from JS so geometry is in one place -->
       <g id="beamsA"></g>
       <g id="beamsB" style="display:none"></g>
+
+      <!-- score projections rise above the hovered beam -->
+      <g id="scoreProjections"></g>
     </svg>
   </div>
 
   <div class="panels" id="panels">
-    <div class="panel">
+    <div class="panel" id="promptPanel">
       <span class="panel-tag">prompt</span>
       <textarea id="promptInput" rows="3"
                 placeholder="ask anything — what is the global interpreter lock, write a haiku about the moon, explain why the sky is blue..."></textarea>
@@ -362,7 +670,10 @@
   </div>
 
   <div class="controls">
-    <div class="hint"><b>click the prism</b> to split light · <span id="kbdHint">⌘ ↵</span></div>
+    <div>
+      <span class="hint"><b>click the prism</b> to split light · <span id="kbdHint">⌘ ↵</span></span>
+      <span class="focus-hint" id="focusHint">click a beam to focus · esc to release</span>
+    </div>
     <div class="winner-badge" id="winner"></div>
   </div>
   <div class="err" id="err"></div>
@@ -370,178 +681,428 @@
 
 <div class="tooltip" id="tip" role="status" aria-live="polite">
   <div class="tooltip-name" id="tipName"></div>
-  <div class="tooltip-score" id="tipScore"></div>
   <div class="tooltip-desc" id="tipDesc"></div>
 </div>
 
 <script>
 "use strict";
 
-// ── canonical rubric order + colors (mirrors kairu.rubrics.RUBRIC_DEFS) ──
+/* ──────────────────────────────────────────────────────────────────────
+   Canonical rubric order, colours, and criteria counts.
+   Mirrors kairu.rubrics.RUBRIC_DEFS — keep in sync if Python changes.
+────────────────────────────────────────────────────────────────────── */
 const RUBRICS = [
-  {name:"helpfulness",  color:"#6BFF8E", desc:"Does the response address the prompt?"},
-  {name:"accuracy",     color:"#9D6BFF", desc:"Concrete, on-topic, and specific."},
-  {name:"safety",       color:"#4FA8FF", desc:"Penalises PII, secrets, and unsafe patterns."},
-  {name:"coherence",    color:"#3DDDE6", desc:"Internally consistent, non-repetitive."},
-  {name:"conciseness",  color:"#F5C84B", desc:"Length matched to the prompt."},
-  {name:"creativity",   color:"#FF6BD0", desc:"Diverse, rich language."},
-  {name:"groundedness", color:"#5BFFD0", desc:"Answers every named part of the prompt."},
-  {name:"tone",         color:"#FF9466", desc:"Reads like well-formed prose."},
+  {name:"helpfulness",  color:"#6BFF8E", crit:4, desc:"Does the response address the prompt?"},
+  {name:"accuracy",     color:"#9D6BFF", crit:4, desc:"Concrete, on-topic, and specific."},
+  {name:"safety",       color:"#4FA8FF", crit:3, desc:"Penalises PII, secrets, and unsafe patterns."},
+  {name:"coherence",    color:"#3DDDE6", crit:3, desc:"Internally consistent, non-repetitive."},
+  {name:"conciseness",  color:"#F5C84B", crit:3, desc:"Length matched to the prompt."},
+  {name:"creativity",   color:"#FF6BD0", crit:4, desc:"Diverse, rich language."},
+  {name:"groundedness", color:"#5BFFD0", crit:3, desc:"Answers every named part of the prompt."},
+  {name:"tone",         color:"#FF9466", crit:3, desc:"Reads like well-formed prose."},
 ];
 
-// ── prism geometry: beams emanate from the right face exit point ────────
+/* ──────────────────────────────────────────────────────────────────────
+   Beam geometry — exit point is fixed at the prism's right edge so the
+   beams remain visually anchored even as the 3D prism rotates.
+────────────────────────────────────────────────────────────────────── */
 const ORIGIN = { x: 780, y: 350 };
-const BEAM_END_X = 1380;
-const BEAM_Y_TOP = 60;
+const BEAM_END_X    = 1380;
+const BEAM_Y_TOP    = 60;
 const BEAM_Y_BOTTOM = 640;
-const AB_OFFSET = 8;  // perpendicular pixels between A and B beams of one rubric
+const AB_OFFSET     = 8;       // perpendicular px between A and B beams
+const SHADOW_OFFSET = 36;      // px down for the colored shadow doubles
 
-// ── DOM refs ────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────
+   DOM refs
+────────────────────────────────────────────────────────────────────── */
 const els = {
-  prism:        document.getElementById("prismGroup"),
-  beamsA:       document.getElementById("beamsA"),
-  beamsB:       document.getElementById("beamsB"),
-  promptInput:  document.getElementById("promptInput"),
-  responseA:    document.getElementById("responseAInput"),
-  responseB:    document.getElementById("responseBInput"),
-  bPanel:       document.getElementById("responseBPanel"),
-  panels:       document.getElementById("panels"),
-  err:          document.getElementById("err"),
-  tip:          document.getElementById("tip"),
-  tipName:      document.getElementById("tipName"),
-  tipScore:     document.getElementById("tipScore"),
-  tipDesc:      document.getElementById("tipDesc"),
-  winner:       document.getElementById("winner"),
-  kbdHint:      document.getElementById("kbdHint"),
+  stage:           document.getElementById("stage"),
+  prism:           document.getElementById("prism3d"),
+  prismParallax:   document.getElementById("prismParallax"),
+  frontCap:        document.getElementById("frontCap"),
+  particles:       document.getElementById("particles"),
+  floorPool:       document.getElementById("floorPool"),
+  beamsA:          document.getElementById("beamsA"),
+  beamsB:          document.getElementById("beamsB"),
+  beamShadowsA:    document.getElementById("beamShadowsA"),
+  beamShadowsB:    document.getElementById("beamShadowsB"),
+  projections:     document.getElementById("scoreProjections"),
+  promptInput:     document.getElementById("promptInput"),
+  responseA:       document.getElementById("responseAInput"),
+  responseB:       document.getElementById("responseBInput"),
+  promptPanel:     document.getElementById("promptPanel"),
+  responseAPanel:  document.getElementById("responseAPanel"),
+  responseBPanel:  document.getElementById("responseBPanel"),
+  panels:          document.getElementById("panels"),
+  err:             document.getElementById("err"),
+  tip:             document.getElementById("tip"),
+  tipName:         document.getElementById("tipName"),
+  tipDesc:         document.getElementById("tipDesc"),
+  winner:          document.getElementById("winner"),
+  focusHint:       document.getElementById("focusHint"),
+  kbdHint:         document.getElementById("kbdHint"),
 };
 
 let state = {
-  mode: "single",  // "single" | "ab"
+  mode: "single",     // "single" | "ab"
   scoresA: null,
   scoresB: null,
   busy: false,
+  focused: null,      // rubric name or null
+  hovered: null,      // rubric name or null
+  shimmerTimers: { prompt:null, a:null, b:null },
 };
 
-// ── kbd hint OS-aware ───────────────────────────────────────────────────
-els.kbdHint.textContent = /Mac|iPhone|iPod|iPad/.test(navigator.platform) ? "⌘ ↵" : "ctrl ↵";
+/* ──────────────────────────────────────────────────────────────────────
+   OS-aware kbd hint
+────────────────────────────────────────────────────────────────────── */
+els.kbdHint.textContent =
+  /Mac|iPhone|iPod|iPad/.test(navigator.platform) ? "⌘ ↵" : "ctrl ↵";
 
-// ── build the 8 beam SVG elements, lay them out evenly fan-shaped ───────
-function buildBeams(group, isB) {
-  group.innerHTML = "";
+/* ──────────────────────────────────────────────────────────────────────
+   Particle composition for the incident beam.  ~14 small white squares
+   flow rightward into the prism input face on a continuous loop with
+   randomised delays.
+────────────────────────────────────────────────────────────────────── */
+function buildParticles() {
+  const n = 14;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.animationDelay = (i * (2.4 / n)).toFixed(2) + "s";
+    p.style.opacity = (0.6 + Math.random() * 0.4).toFixed(2);
+    p.style.width  = (3 + Math.random() * 2).toFixed(1) + "px";
+    p.style.height = p.style.width;
+    p.style.top = (50 + (Math.random() - .5) * 30) + "%";
+    els.particles.appendChild(p);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Build the 8 beams (and their colored-shadow doubles).
+   Each beam gets transform-origin at the prism exit point so the
+   reveal animation scales from the prism outward.
+────────────────────────────────────────────────────────────────────── */
+function svg(name, attrs) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+function beamEndpoints(idx, isB) {
   const n = RUBRICS.length;
   const step = (BEAM_Y_BOTTOM - BEAM_Y_TOP) / (n - 1);
-  for (let i = 0; i < n; i++) {
-    const r = RUBRICS[i];
-    const ty = BEAM_Y_TOP + step * i;
-    // perpendicular offset: rotate (0, ±AB_OFFSET) onto the beam's normal
-    const dx = BEAM_END_X - ORIGIN.x;
-    const dy = ty - ORIGIN.y;
-    const len = Math.hypot(dx, dy);
-    const nx = -dy / len, ny = dx / len;  // unit normal
-    const offset = isB ? +AB_OFFSET : (group === els.beamsA && state.mode === "ab" ? -AB_OFFSET : 0);
-    const x1 = ORIGIN.x + nx * offset;
-    const y1 = ORIGIN.y + ny * offset;
-    const x2 = BEAM_END_X + nx * offset;
-    const y2 = ty + ny * offset;
-    const beam = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    beam.setAttribute("x1", x1); beam.setAttribute("y1", y1);
-    beam.setAttribute("x2", x2); beam.setAttribute("y2", y2);
-    beam.setAttribute("stroke", r.color);
-    beam.setAttribute("stroke-width", "3");
-    beam.setAttribute("stroke-linecap", "round");
-    beam.setAttribute("filter", "url(#beamGlow)");
-    beam.setAttribute("class", "beam unlit" + (isB ? " beam-pair-b" : ""));
+  const ty = BEAM_Y_TOP + step * idx;
+  const dx = BEAM_END_X - ORIGIN.x;
+  const dy = ty - ORIGIN.y;
+  const len = Math.hypot(dx, dy);
+  const nx = -dy / len, ny = dx / len; // unit normal
+  const off = isB ? +AB_OFFSET : (state.mode === "ab" ? -AB_OFFSET : 0);
+  return {
+    x1: ORIGIN.x + nx * off,
+    y1: ORIGIN.y + ny * off,
+    x2: BEAM_END_X + nx * off,
+    y2: ty + ny * off,
+  };
+}
+
+function buildBeams(beamGroup, shadowGroup, isB) {
+  beamGroup.innerHTML = "";
+  shadowGroup.innerHTML = "";
+  RUBRICS.forEach((r, i) => {
+    const e = beamEndpoints(i, isB);
+    // Main beam
+    const beam = svg("line", {
+      x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2,
+      stroke: r.color, "stroke-width": 3, "stroke-linecap": "round",
+      filter: "url(#beamGlow)",
+      class: "beam unlit" + (isB ? " beam-pair-b" : ""),
+    });
     beam.dataset.rubric = r.name;
     beam.dataset.color  = r.color;
     beam.dataset.desc   = r.desc;
     beam.dataset.side   = isB ? "b" : "a";
+    beam.dataset.idx    = i;
+    beam.style.transformOrigin = `${e.x1}px ${e.y1}px`;
     beam.addEventListener("mouseenter", onBeamEnter);
     beam.addEventListener("mousemove",  onBeamMove);
     beam.addEventListener("mouseleave", onBeamLeave);
-    group.appendChild(beam);
-  }
+    beam.addEventListener("click",      onBeamClick);
+    beamGroup.appendChild(beam);
+
+    // Shadow double — same line, offset down, heavy blur, lower opacity.
+    const shadow = svg("line", {
+      x1: e.x1, y1: e.y1 + SHADOW_OFFSET,
+      x2: e.x2, y2: e.y2 + SHADOW_OFFSET,
+      stroke: r.color, "stroke-width": 8, "stroke-linecap": "round",
+      filter: "url(#beamShadow)",
+      opacity: 0,
+      class: "beam-shadow",
+    });
+    shadow.dataset.rubric = r.name;
+    shadowGroup.appendChild(shadow);
+  });
 }
 
-// ── tooltip ─────────────────────────────────────────────────────────────
-function onBeamEnter(e) { showTip(e); }
-function onBeamMove(e)  { positionTip(e); }
-function onBeamLeave()  { els.tip.classList.remove("show"); }
+/* ──────────────────────────────────────────────────────────────────────
+   Apply scores to a beam group: opacity + stroke width + reveal stagger.
+   Shadows fade in alongside the beams.
+────────────────────────────────────────────────────────────────────── */
+function applyBeamIntensity(beamGroup, shadowGroup, scores, animate) {
+  const beams   = beamGroup.querySelectorAll(".beam");
+  const shadows = shadowGroup.querySelectorAll(".beam-shadow");
+  beams.forEach((beam, i) => {
+    const name  = beam.dataset.rubric;
+    const score = scores ? scores[name] : 0;
+    const opacity = scores ? Math.max(.18, score) : .12;
+    const sw      = scores ? (1.4 + 4.6 * score) : 2.2;
+    beam.style.setProperty("--beam-opacity", opacity);
+    beam.classList.toggle("lit",   !!scores);
+    beam.classList.toggle("unlit", !scores);
+    beam.classList.remove("beam-reveal");
+    if (animate && scores) {
+      void beam.getBoundingClientRect();
+      beam.style.animationDelay = (i * 50) + "ms";  // 50ms stagger
+      beam.classList.add("beam-reveal");
+    }
+    beam.setAttribute("stroke-width", sw.toFixed(2));
+
+    const shadow = shadows[i];
+    if (shadow) {
+      shadow.style.transition = "opacity .9s ease " + (i * 50) + "ms";
+      shadow.setAttribute("opacity", scores ? Math.min(.55, score * .6) : 0);
+    }
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Floor pool — soft circular shadows in each rubric's color, blended
+   together via mix-blend-mode: screen.  Sits below the prism's
+   visible right side, where the beams converge to begin their fan.
+────────────────────────────────────────────────────────────────────── */
+function buildFloorPool() {
+  els.floorPool.innerHTML = "";
+  RUBRICS.forEach((r, i) => {
+    const blob = document.createElement("div");
+    blob.className = "pool-shadow";
+    blob.style.background = `radial-gradient(circle, ${r.color} 0%, transparent 70%)`;
+    blob.style.width  = "260px";
+    blob.style.height = "260px";
+    blob.style.left = (15 + i * 9.5) + "%";
+    blob.style.top  = "50%";
+    blob.style.opacity = "0";
+    blob.dataset.rubric = r.name;
+    els.floorPool.appendChild(blob);
+  });
+}
+
+function updateFloorPool(scores) {
+  const blobs = els.floorPool.querySelectorAll(".pool-shadow");
+  blobs.forEach((blob, i) => {
+    const name  = blob.dataset.rubric;
+    const score = scores ? scores[name] : 0;
+    blob.style.opacity = scores ? (.18 + score * .55).toFixed(2) : 0;
+    blob.style.transform = `translate(-50%, -50%) scale(${0.55 + score * 0.7})`;
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Tooltip + score projection on hover
+────────────────────────────────────────────────────────────────────── */
+function onBeamEnter(e) {
+  const beam = e.currentTarget;
+  state.hovered = beam.dataset.rubric;
+  beam.classList.add("hovered");
+  // Brighten color: bump filter, raise opacity 1.2x toward 1.0
+  const cur = parseFloat(beam.style.getPropertyValue("--beam-opacity") || ".95");
+  beam.style.setProperty("--beam-opacity", Math.min(1, cur * 1.25));
+  beam.setAttribute("filter", "url(#beamGlow)");
+
+  showTip(e);
+  showScoreProjection(beam);
+}
+
+function onBeamMove(e) { positionTip(e); }
+
+function onBeamLeave(e) {
+  const beam = e.currentTarget;
+  beam.classList.remove("hovered");
+  // restore opacity from latest scores
+  const name = beam.dataset.rubric;
+  const isB  = beam.dataset.side === "b";
+  const scores = isB ? state.scoresB : state.scoresA;
+  const score  = scores ? scores[name] : 0;
+  beam.style.setProperty("--beam-opacity", scores ? Math.max(.18, score) : .12);
+  state.hovered = null;
+  els.tip.classList.remove("show");
+  hideScoreProjection();
+}
 
 function showTip(e) {
   const beam = e.currentTarget;
   const rubric = beam.dataset.rubric;
-  const desc   = beam.dataset.desc;
-  const color  = beam.dataset.color;
-  els.tipName.textContent = rubric;
-  els.tipName.style.color = color;
-  els.tipDesc.textContent = desc;
-  if (state.mode === "ab" && state.scoresA && state.scoresB) {
-    const a = state.scoresA[rubric], b = state.scoresB[rubric];
-    els.tipScore.innerHTML =
-      `<span style="color:${color}">A&nbsp;${(a*100).toFixed(0)}</span>` +
-      `<span style="color:#6a708a"> / </span>` +
-      `<span style="color:${color};opacity:.6">B&nbsp;${(b*100).toFixed(0)}</span>`;
-  } else if (state.scoresA) {
-    els.tipScore.textContent = (state.scoresA[rubric] * 100).toFixed(0);
-    els.tipScore.style.color = color;
-  } else {
-    els.tipScore.textContent = "—";
-  }
+  els.tipName.textContent  = rubric;
+  els.tipName.style.color  = beam.dataset.color;
+  els.tipDesc.textContent  = beam.dataset.desc;
   positionTip(e);
   els.tip.classList.add("show");
 }
 
 function positionTip(e) {
-  const x = e.clientX + 16;
-  const y = e.clientY;
-  els.tip.style.left = x + "px";
-  els.tip.style.top  = y + "px";
+  els.tip.style.left = (e.clientX + 16) + "px";
+  els.tip.style.top  = (e.clientY)      + "px";
 }
 
-// ── apply scores → beam intensities + stroke widths ─────────────────────
-function applyBeamIntensity(group, scores) {
-  const beams = group.querySelectorAll(".beam");
-  beams.forEach((beam, i) => {
-    const name = beam.dataset.rubric;
-    const score = scores ? scores[name] : 0;
-    const opacity = scores ? Math.max(.18, score) : .12;
-    const sw = scores ? (1.4 + 4.6 * score) : 2.2;
-    beam.style.setProperty("--beam-opacity", opacity);
-    beam.classList.toggle("lit",   !!scores);
-    beam.classList.toggle("unlit", !scores);
-    beam.classList.remove("beam-reveal");
-    // re-trigger the reveal animation with stagger
-    if (scores) {
-      void beam.getBoundingClientRect();
-      beam.style.animationDelay = (i * 70) + "ms";
-      beam.classList.add("beam-reveal");
-    }
-    beam.setAttribute("stroke-width", sw.toFixed(2));
+/* ──────────────────────────────────────────────────────────────────────
+   Score projection — a holographic number rising above the hovered beam,
+   anchored at the beam's midpoint.  Rendered in SVG so it stays inside
+   the same coordinate system as the beams themselves.
+────────────────────────────────────────────────────────────────────── */
+function showScoreProjection(beam) {
+  els.projections.innerHTML = "";
+  const name = beam.dataset.rubric;
+  const isB  = beam.dataset.side === "b";
+  if (state.mode === "ab" && state.scoresA && state.scoresB) {
+    drawProjection(beam, state.scoresA[name], state.scoresB[name], beam.dataset.color);
+  } else {
+    const scores = isB ? state.scoresB : state.scoresA;
+    if (!scores) return;
+    drawProjection(beam, scores[name], null, beam.dataset.color);
+  }
+}
+
+function drawProjection(beam, scoreA, scoreB, color) {
+  const x1 = parseFloat(beam.getAttribute("x1"));
+  const y1 = parseFloat(beam.getAttribute("y1"));
+  const x2 = parseFloat(beam.getAttribute("x2"));
+  const y2 = parseFloat(beam.getAttribute("y2"));
+  // Anchor 60 % along the beam length, 50px above
+  const t = .55;
+  const ax = x1 + (x2 - x1) * t;
+  const ay = y1 + (y2 - y1) * t - 36;
+
+  const g = svg("g", { class: "score-projection", transform: `translate(${ax}, ${ay})` });
+  const lbl = svg("text", { x: 0, y: -28, "text-anchor": "middle", class: "label" });
+  lbl.textContent = beam.dataset.rubric;
+  lbl.style.fill = color;
+  lbl.style.fillOpacity = ".75";
+  g.appendChild(lbl);
+
+  const num = svg("text", { x: 0, y: 0, "text-anchor": "middle" });
+  if (scoreB == null) {
+    num.textContent = (scoreA * 100).toFixed(0);
+    num.style.fill  = color;
+  } else {
+    num.textContent = (scoreA * 100).toFixed(0) + " · " + (scoreB * 100).toFixed(0);
+    num.style.fill  = color;
+  }
+  g.appendChild(num);
+
+  els.projections.appendChild(g);
+  // trigger transition
+  void g.getBoundingClientRect();
+  g.classList.add("show");
+}
+
+function hideScoreProjection() {
+  els.projections.innerHTML = "";
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Click-to-focus: clicking a beam isolates that rubric.  Other beams
+   dim, the prism's front cap morphs to a polygon whose sides match the
+   focused rubric's criteria count, with a brief white flash on the
+   transition.  Esc releases the focus.
+────────────────────────────────────────────────────────────────────── */
+function onBeamClick(e) {
+  e.stopPropagation();
+  setFocus(e.currentTarget.dataset.rubric);
+}
+
+function setFocus(name) {
+  state.focused = name;
+  // Dim all beams except those for the focused rubric
+  document.querySelectorAll(".beam").forEach(b => {
+    b.classList.toggle("dimmed", state.focused && b.dataset.rubric !== state.focused);
   });
+  // Morph the prism cap shape to match this rubric's criteria count
+  if (name) {
+    const r = RUBRICS.find(x => x.name === name);
+    const sides = r ? r.crit : 3;
+    morphFrontCap(sides);
+    flashPrism();
+    els.focusHint.classList.add("show");
+  }
 }
 
-// ── mode switching ──────────────────────────────────────────────────────
+function clearFocus() {
+  state.focused = null;
+  document.querySelectorAll(".beam").forEach(b => b.classList.remove("dimmed"));
+  morphFrontCap(3);  // back to the canonical triangle
+  els.focusHint.classList.remove("show");
+}
+
+/* Compute clip-path polygon points for an N-gon inscribed in the
+   front-cap bounding box (260×226).  N=3 reproduces the original
+   apex-up triangle exactly. */
+function ngonClip(sides) {
+  if (sides === 3) {
+    return "polygon(50% 0%, 0% 100%, 100% 100%)";
+  }
+  const cx = 50, cy = 50, rx = 48, ry = 48;
+  const pts = [];
+  // Start at the top (apex pointing up) for visual continuity with the triangle
+  for (let i = 0; i < sides; i++) {
+    const ang = -Math.PI / 2 + (i / sides) * 2 * Math.PI;
+    const x = cx + rx * Math.cos(ang);
+    const y = cy + ry * Math.sin(ang);
+    pts.push(`${x.toFixed(2)}% ${y.toFixed(2)}%`);
+  }
+  return "polygon(" + pts.join(", ") + ")";
+}
+
+function morphFrontCap(sides) {
+  els.frontCap.style.clipPath = ngonClip(sides);
+  // Brief white flash overlay on the cap while it morphs
+  els.frontCap.animate(
+    [
+      { filter: "brightness(1)" },
+      { filter: "brightness(2.4) saturate(.4)" },
+      { filter: "brightness(1)" },
+    ],
+    { duration: 700, easing: "cubic-bezier(.4,.1,.3,1)" }
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Mode switching
+────────────────────────────────────────────────────────────────────── */
 function setMode(mode) {
   state.mode = mode;
   document.querySelectorAll(".pill").forEach(p => {
     p.classList.toggle("active", p.dataset.mode === mode);
   });
-  els.bPanel.style.display = (mode === "ab") ? "" : "none";
+  els.responseBPanel.style.display = (mode === "ab") ? "" : "none";
   els.panels.classList.toggle("ab", mode === "ab");
-  els.beamsB.style.display = (mode === "ab") ? "" : "none";
+  els.beamsB.style.display       = (mode === "ab") ? "" : "none";
+  els.beamShadowsB.style.display = (mode === "ab") ? "" : "none";
   els.winner.classList.remove("show");
-  buildBeams(els.beamsA, false);
-  buildBeams(els.beamsB, true);
-  if (state.scoresA) applyBeamIntensity(els.beamsA, state.scoresA);
-  if (state.scoresB && mode === "ab") applyBeamIntensity(els.beamsB, state.scoresB);
+  buildBeams(els.beamsA, els.beamShadowsA, false);
+  buildBeams(els.beamsB, els.beamShadowsB, true);
+  if (state.scoresA) applyBeamIntensity(els.beamsA, els.beamShadowsA, state.scoresA, false);
+  if (state.scoresB && mode === "ab") applyBeamIntensity(els.beamsB, els.beamShadowsB, state.scoresB, false);
+  if (state.focused) setFocus(state.focused);
 }
 
-// ── network ─────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────
+   Network — POST /api/prism with the prompt + response(s).
+────────────────────────────────────────────────────────────────────── */
 async function evaluate() {
   if (state.busy) return;
-  const prompt   = els.promptInput.value.trim();
-  const respA    = els.responseA.value.trim();
-  const respB    = state.mode === "ab" ? els.responseB.value.trim() : "";
+  const prompt = els.promptInput.value.trim();
+  const respA  = els.responseA.value.trim();
+  const respB  = state.mode === "ab" ? els.responseB.value.trim() : "";
   if (!prompt || !respA) {
     showErr("enter a prompt and a response");
     return;
@@ -553,6 +1114,7 @@ async function evaluate() {
   state.busy = true;
   showErr("");
   flashPrism();
+  speedupPrism();
 
   const body = { prompt, response: respA };
   if (state.mode === "ab") body.response_b = respB;
@@ -561,11 +1123,11 @@ async function evaluate() {
   try {
     const r = await fetch("/api/prism", {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!r.ok) {
-      const errBody = await r.json().catch(() => ({error: r.statusText}));
+      const errBody = await r.json().catch(() => ({ error: r.statusText }));
       throw new Error(errBody.error || `http ${r.status}`);
     }
     data = await r.json();
@@ -582,13 +1144,14 @@ function applyScores(data) {
   const a = {};
   for (const b of data.beams_a) a[b.rubric] = b.score;
   state.scoresA = a;
-  applyBeamIntensity(els.beamsA, a);
+  applyBeamIntensity(els.beamsA, els.beamShadowsA, a, true);
+  updateFloorPool(a);
 
   if (data.beams_b) {
     const b = {};
     for (const x of data.beams_b) b[x.rubric] = x.score;
     state.scoresB = b;
-    applyBeamIntensity(els.beamsB, b);
+    applyBeamIntensity(els.beamsB, els.beamShadowsB, b, true);
     const w = data.winner;
     els.winner.innerHTML = (w === "tie")
       ? `<span style="color:var(--muted)">tie</span> · margin ${(data.margin*100).toFixed(1)}`
@@ -598,22 +1161,78 @@ function applyScores(data) {
     state.scoresB = null;
     els.winner.classList.remove("show");
   }
+
+  // Glass clarity: the more "evaluated" the response, the clearer the panels.
+  const meanQ = Object.values(a).reduce((s, v) => s + v, 0) / 8;
+  document.documentElement.style.setProperty(
+    "--glass-blur",
+    (18 - meanQ * 10).toFixed(1) + "px"
+  );
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+   Prism flash + speedup
+────────────────────────────────────────────────────────────────────── */
 function flashPrism() {
   els.prism.classList.remove("flashing");
   void els.prism.getBoundingClientRect();
   els.prism.classList.add("flashing");
+  setTimeout(() => els.prism.classList.remove("flashing"), 950);
 }
 
-function showErr(msg) {
-  els.err.textContent = msg || "";
+function speedupPrism() {
+  // Briefly speed the rotation up, then ease back to slow idle.
+  document.documentElement.style.setProperty("--spin-duration", "4s");
+  setTimeout(() => {
+    document.documentElement.style.setProperty("--spin-duration", "8s");
+  }, 1500);
+  setTimeout(() => {
+    document.documentElement.style.setProperty("--spin-duration", "20s");
+  }, 3500);
 }
 
-// ── interactions ────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────
+   Cursor parallax — the prism tilts toward the cursor (max ±5deg).
+────────────────────────────────────────────────────────────────────── */
+function onPointerMove(e) {
+  const rect = els.stage.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top  + rect.height / 2;
+  const dx = (e.clientX - cx) / (rect.width / 2);
+  const dy = (e.clientY - cy) / (rect.height / 2);
+  // Clamp to [-1, 1], scale to ±5°.  Note CSS rotateX inverts dy intuition.
+  const tx = Math.max(-1, Math.min(1, -dy)) * 5;
+  const ty = Math.max(-1, Math.min(1,  dx)) * 5;
+  document.documentElement.style.setProperty("--tilt-x", tx.toFixed(2) + "deg");
+  document.documentElement.style.setProperty("--tilt-y", ty.toFixed(2) + "deg");
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Typing shimmer + glass clarity on input
+────────────────────────────────────────────────────────────────────── */
+function bindShimmer(panelEl, textareaEl, key) {
+  textareaEl.addEventListener("input", () => {
+    panelEl.classList.add("shimmer");
+    panelEl.style.setProperty("--shimmer-angle", (Math.random() * 360) + "deg");
+    clearTimeout(state.shimmerTimers[key]);
+    state.shimmerTimers[key] = setTimeout(() => {
+      panelEl.classList.remove("shimmer");
+    }, 700);
+    // Glass clarity: as the user types more, the panel clears slightly.
+    const len = textareaEl.value.length;
+    const blur = Math.max(8, 18 - Math.min(10, len / 60));
+    panelEl.style.setProperty("--glass-blur", blur.toFixed(1) + "px");
+    panelEl.style.backdropFilter = `blur(${blur.toFixed(1)}px) saturate(180%)`;
+    panelEl.style.webkitBackdropFilter = `blur(${blur.toFixed(1)}px) saturate(180%)`;
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Error banner + interactions
+────────────────────────────────────────────────────────────────────── */
+function showErr(msg) { els.err.textContent = msg || ""; }
+
 els.prism.addEventListener("click", evaluate);
-els.prism.style.cursor = "pointer";
-els.prism.style.pointerEvents = "auto";
 
 document.querySelectorAll(".pill").forEach(p => {
   p.addEventListener("click", () => setMode(p.dataset.mode));
@@ -623,10 +1242,28 @@ document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
     e.preventDefault();
     evaluate();
+  } else if (e.key === "Escape" && state.focused) {
+    e.preventDefault();
+    clearFocus();
   }
 });
 
-// ── seed examples on first load so the demo shows immediately ───────────
+// Click empty stage area releases focus too.
+els.stage.addEventListener("click", (e) => {
+  if (state.focused && !e.target.closest(".beam") && e.target !== els.prism) {
+    clearFocus();
+  }
+});
+
+document.addEventListener("pointermove", onPointerMove);
+
+bindShimmer(els.promptPanel,    els.promptInput, "prompt");
+bindShimmer(els.responseAPanel, els.responseA,   "a");
+bindShimmer(els.responseBPanel, els.responseB,   "b");
+
+/* ──────────────────────────────────────────────────────────────────────
+   Seeded example so the demo reads as something on first paint.
+────────────────────────────────────────────────────────────────────── */
 function seedExample() {
   els.promptInput.value =
     "Explain how the global interpreter lock affects Python multi-threaded performance for CPU-bound and I/O-bound work.";
@@ -636,11 +1273,14 @@ function seedExample() {
     "The interpreter lock is a thing in Python. It can sometimes slow things down. Multi-threaded code is complicated.";
 }
 
-// ── boot ────────────────────────────────────────────────────────────────
-buildBeams(els.beamsA, false);
-buildBeams(els.beamsB, true);
+/* ──────────────────────────────────────────────────────────────────────
+   Boot
+────────────────────────────────────────────────────────────────────── */
+buildParticles();
+buildFloorPool();
+buildBeams(els.beamsA, els.beamShadowsA, false);
+buildBeams(els.beamsB, els.beamShadowsB, true);
 seedExample();
-// soft welcome: idle beams unlit; user clicks the prism to evaluate
 </script>
 </body>
 </html>
