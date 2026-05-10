@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.9.0**
+Current version: **v0.12.0**
 
 ---
 
@@ -169,11 +169,39 @@ Deliverables:
 - 20 new tests (`tests/test_squish_eval.py` + `tests/test_server.py`) covering identical/degraded/garbage tiers, empty inputs, length mismatches, recommendation thresholds, frozen-dataclass invariants, JSON round-trip, and HTTP-level integration.
 - `kairu/__init__.py` and `pyproject.toml`: version `0.9.0 → 0.10.0`; description updated.
 
-Phase 10 (Prompt Shield) is deferred — the squish-integration work was higher leverage given the active KonjoAI quantization workstream.
+---
+
+## Phase 12 — Evaluation API & A/B Comparison (v0.11.0) ✅ COMPLETE
+
+**Ship Gate:** 294 Python tests passing, 4 skipped HF-gated (32 evaluation + 16 HTTP-boundary tests added).
+
+Deliverables:
+- `kairu/evaluation.py` — seven heuristic scorers (relevance F1, coherence trigram-uniqueness, conciseness Gaussian, safety regex categories, fluency sentence-length + TTR, specificity entity density, completeness recall). All deterministic, pure-stdlib, bounded to [0, 1].
+- Five built-in rubrics: `default`, `helpfulness`, `safety_focused`, `concise_qa`, `creative` — composable with `weights={…}` overrides per call.
+- `compare()` returns `Comparison` with absolute margin and per-criterion winner using a `TIE_EPSILON = 0.005` noise floor.
+- `evaluate_batch()` + `to_csv()` — batch driver returning JSON or CSV-ready rows.
+- `api/main.py` — FastAPI app exposing `POST /evaluate`, `POST /compare`, `GET /rubrics`, `POST /batch`, `GET /health`; pydantic v2 models, 413 on oversize, 422 on bad rubric/criterion.
+- `api/Dockerfile` (slim, non-root, `$PORT`-aware), `api/requirements.txt`, `render.yaml` — deployable to Render / Fly / GKE.
+- `demo/sample_comparisons/` — 3 runnable A/B fixtures with `expected_winner` for regression validation.
+- `kairu/__init__.py` — re-exports `evaluate`, `compare`, `evaluate_batch`, `to_csv`, `Evaluation`, `Comparison`, `Rubric`, `CRITERIA`, `RUBRICS`; version `0.10.0 → 0.11.0`.
 
 ---
 
-## Phase 10 — Prompt Shield & Content Policy 🔜 DEFERRED
+## Phase 13 — Eight Named Rubrics + Prism UI (v0.12.0) ✅ COMPLETE
+
+**Ship Gate:** 313 tests passing, 4 HF-gated skipped (13 rubric + 6 API-route tests added).
+
+Deliverables:
+- `kairu/rubrics.py` — `RUBRIC_DEFS`: eight named rubrics (helpfulness, accuracy, safety, coherence, conciseness, creativity, groundedness, tone) with curated weights + canonical hex color per rubric.
+- `kairu/evaluation.RUBRICS` auto-materialises from `RUBRIC_DEFS`.
+- API: `GET /rubrics/{name}` + `POST /evaluate/rubric/{name}` (path-param routing).
+- `demo/server.py` — `POST /api/prism` runs all eight rubrics on one (prompt, response[, response_b]); pure stdlib, 16 KB input cap.
+- `demo/index.html` — full rebuild as the prism UI: pure dark `#06060f`, idly-rotating SVG triangular prism, eight color-coded beams, A/B mode with offset dashed beams, click-to-evaluate, hover tooltips, kbd shortcut.
+- 19 new tests across `tests/test_rubrics.py` and `api/test_api.py`.
+
+---
+
+## Phase 14 — Prompt Shield & Content Policy 🔜 NEXT
 
 **Goal:** Production-safe content screening at the API boundary, prior to tokenization.
 

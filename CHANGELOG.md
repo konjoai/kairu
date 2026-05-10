@@ -4,6 +4,64 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.12.0] — 2026-05-10
+
+### Added — Eight Named Rubrics + Prism UI
+
+- `kairu/rubrics.py` — `RUBRIC_DEFS`: eight named, opinionated rubrics (`helpfulness`, `accuracy`, `safety`, `coherence`, `conciseness`, `creativity`, `groundedness`, `tone`) as a dict of curated weight combinations over the seven primitive scorers in `kairu.evaluation`. Each rubric carries a stable hex color used by the demo prism UI — keeping color and weights co-located prevents drift between API and UI. Helpers: `rubric_names()`, `rubric_color(name)`, `rubric_criteria(name)`.
+- `kairu/evaluation.RUBRICS` — auto-materialised from `RUBRIC_DEFS` at import time; the existing `Rubric` dataclass + `evaluate(rubric=name)` API picks them up unchanged. `default` is preserved as a balanced alias for CLI/API defaults.
+- `GET /rubrics/{name}` — returns the full definition (name, description, criteria, weights, color) for a single rubric. 404 on unknown.
+- `POST /evaluate/rubric/{name}` — convenience endpoint: rubric is in the path, body carries only `prompt` + `response` (+ optional `weights` override). Returns the same shape as `POST /evaluate` plus a `color` field. 404 on unknown rubric, 413 on oversize text.
+- `GET /rubrics` (existing) — every entry now includes a `color` for named rubrics.
+- `demo/server.py` — new `GET /api/rubrics` + `POST /api/prism` endpoints. The prism endpoint runs all eight rubrics on one (prompt, response[, response_b]) and returns the ordered list of beam payloads (rubric, color, aggregate, per-criterion components). Pure stdlib, boundary-validated at `PRISM_MAX_TEXT = 16 384` chars.
+- `demo/index.html` — full rebuild as the **prism UI**. Pure dark `#06060f`, slow-rotating SVG triangular prism (Floyd-style, apex up) with an incident white beam from the left and eight color-coded outgoing beams fanning right — one per rubric. Click the prism (or ⌘ ↵ / ctrl ↵) to evaluate; beams animate from unlit to score-proportional intensity with a stagger, beam stroke width scales with score. Two glass panels (prompt | response) with no labels — visual position carries the meaning. The `single ↔ a/b` toggle in the header splits the right panel and renders a second set of dashed beams offset perpendicular to each primary beam; the brighter aggregate wins, badge announces margin. Hovering a beam shows a floating tooltip with the rubric name (in its color), score, and one-line description; in A/B mode the tooltip shows `A 78 / B 45` split. Color language is fixed to rubric: helpfulness=#6BFF8E, accuracy=#9D6BFF, safety=#4FA8FF, coherence=#3DDDE6, conciseness=#F5C84B, creativity=#FF6BD0, groundedness=#5BFFD0, tone=#FF9466. CSS-only animations: `prism-idle` (slow ±2° rotation), `prism-flash` (click pulse with drop-shadow bloom), `incident-pulse` (incoming beam breathing), `beam-reveal` (per-beam dasharray reveal with `animationDelay` stagger). Single seeded example loads on first paint so the page is meaningful before any input.
+- 13 rubric tests in `tests/test_rubrics.py` — eight names present, canonical order, hex-color shape, color uniqueness, every weight references a real criterion, all weights positive, every rubric runs end-to-end on a real prompt, unknown lookups raise, safety rubric's `safety` weight dominates, creativity downweights relevance, groundedness emphasises completeness, descriptions non-empty.
+- 6 new API tests in `api/test_api.py` — `GET /rubrics/{name}` (success + 404), `POST /evaluate/rubric/{name}` (path-param routing, 404, 413), `GET /rubrics` includes color for all eight named rubrics.
+
+### Changed
+
+- `kairu/__init__.py` — version `0.11.0 → 0.12.0`.
+- `pyproject.toml` — version `0.11.0 → 0.12.0`.
+
+### Architecture Decisions
+
+- **Color lives with weights, not with the UI.** `RUBRIC_DEFS` carries the canonical hex per rubric so the API can return colors and the UI can stay a thin renderer. One source of truth eliminates the `if you change the color in CSS, change it in the API` drift class.
+- **Beams are outputs of one prism, not eight prisms.** Each beam is the *aggregate* of one rubric's curated weighting over the seven primitive scorers — not a single criterion. The visual metaphor (one input → eight readings) maps onto the data model exactly.
+- **A/B as parallel offset beams, not a second prism.** Rendering two prisms would double the visual complexity and dilute the metaphor. Offsetting the B beam by ±8 px perpendicular to the beam axis keeps the prism singular and makes the visual diff legible at every angle.
+- **`/api/prism` returns components alongside aggregates.** The UI shows only the aggregate per beam, but the per-criterion sub-scores ride along in the JSON for future drilldown without a second round trip.
+
+---
+
+## [0.11.0] — 2026-05-10
+
+### Added — Evaluation API & A/B Comparison
+
+- `kairu/evaluation.py` — rubric-based response evaluation, deterministic and pure-stdlib (no NumPy / HF / torch in the hot path). Seven heuristic scorers each return a bounded [0, 1] float plus a `detail` dict: `score_relevance` (F1 of content-token overlap, ROUGE-1 family), `score_coherence` (1 − repeated-trigram fraction, with bigram/word fallbacks for short responses), `score_conciseness` (Gaussian on log(response/prompt) length ratio, peak at 4×), `score_safety` (regex-matched PII/secret categories: SSN, credit-card, email, phone, api-key, IP), `score_fluency` (sentence-length sanity in [5, 35] words plus type-token ratio), `score_specificity` (density of numerics + proper nouns), `score_completeness` (recall of prompt content tokens addressed in the response).
+- `kairu.evaluation.RUBRICS` — five built-in rubrics: `default` (balanced), `helpfulness` (skews toward relevance + completeness), `safety_focused` (4× weight on safety), `concise_qa` (rewards specificity + conciseness), `creative` (fluency + coherence dominate). Custom criteria lists and per-call weight overrides accepted via `evaluate(rubric=..., criteria=..., weights=...)`.
+- `kairu.evaluation.compare()` — A/B-compare two responses to one prompt; returns `Comparison` with absolute aggregate margin, overall winner, and per-criterion winner using a `TIE_EPSILON = 0.005` floor (heuristic noise budget).
+- `kairu.evaluation.evaluate_batch()` + `to_csv()` — batch driver returning JSON-shaped records ready for `text/csv` serialisation; pure-stdlib CSV emitter avoids the `csv` module import.
+- `api/main.py` — FastAPI HTTP layer (`POST /evaluate`, `POST /compare`, `GET /rubrics`, `POST /batch`, `GET /health`). Boundary validation: `MAX_TEXT_CHARS = 32 768` (413 on overflow), `MAX_BATCH_ITEMS = 256` (413), pydantic v2 models for request shape (422 on missing fields), unknown rubric/criterion → 422. Every endpoint delegates to a real function in `kairu.evaluation` — no business logic in the HTTP layer.
+- `api/Dockerfile` — multi-stage slim image, non-root uid 1001, `$PORT`-aware (Render/Fly/Heroku friendly), HEALTHCHECK against `/health`.
+- `api/requirements.txt` — minimal runtime: `fastapi`, `uvicorn[standard]`, `pydantic`, `numpy`.
+- `render.yaml` — Render blueprint targeting `api/Dockerfile` with `KAIRU_API_MAX_TEXT` / `KAIRU_API_MAX_BATCH` env vars; native-Python alternative documented inline.
+- `demo/sample_comparisons/` — three runnable A/B fixtures: `01_helpful_vs_unhelpful` (helpfulness rubric, verbose specialist beats vague generalist), `02_concise_vs_verbose` (concise_qa rubric, tight answer beats padded ramble), `03_safe_vs_pii_leak` (safety_focused rubric, placeholder PII beats real-looking PII via the safety scorer's category penalties). Each file ships `expected_winner` + `expected_rationale` so the heuristics can be regression-checked.
+- 32 evaluation unit tests in `tests/test_evaluation.py` (per-criterion scorers, rubric resolution, weight overrides, aggregate-as-weighted-mean, JSON round-trip, comparison winner consistency, tie-within-epsilon, batch + CSV).
+- 16 HTTP boundary tests in `api/test_api.py` (httpx ASGI transport, no live port; covers all five endpoints, success and error paths, oversize 413, unknown-rubric 422, missing-field 422, CSV content-type).
+
+### Changed
+
+- `kairu/__init__.py` — re-exports `evaluate`, `compare`, `evaluate_batch`, `to_csv`, `Evaluation`, `Comparison`, `Rubric`, `CRITERIA`, `RUBRICS`; version `0.10.0 → 0.11.0`.
+- `pyproject.toml` — version `0.10.0 → 0.11.0`; description extended.
+
+### Architecture Decisions
+
+- **Heuristic scorers, not LLM-as-judge.** Reproducibility and zero-cost CI matter more than semantic precision for the v0 cut. An LLM judge plugs in later as another `Scorer` callable behind the same API contract.
+- **F1, not Jaccard, for relevance.** Jaccard inflates the union with the response's full vocabulary, punishing long technically-rich answers. F1 (precision × recall harmonic mean) is symmetric across length asymmetry — same family as ROUGE-1.
+- **Thin HTTP layer.** `api/main.py` does input validation and shape mapping; every business call is a single function in `kairu.evaluation`. The API is interchangeable with a CLI or a notebook driver.
+- **`TIE_EPSILON = 0.005`.** Heuristic scores are quantised by token counts, so anything under ~0.5 % is below the noise floor and should not produce a winner.
+
+---
+
 ## [0.10.0] — 2026-05-09
 
 ### Added — Squish Integration: Quantization-Tier Quality Eval (K11)

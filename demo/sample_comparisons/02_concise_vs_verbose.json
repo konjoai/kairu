@@ -1,0 +1,12 @@
+{
+  "name": "02_concise_vs_verbose",
+  "description": "Tight, on-target answer vs. padded ramble that buries the answer. Tests conciseness + relevance.",
+  "prompt": "What is the time complexity of binary search on a sorted array of n elements?",
+  "rubric": "concise_qa",
+  "label_a": "model-a (concise)",
+  "label_b": "model-b (verbose)",
+  "response_a": "Binary search runs in O(log n) time on a sorted array of n elements, because each comparison halves the remaining search space.",
+  "response_b": "Well, that is a really interesting question and there are several ways to think about algorithmic complexity in computer science. People have studied search algorithms for many decades, ever since the early days of computing in the 1950s when researchers were just beginning to formalize what we now call algorithm analysis. Search problems are everywhere in software, and many great minds have contributed to our understanding of how to compare different approaches. Binary search in particular is one of the classic textbook examples and is taught in nearly every introductory algorithms course. The complexity, in the end, is logarithmic. There are of course many other algorithms one could discuss, like linear search, jump search, interpolation search, exponential search, and others, each with their own tradeoffs.",
+  "expected_winner": "a",
+  "expected_rationale": "Response A delivers the answer (O(log n)) directly with one supporting clause; the conciseness scorer's Gaussian peaks near 4× prompt length and penalises B's runaway verbosity. Specificity also favours A — 'O(log n)' and 'halves' are concrete; B's answer scatters specifics across noise."
+}

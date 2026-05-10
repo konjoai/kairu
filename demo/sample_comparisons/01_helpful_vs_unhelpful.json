@@ -1,0 +1,12 @@
+{
+  "name": "01_helpful_vs_unhelpful",
+  "description": "Detailed factual answer vs. vague non-answer. Tests relevance + completeness + specificity.",
+  "prompt": "How does the global interpreter lock affect Python multi-threaded performance for CPU-bound and I/O-bound work?",
+  "rubric": "helpfulness",
+  "label_a": "model-a (verbose specialist)",
+  "label_b": "model-b (vague generalist)",
+  "response_a": "The global interpreter lock in CPython forces Python multi-threaded code to serialize: only one thread executes Python bytecode at a time. For CPU-bound work, multi-threaded performance therefore matches single-threaded performance — threads do not run in parallel. For I/O-bound work, the interpreter lock is released during the blocking call (network, disk, subprocess), so threads overlap their wait time and you do see real concurrency. To unlock CPU-bound parallelism, use multiprocessing (separate processes, separate locks), C extensions that release the lock such as NumPy or Cython nogil, or the Python 3.13 free-threaded build (PEP 703).",
+  "response_b": "The interpreter lock is a thing in Python that affects code. It can sometimes slow things down. Multi-threaded code is complicated. Performance varies, and you might want to look into other approaches.",
+  "expected_winner": "a",
+  "expected_rationale": "Response A repeats every prompt anchor (global interpreter lock, multi-threaded, performance, CPU-bound, I/O-bound) and introduces concrete entities (PEP 703, multiprocessing, NumPy, Cython) for specificity. Response B drops the CPU/I/O distinction entirely, tanking completeness."
+}
