@@ -37,6 +37,7 @@ from kairu.evaluation import (
     evaluate_batch,
     to_csv,
 )
+from kairu.rubrics import RUBRIC_DEFS
 
 logger = logging.getLogger("kairu.api")
 
@@ -54,6 +55,13 @@ class EvaluateRequest(BaseModel):
     response: str = Field(..., min_length=1)
     rubric: Optional[str] = None
     criteria: Optional[List[str]] = None
+    weights: Optional[Dict[str, float]] = None
+
+
+class NamedRubricRequest(BaseModel):
+    """Body for ``POST /evaluate/rubric/{name}`` — rubric is in the path."""
+    prompt: str = Field(..., min_length=1)
+    response: str = Field(..., min_length=1)
     weights: Optional[Dict[str, float]] = None
 
 
@@ -135,6 +143,7 @@ def create_app() -> FastAPI:
                     "description": r.description,
                     "criteria": list(r.criteria),
                     "weights": dict(r.weights),
+                    "color": RUBRIC_DEFS[r.name]["color"] if r.name in RUBRIC_DEFS else None,
                 }
                 for r in RUBRICS.values()
             ],
@@ -142,6 +151,19 @@ def create_app() -> FastAPI:
                 {"name": name, "description": desc}
                 for name, (_, desc) in CRITERIA.items()
             ],
+        }
+
+    @app.get("/rubrics/{name}")
+    def rubric_detail(name: str) -> Dict[str, object]:
+        if name not in RUBRICS:
+            raise HTTPException(status_code=404, detail=f"unknown rubric '{name}'")
+        r = RUBRICS[name]
+        return {
+            "name": r.name,
+            "description": r.description,
+            "criteria": list(r.criteria),
+            "weights": dict(r.weights),
+            "color": RUBRIC_DEFS[name]["color"] if name in RUBRIC_DEFS else None,
         }
 
     @app.post("/evaluate")
@@ -156,6 +178,20 @@ def create_app() -> FastAPI:
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return ev.to_dict()
+
+    @app.post("/evaluate/rubric/{name}")
+    def evaluate_named_rubric(name: str, req: NamedRubricRequest) -> Dict[str, object]:
+        if name not in RUBRICS:
+            raise HTTPException(status_code=404, detail=f"unknown rubric '{name}'")
+        _check_text("prompt", req.prompt)
+        _check_text("response", req.response)
+        try:
+            ev = evaluate(req.prompt, req.response, rubric=name, weights=req.weights)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        out = ev.to_dict()
+        out["color"] = RUBRIC_DEFS[name]["color"] if name in RUBRIC_DEFS else None
+        return out
 
     @app.post("/compare")
     def compare_endpoint(req: CompareRequest) -> Dict[str, object]:

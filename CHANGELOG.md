@@ -4,6 +4,34 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.12.0] — 2026-05-10
+
+### Added — Eight Named Rubrics + Prism UI
+
+- `kairu/rubrics.py` — `RUBRIC_DEFS`: eight named, opinionated rubrics (`helpfulness`, `accuracy`, `safety`, `coherence`, `conciseness`, `creativity`, `groundedness`, `tone`) as a dict of curated weight combinations over the seven primitive scorers in `kairu.evaluation`. Each rubric carries a stable hex color used by the demo prism UI — keeping color and weights co-located prevents drift between API and UI. Helpers: `rubric_names()`, `rubric_color(name)`, `rubric_criteria(name)`.
+- `kairu/evaluation.RUBRICS` — auto-materialised from `RUBRIC_DEFS` at import time; the existing `Rubric` dataclass + `evaluate(rubric=name)` API picks them up unchanged. `default` is preserved as a balanced alias for CLI/API defaults.
+- `GET /rubrics/{name}` — returns the full definition (name, description, criteria, weights, color) for a single rubric. 404 on unknown.
+- `POST /evaluate/rubric/{name}` — convenience endpoint: rubric is in the path, body carries only `prompt` + `response` (+ optional `weights` override). Returns the same shape as `POST /evaluate` plus a `color` field. 404 on unknown rubric, 413 on oversize text.
+- `GET /rubrics` (existing) — every entry now includes a `color` for named rubrics.
+- `demo/server.py` — new `GET /api/rubrics` + `POST /api/prism` endpoints. The prism endpoint runs all eight rubrics on one (prompt, response[, response_b]) and returns the ordered list of beam payloads (rubric, color, aggregate, per-criterion components). Pure stdlib, boundary-validated at `PRISM_MAX_TEXT = 16 384` chars.
+- `demo/index.html` — full rebuild as the **prism UI**. Pure dark `#06060f`, slow-rotating SVG triangular prism (Floyd-style, apex up) with an incident white beam from the left and eight color-coded outgoing beams fanning right — one per rubric. Click the prism (or ⌘ ↵ / ctrl ↵) to evaluate; beams animate from unlit to score-proportional intensity with a stagger, beam stroke width scales with score. Two glass panels (prompt | response) with no labels — visual position carries the meaning. The `single ↔ a/b` toggle in the header splits the right panel and renders a second set of dashed beams offset perpendicular to each primary beam; the brighter aggregate wins, badge announces margin. Hovering a beam shows a floating tooltip with the rubric name (in its color), score, and one-line description; in A/B mode the tooltip shows `A 78 / B 45` split. Color language is fixed to rubric: helpfulness=#6BFF8E, accuracy=#9D6BFF, safety=#4FA8FF, coherence=#3DDDE6, conciseness=#F5C84B, creativity=#FF6BD0, groundedness=#5BFFD0, tone=#FF9466. CSS-only animations: `prism-idle` (slow ±2° rotation), `prism-flash` (click pulse with drop-shadow bloom), `incident-pulse` (incoming beam breathing), `beam-reveal` (per-beam dasharray reveal with `animationDelay` stagger). Single seeded example loads on first paint so the page is meaningful before any input.
+- 13 rubric tests in `tests/test_rubrics.py` — eight names present, canonical order, hex-color shape, color uniqueness, every weight references a real criterion, all weights positive, every rubric runs end-to-end on a real prompt, unknown lookups raise, safety rubric's `safety` weight dominates, creativity downweights relevance, groundedness emphasises completeness, descriptions non-empty.
+- 6 new API tests in `api/test_api.py` — `GET /rubrics/{name}` (success + 404), `POST /evaluate/rubric/{name}` (path-param routing, 404, 413), `GET /rubrics` includes color for all eight named rubrics.
+
+### Changed
+
+- `kairu/__init__.py` — version `0.11.0 → 0.12.0`.
+- `pyproject.toml` — version `0.11.0 → 0.12.0`.
+
+### Architecture Decisions
+
+- **Color lives with weights, not with the UI.** `RUBRIC_DEFS` carries the canonical hex per rubric so the API can return colors and the UI can stay a thin renderer. One source of truth eliminates the `if you change the color in CSS, change it in the API` drift class.
+- **Beams are outputs of one prism, not eight prisms.** Each beam is the *aggregate* of one rubric's curated weighting over the seven primitive scorers — not a single criterion. The visual metaphor (one input → eight readings) maps onto the data model exactly.
+- **A/B as parallel offset beams, not a second prism.** Rendering two prisms would double the visual complexity and dilute the metaphor. Offsetting the B beam by ±8 px perpendicular to the beam axis keeps the prism singular and makes the visual diff legible at every angle.
+- **`/api/prism` returns components alongside aggregates.** The UI shows only the aggregate per beam, but the per-criterion sub-scores ride along in the JSON for future drilldown without a second round trip.
+
+---
+
 ## [0.11.0] — 2026-05-10
 
 ### Added — Evaluation API & A/B Comparison

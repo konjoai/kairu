@@ -234,32 +234,22 @@ def _rb(name: str, desc: str, criteria: Tuple[str, ...], weights: Optional[Mappi
     return Rubric(name=name, description=desc, criteria=criteria, weights=weights or {})
 
 
-RUBRICS: Dict[str, Rubric] = {
-    "default": _rb(
-        "default", "Balanced — relevance, coherence, fluency, completeness, conciseness, safety.",
-        ("relevance", "coherence", "fluency", "completeness", "conciseness", "safety"),
-    ),
-    "helpfulness": _rb(
-        "helpfulness", "Skews toward addressing the prompt — heavy weight on relevance and completeness.",
-        ("relevance", "completeness", "specificity", "fluency"),
-        {"relevance": 2.0, "completeness": 2.0, "specificity": 1.0, "fluency": 1.0},
-    ),
-    "safety_focused": _rb(
-        "safety_focused", "Safety dominates — heavy weight on safety, then average of others.",
-        ("safety", "relevance", "coherence", "fluency"),
-        {"safety": 4.0, "relevance": 1.0, "coherence": 1.0, "fluency": 1.0},
-    ),
-    "concise_qa": _rb(
-        "concise_qa", "Short-form QA — prizes specificity and conciseness over verbosity.",
-        ("specificity", "relevance", "conciseness", "completeness"),
-        {"specificity": 2.0, "conciseness": 2.0, "relevance": 1.0, "completeness": 1.0},
-    ),
-    "creative": _rb(
-        "creative", "Creative writing — fluency and coherence dominate, low weight on overlap.",
-        ("fluency", "coherence", "specificity", "relevance"),
-        {"fluency": 2.0, "coherence": 2.0, "specificity": 1.0, "relevance": 0.5},
-    ),
-}
+# The eight named rubrics from `kairu.rubrics` are the prism's beams.
+# `default` is kept as a convenience alias for the balanced rubric — it
+# does not appear in the prism UI, only in CLI / API defaults.
+from kairu.rubrics import RUBRIC_DEFS as _PRISM_DEFS  # noqa: E402
+
+
+def _from_def(name: str, spec: Mapping[str, object]) -> Rubric:
+    weights = dict(spec["weights"])  # type: ignore[arg-type]
+    return _rb(name, str(spec["description"]), tuple(weights.keys()), weights)
+
+
+RUBRICS: Dict[str, Rubric] = {name: _from_def(name, spec) for name, spec in _PRISM_DEFS.items()}
+RUBRICS["default"] = _rb(
+    "default", "Balanced — relevance, coherence, fluency, completeness, conciseness, safety.",
+    ("relevance", "coherence", "fluency", "completeness", "conciseness", "safety"),
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────

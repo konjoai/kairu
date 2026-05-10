@@ -3,2086 +3,644 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Kairu — make AI responses 2× faster</title>
-<meta name="description" content="Kairu makes AI responses up to 2× faster by guessing multiple words at once and verifying them in parallel. Open source, framework-agnostic, observable." />
+<title>kairu — prism</title>
+<meta name="description" content="kairu evaluation prism — one response, eight independent readings." />
 <style>
   :root {
-    --bg: #06070c;
-    --bg-2: #0c0e16;
-    --bg-3: #11141f;
-    --panel: #131826;
-    --panel-2: #181d2f;
-    --line: rgba(255,255,255,0.07);
-    --line-2: rgba(255,255,255,0.14);
+    --bg: #06060f;
+    --bg-1: #0a0a16;
+    --bg-2: #11111e;
+    --line: rgba(255,255,255,0.06);
+    --line-2: rgba(255,255,255,0.12);
     --text: #ecf0fa;
-    --muted: #8c93ab;
-    --dim: #5b6275;
-    --cyan: #4cd6e6;
-    --magenta: #d36cff;
-    --gold: #f3c969;
-    --green: #62e6a0;
-    --red: #ff7686;
-    --grad: linear-gradient(135deg,#4cd6e6 0%,#d36cff 50%,#f3c969 100%);
-    --grad-warm: linear-gradient(135deg,#62e6a0 0%,#4cd6e6 100%);
-    --shadow: 0 30px 80px -30px rgba(76,214,230,.35);
-    --shadow-strong: 0 40px 100px -20px rgba(211,108,255,.35);
+    --muted: #6a708a;
+    --dim: #3f4258;
+    --hi: #f8f9ff;
+    --beam-helpfulness: #6BFF8E;
+    --beam-accuracy:    #9D6BFF;
+    --beam-safety:      #4FA8FF;
+    --beam-coherence:   #3DDDE6;
+    --beam-conciseness: #F5C84B;
+    --beam-creativity:  #FF6BD0;
+    --beam-groundedness:#5BFFD0;
+    --beam-tone:        #FF9466;
     --mono: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans: -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
+  html, body { margin: 0; padding: 0; height: 100%; }
   body {
-    font: 16px/1.65 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
+    font: 15px/1.6 var(--sans);
     color: var(--text);
-    background:
-      radial-gradient(ellipse 90% 60% at 50% 0%, rgba(76,214,230,.12) 0%, transparent 60%),
-      radial-gradient(ellipse 70% 50% at 80% 30%, rgba(211,108,255,.10) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 40% at 10% 70%, rgba(243,201,105,.06) 0%, transparent 60%),
-      var(--bg);
+    background: var(--bg);
     min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
   }
-  a { color: var(--cyan); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  code, pre { font-family: var(--mono); }
-  ::selection { background: rgba(76,214,230,.4); color: #fff; }
+  ::selection { background: rgba(255,255,255,.18); color: var(--hi); }
 
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
-
-  /* ───── nav ───── */
-  nav {
-    position: sticky; top: 0; z-index: 100;
-    backdrop-filter: blur(14px);
-    background: rgba(6,7,12,.7);
-    border-bottom: 1px solid var(--line);
-  }
-  nav .inner {
+  /* ── chrome ────────────────────────────────────────────────────────── */
+  header {
+    position: fixed; top: 0; left: 0; right: 0;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+    padding: 22px 32px; z-index: 50;
+    pointer-events: none;
   }
-  .logo {
-    display: flex; align-items: center; gap: 12px;
-    font-weight: 700; font-size: 17px; letter-spacing: -.01em;
+  .mark {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .14em;
+    color: var(--muted);
+    pointer-events: auto;
   }
-  .logo .glyph {
-    width: 30px; height: 30px; border-radius: 8px;
-    background: var(--grad); display: grid; place-items: center;
-    color: #07080d; font-size: 16px; font-weight: 800;
-    box-shadow: 0 4px 16px -4px rgba(76,214,230,.6);
-  }
-  nav .links { display: flex; gap: 24px; font-size: 14px; }
-  nav .links a { color: var(--muted); }
-  nav .links a:hover { color: var(--text); text-decoration: none; }
+  .mark b { color: var(--hi); font-weight: 600; }
 
-  /* ───── hero ───── */
-  .hero { padding: 110px 0 60px; text-align: center; }
-  .badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 14px; border: 1px solid var(--line-2);
-    border-radius: 999px; font-size: 12px; color: var(--muted);
-    background: rgba(255,255,255,.02);
-  }
-  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
-
-  h1.hero-title {
-    font-size: clamp(72px, 12vw, 160px); line-height: .95; margin: 28px 0 18px;
-    letter-spacing: -.05em; font-weight: 900;
-    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
-    text-shadow: 0 0 80px rgba(76,214,230,.2);
-  }
-  .tagline {
-    font-size: clamp(20px, 2.4vw, 30px); color: var(--text); max-width: 780px;
-    margin: 0 auto 14px; line-height: 1.35; font-weight: 500;
-    letter-spacing: -.01em;
-  }
-  .tagline .em {
-    background: var(--grad-warm); -webkit-background-clip: text; background-clip: text; color: transparent;
-    font-weight: 700;
-  }
-  .subtag {
-    color: var(--muted); font-size: 16px; max-width: 600px; margin: 0 auto 36px;
-  }
-  .cta { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 14px 26px; border-radius: 12px;
-    font-weight: 600; font-size: 15px; cursor: pointer; border: none;
-    transition: transform .15s, box-shadow .15s;
-    font-family: inherit;
-  }
-  .btn:hover { transform: translateY(-2px); text-decoration: none; }
-  .btn-primary { background: var(--grad); color: #07080d; box-shadow: var(--shadow); }
-  .btn-primary:hover { box-shadow: var(--shadow-strong); }
-  .btn-ghost { border: 1px solid var(--line-2); color: var(--text); background: rgba(255,255,255,.02); }
-  .btn-ghost:hover { border-color: var(--cyan); }
-
-  /* ───── sections ───── */
-  section { padding: 80px 0; }
-  .eyebrow {
-    text-transform: uppercase; letter-spacing: .18em; font-size: 12px;
-    color: var(--cyan); font-weight: 600; margin-bottom: 14px;
-  }
-  h2 {
-    font-size: clamp(30px, 3.6vw, 42px); margin: 0 0 14px;
-    letter-spacing: -.02em; line-height: 1.15; font-weight: 700;
-  }
-  .section-lede { color: var(--muted); font-size: 17px; max-width: 680px; margin-bottom: 40px; }
-  .center { text-align: center; }
-  .center .section-lede { margin-left: auto; margin-right: auto; }
-
-  /* ───── RACE — the showcase ───── */
-  .race-wrap {
-    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+  .pill-group {
+    display: flex; gap: 0;
+    background: rgba(255,255,255,.03);
     border: 1px solid var(--line);
-    border-radius: 24px;
-    padding: 36px;
-    box-shadow: var(--shadow);
+    border-radius: 999px;
+    padding: 4px;
+    pointer-events: auto;
   }
-  .race-controls { display: flex; justify-content: center; align-items: center; gap: 18px; margin-bottom: 32px; flex-wrap: wrap; }
-  .race-btn {
-    background: var(--grad); color: #07080d; padding: 14px 28px; border-radius: 12px;
-    font-weight: 700; font-size: 15px; border: none; cursor: pointer;
-    box-shadow: var(--shadow); transition: transform .15s;
-    display: inline-flex; align-items: center; gap: 10px;
-    font-family: inherit;
+  .pill {
+    background: transparent;
+    color: var(--muted);
+    border: 0;
+    font: 11px/1 var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all .25s ease;
   }
-  .race-btn:hover { transform: translateY(-2px); }
-  .race-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
-  .race-btn .play { width: 14px; height: 14px; }
+  .pill:hover { color: var(--text); }
+  .pill.active {
+    background: rgba(255,255,255,.08);
+    color: var(--hi);
+  }
 
-  .race-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .runner {
-    background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px; padding: 22px;
-    position: relative; overflow: hidden;
+  /* ── stage ─────────────────────────────────────────────────────────── */
+  main {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 24px 40px;
+    gap: 24px;
   }
-  .runner.kairu { border-color: rgba(76,214,230,.35); box-shadow: 0 0 30px -10px rgba(76,214,230,.4); }
-  .runner.standard { border-color: rgba(255,255,255,0.1); }
-  .runner-head {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 14px;
-  }
-  .runner-label {
-    display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px;
-  }
-  .runner-label .pip {
-    width: 10px; height: 10px; border-radius: 50%;
-  }
-  .runner.standard .pip { background: var(--muted); }
-  .runner.kairu .pip { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
-  .runner-clock {
-    font-family: var(--mono); font-size: 14px; color: var(--gold);
-    background: rgba(243,201,105,.08); padding: 4px 10px; border-radius: 6px;
-    min-width: 80px; text-align: center;
-  }
-  .runner-text {
-    font-family: ui-serif, Georgia, "Times New Roman", serif;
-    font-size: 17px; line-height: 1.7; color: var(--text);
-    min-height: 168px;
-    background: var(--bg-3); padding: 16px 18px; border-radius: 10px;
-    border: 1px solid var(--line);
-  }
-  .runner-text .caret {
-    display: inline-block; width: 8px; height: 18px;
-    background: var(--cyan); margin-left: 2px; vertical-align: middle;
-    animation: blink 1s infinite;
-  }
-  .runner.standard .runner-text .caret { background: var(--muted); }
-  @keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
-  .runner-text .burst {
-    background: linear-gradient(120deg, rgba(76,214,230,.2), rgba(211,108,255,.2));
-    border-radius: 4px; padding: 1px 2px;
-    animation: burstFade 1.2s ease-out forwards;
-  }
-  @keyframes burstFade {
-    0% { background: linear-gradient(120deg, rgba(76,214,230,.55), rgba(211,108,255,.55)); }
-    100% { background: transparent; }
-  }
-  .runner-text .reject {
-    text-decoration: line-through;
-    color: var(--red);
-    animation: rejectFade .8s ease-out forwards;
-  }
-  @keyframes rejectFade {
-    0% { color: #ff7686; opacity: 1; }
-    100% { opacity: .35; }
-  }
-  .runner-bar {
-    height: 4px; background: var(--bg-3); border-radius: 2px; margin-top: 14px;
-    overflow: hidden;
-  }
-  .runner-bar .fill { height: 100%; width: 0%; border-radius: 2px; transition: width .15s linear; }
-  .runner.standard .runner-bar .fill { background: var(--muted); }
-  .runner.kairu .runner-bar .fill { background: var(--grad); }
-
-  .race-result {
-    margin-top: 26px; text-align: center; min-height: 56px;
-    display: grid; place-items: center;
-  }
-  .race-result .verdict {
-    display: inline-flex; align-items: center; gap: 12px;
-    padding: 14px 24px; border-radius: 14px;
-    background: linear-gradient(120deg, rgba(98,230,160,.13), rgba(76,214,230,.13));
-    border: 1px solid rgba(98,230,160,.3);
-    font-size: 17px; font-weight: 600;
-    opacity: 0; transform: translateY(8px); transition: opacity .35s, transform .35s;
-  }
-  .race-result .verdict.show { opacity: 1; transform: none; }
-  .race-result .verdict .x { font-size: 28px; background: var(--grad-warm); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
-
-  /* ───── HOW IT WORKS in 3 STEPS ───── */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .step {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
-    padding: 28px; position: relative;
-    transition: border-color .25s, transform .25s;
-  }
-  .step:hover { border-color: var(--cyan); transform: translateY(-3px); }
-  .step .num {
-    width: 38px; height: 38px; border-radius: 10px;
-    background: linear-gradient(135deg, rgba(76,214,230,.18), rgba(211,108,255,.18));
-    display: grid; place-items: center;
-    font-weight: 700; color: var(--cyan); border: 1px solid rgba(76,214,230,.35);
-    margin-bottom: 18px;
-  }
-  .step h3 { margin: 0 0 8px; font-size: 19px; letter-spacing: -.01em; }
-  .step p { margin: 0 0 16px; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
-  .step-anim { background: var(--bg-3); border-radius: 10px; padding: 14px; height: 110px; display: grid; place-items: center; }
-  .step-anim svg { width: 100%; height: 100%; }
-
-  /* ───── SIMULATOR ───── */
-  .sim {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 22px;
-    padding: 36px;
-    display: grid; grid-template-columns: .9fr 1.1fr; gap: 36px;
-  }
-  .sim h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.01em; }
-  .sim p.desc { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
-  .controls .field { margin-bottom: 22px; }
-  .controls label {
-    display: flex; justify-content: space-between; align-items: baseline;
-    font-size: 14px; color: var(--text); margin-bottom: 8px;
-  }
-  .controls label .name { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-  .controls label .name .help {
-    width: 16px; height: 16px; border-radius: 50%;
-    background: rgba(255,255,255,.07); color: var(--muted);
-    font-size: 11px; display: inline-grid; place-items: center;
-    cursor: help; user-select: none; font-weight: 600;
-    border: 1px solid var(--line-2);
-    transition: background .15s, color .15s;
+  .stage {
     position: relative;
-  }
-  .controls label .name .help:hover { background: var(--cyan); color: #07080d; border-color: var(--cyan); }
-  .controls label .name .help[data-tip]:hover::after {
-    content: attr(data-tip);
-    position: absolute; left: 22px; top: -6px; z-index: 10;
-    background: #07080d; color: var(--text); padding: 8px 12px;
-    border-radius: 8px; font-size: 12px; font-weight: 400;
-    width: 240px; line-height: 1.45;
-    border: 1px solid var(--line-2); box-shadow: 0 12px 32px -10px rgba(0,0,0,.6);
-    white-space: normal;
-  }
-  .controls label .val { color: var(--gold); font-family: var(--mono); font-size: 15px; font-weight: 600; }
-  .controls input[type=range] {
-    width: 100%; -webkit-appearance: none; appearance: none;
-    height: 6px; background: var(--bg-3); border-radius: 3px; outline: none;
-  }
-  .controls input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 20px; height: 20px; border-radius: 50%;
-    background: var(--grad); cursor: pointer;
-    box-shadow: 0 0 0 4px rgba(76,214,230,.18);
-  }
-  .controls input[type=range]::-moz-range-thumb {
-    width: 20px; height: 20px; border-radius: 50%; border: none;
-    background: #4cd6e6; cursor: pointer;
-  }
-  .controls input[type=range]:disabled { opacity: .5; }
-
-  .quality-bar {
-    margin-top: 6px; height: 6px; background: var(--bg-3); border-radius: 3px; overflow: hidden;
-  }
-  .quality-bar .fill {
-    height: 100%; background: var(--grad-warm); transition: width .3s;
-  }
-  .quality-note { font-size: 12px; color: var(--muted); margin-top: 6px; }
-
-  .speedo-wrap { display: grid; place-items: center; padding: 10px; }
-  #speedo { width: 100%; max-width: 360px; height: 230px; }
-  .speedo-readout { text-align: center; margin-top: -20px; }
-  .speedo-readout .big {
-    font-size: 56px; font-weight: 800; letter-spacing: -.03em;
-    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  .speedo-readout .lbl { font-size: 13px; color: var(--muted); margin-top: -4px; text-transform: uppercase; letter-spacing: .12em; }
-
-  /* ───── EARLY EXIT VISUALIZATION ───── */
-  .ee-wrap {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
-    padding: 36px;
-  }
-  .ee-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 36px; align-items: center; }
-  .ee-text h3 { margin: 0 0 12px; font-size: 22px; letter-spacing: -.01em; }
-  .ee-text p { color: var(--muted); margin: 0 0 14px; font-size: 14.5px; }
-  .ee-text .stat-pill {
-    display: inline-block; padding: 10px 16px; border-radius: 999px;
-    background: rgba(98,230,160,.08); color: var(--green);
-    font-family: var(--mono); font-size: 13px;
-    border: 1px solid rgba(98,230,160,.25);
-  }
-  .ee-controls { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
-  .ee-btn {
-    background: var(--bg-3); border: 1px solid var(--line-2); color: var(--text);
-    padding: 9px 16px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 500;
-    font-family: inherit; transition: border-color .15s;
-  }
-  .ee-btn:hover { border-color: var(--cyan); }
-  .ee-svg-wrap { background: var(--bg-3); border-radius: 14px; padding: 20px; border: 1px solid var(--line); }
-  #ee-svg { width: 100%; height: 380px; display: block; }
-
-  /* ───── CLOCK COMPARISON / IMPACT ───── */
-  .impact-wrap {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: center;
-  }
-  .impact-text h2 { margin-top: 0; }
-  .impact-text p { color: var(--muted); font-size: 17px; margin: 0 0 12px; }
-  .impact-text strong { color: var(--text); }
-  .clocks {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
-    padding: 32px; display: grid; gap: 24px;
-  }
-  .clock-row {
-    display: grid; grid-template-columns: 110px 1fr auto; gap: 20px; align-items: center;
-  }
-  .clock-row .face {
-    width: 110px; height: 110px; border-radius: 50%;
-    border: 4px solid var(--line-2); position: relative;
-    background: radial-gradient(circle, var(--bg-3), var(--bg));
-  }
-  .clock-row.kairu .face { border-color: var(--cyan); box-shadow: 0 0 26px -4px rgba(76,214,230,.5); }
-  .clock-row .face .hand {
-    position: absolute; top: 50%; left: 50%;
-    width: 4px; height: 42px; transform-origin: 50% 100%;
-    border-radius: 2px;
-    transform: translate(-50%, -100%) rotate(0deg);
-  }
-  .clock-row.standard .face .hand { background: var(--muted); }
-  .clock-row.kairu .face .hand { background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
-  .clock-row .face .center {
-    position: absolute; top: 50%; left: 50%; width: 10px; height: 10px;
-    background: var(--text); border-radius: 50%;
-    transform: translate(-50%,-50%);
-  }
-  .clock-row .lbl { font-weight: 600; font-size: 16px; }
-  .clock-row .lbl small { display: block; color: var(--muted); font-weight: 400; font-size: 13px; margin-top: 2px; }
-  .clock-row .time {
-    font-family: var(--mono); font-size: 24px; font-weight: 700;
-  }
-  .clock-row.standard .time { color: var(--muted); }
-  .clock-row.kairu .time { color: var(--cyan); }
-  .clock-divider { height: 1px; background: var(--line); }
-  .clock-savings {
-    text-align: center; padding: 14px;
-    background: linear-gradient(120deg, rgba(98,230,160,.08), rgba(76,214,230,.08));
-    border-radius: 12px; border: 1px solid rgba(98,230,160,.2);
-    color: var(--green); font-weight: 600; font-size: 15px;
-  }
-
-  /* ───── live banner + LIVE/EST badges ───── */
-  .live-banner {
-    margin: 18px auto 0; max-width: 720px;
-    padding: 14px 18px; border-radius: 12px;
-    background: var(--bg-3); border: 1px solid var(--line-2);
-    display: flex; align-items: center; justify-content: center; gap: 14px;
-    font-size: 14px;
-  }
-  .live-banner.live { border-color: rgba(98,230,160,.45); background: linear-gradient(120deg, rgba(98,230,160,.08), rgba(76,214,230,.06)); }
-  .live-banner.offline { border-color: rgba(243,201,105,.35); background: rgba(243,201,105,.05); }
-  .live-banner .pip { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); }
-  .live-banner.live .pip { background: var(--green); box-shadow: 0 0 10px var(--green); }
-  .live-banner code { background: rgba(255,255,255,.05); padding: 3px 8px; border-radius: 5px; font-size: 13px; color: var(--cyan); }
-
-  .src-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 10.5px; font-family: var(--mono); font-weight: 700;
-    padding: 3px 8px; border-radius: 5px; vertical-align: middle;
-    text-transform: uppercase; letter-spacing: .08em;
-  }
-  .src-badge.live { background: rgba(98,230,160,.15); color: var(--green); border: 1px solid rgba(98,230,160,.4); }
-  .src-badge.est  { background: rgba(243,201,105,.12); color: var(--gold);  border: 1px solid rgba(243,201,105,.35); }
-  .src-badge .ddot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-
-  .derivation {
-    margin-top: 14px; padding: 12px 14px; background: var(--bg-3);
-    border-radius: 10px; border: 1px solid var(--line);
-    font-family: var(--mono); font-size: 11.5px; color: var(--muted); line-height: 1.7;
-    word-break: break-word;
-  }
-  .derivation .lbl { color: var(--cyan); font-weight: 700; }
-
-  /* ───── AutoProfile section ───── */
-  .ap-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 36px; }
-  .ap-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 32px; align-items: start; }
-  .ap-presets { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 22px; }
-  .ap-preset {
-    padding: 8px 14px; border-radius: 9px; cursor: pointer; font-size: 13px;
-    background: var(--bg-3); color: var(--text); border: 1px solid var(--line-2);
-    font-family: inherit; transition: all .15s;
-  }
-  .ap-preset:hover { border-color: var(--cyan); }
-  .ap-preset.active { background: linear-gradient(120deg, rgba(76,214,230,.18), rgba(211,108,255,.18)); border-color: var(--cyan); color: var(--text); }
-  .ap-form { display: grid; gap: 14px; }
-  .ap-form .row { display: grid; grid-template-columns: 130px 1fr; gap: 14px; align-items: center; }
-  .ap-form input[type=text], .ap-form input[type=number] {
-    background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 8px;
-    padding: 10px 12px; color: var(--text); font-family: inherit; font-size: 14px;
     width: 100%;
+    max-width: 1400px;
+    aspect-ratio: 2 / 1;
+    margin: 0 auto;
+    pointer-events: none;
   }
-  .ap-form input:focus { outline: none; border-color: var(--cyan); }
-  .ap-form .switch { display: flex; gap: 8px; }
-  .ap-form .switch label {
-    flex: 1; padding: 9px 12px; background: var(--bg-3); border: 1px solid var(--line-2);
-    border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px;
-    transition: all .15s;
+  .stage svg { width: 100%; height: 100%; display: block; }
+
+  /* The whole prism group rotates idly; click triggers a separate flash. */
+  .prism-group {
+    transform-origin: 700px 350px;
+    animation: prism-idle 22s linear infinite;
   }
-  .ap-form .switch input { display: none; }
-  .ap-form .switch input:checked + span { color: var(--cyan); }
-  .ap-form .switch label:has(input:checked) { border-color: var(--cyan); background: rgba(76,214,230,.08); }
-  .ap-result {
-    background: var(--bg-3); border: 1px solid var(--line); border-radius: 14px;
-    padding: 22px; min-height: 220px;
+  @keyframes prism-idle {
+    0%   { transform: rotate(-2deg); }
+    50%  { transform: rotate(2deg); }
+    100% { transform: rotate(-2deg); }
   }
-  .ap-result .strategy {
-    font-size: 28px; font-weight: 700; letter-spacing: -.01em;
-    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  .prism-group.flashing { animation: prism-flash .9s cubic-bezier(.4,.1,.4,1); }
+  @keyframes prism-flash {
+    0%   { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: scale(1) rotate(-2deg); }
+    20%  { filter: drop-shadow(0 0 28px rgba(255,255,255,.8)) drop-shadow(0 0 60px rgba(255,255,255,.4)); transform: scale(1.04) rotate(0deg); }
+    100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); transform: scale(1) rotate(-2deg); }
+  }
+
+  /* ── incident beam pulses faintly while idle ───────────────────────── */
+  .incident { animation: incident-pulse 4s ease-in-out infinite; }
+  @keyframes incident-pulse {
+    0%, 100% { opacity: .55; }
+    50%      { opacity: .9; }
+  }
+
+  /* ── outgoing beams ────────────────────────────────────────────────── */
+  .beam {
+    transition: opacity .9s cubic-bezier(.2,.8,.2,1),
+                stroke-width .9s cubic-bezier(.2,.8,.2,1);
+    pointer-events: stroke;
+    cursor: pointer;
+  }
+  .beam.unlit { opacity: .12; }
+  .beam.lit   { opacity: var(--beam-opacity, .95); }
+  .beam-reveal { animation: beam-reveal 1s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes beam-reveal {
+    0%   { stroke-dasharray: 0 1200; opacity: 0; }
+    40%  { opacity: 1; }
+    100% { stroke-dasharray: 1200 0; opacity: var(--beam-opacity, .95); }
+  }
+  .beam-pair-b { stroke-dasharray: 6 5; }
+
+  /* ── input panels ──────────────────────────────────────────────────── */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    pointer-events: auto;
+  }
+  .panels.ab { grid-template-columns: 1fr 1fr 1fr; }
+  .panel {
+    position: relative;
+    background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.01));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 18px;
+    transition: border-color .3s ease, background .3s ease;
+  }
+  .panel:focus-within {
+    border-color: var(--line-2);
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
+  }
+  .panel textarea {
+    width: 100%;
+    min-height: 92px;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    resize: vertical;
+    color: var(--text);
+    font: 14px/1.55 var(--sans);
+    caret-color: var(--hi);
+  }
+  .panel textarea::placeholder { color: var(--dim); }
+  .panel-tag {
+    position: absolute;
+    top: 10px; right: 14px;
+    font: 10px/1 var(--mono);
+    letter-spacing: .14em;
+    color: var(--dim);
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+  .panel.b-panel { border-color: rgba(255,255,255,.04); }
+
+  /* ── controls ──────────────────────────────────────────────────────── */
+  .controls {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    pointer-events: auto;
+  }
+  .hint {
+    font: 11px/1 var(--mono);
+    letter-spacing: .14em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+  .hint b { color: var(--muted); font-weight: 500; }
+  .winner-badge {
+    font: 11px/1 var(--mono);
+    letter-spacing: .14em;
+    color: var(--muted);
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity .4s ease;
+  }
+  .winner-badge.show { opacity: 1; }
+  .winner-badge b { color: var(--hi); font-weight: 600; }
+
+  /* ── tooltip ───────────────────────────────────────────────────────── */
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: rgba(8,8,16,.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font: 13px/1.45 var(--sans);
+    color: var(--text);
+    max-width: 280px;
+    opacity: 0;
+    transform: translate(0, -50%) translateX(14px);
+    transition: opacity .15s ease;
+    z-index: 90;
+    box-shadow: 0 8px 36px -8px rgba(0,0,0,.7);
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip-name {
+    font: 11px/1 var(--mono);
+    letter-spacing: .14em;
+    text-transform: uppercase;
     margin-bottom: 6px;
   }
-  .ap-result .meta {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0;
+  .tooltip-score {
+    font: 28px/1 var(--mono);
+    color: var(--hi);
+    margin-bottom: 6px;
   }
-  .ap-result .meta .cell {
-    background: var(--bg-2); padding: 10px 12px; border-radius: 8px;
-    border: 1px solid var(--line);
+  .tooltip-score .ab-split {
+    font-size: 14px;
+    color: var(--muted);
+    display: block;
+    margin-top: 4px;
   }
-  .ap-result .meta .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
-  .ap-result .meta .v { font-size: 16px; font-weight: 700; color: var(--text); margin-top: 2px; font-family: var(--mono); }
-  .ap-result .rationale {
-    color: var(--muted); font-size: 14px; line-height: 1.6;
-    padding: 14px; background: var(--bg-2); border-radius: 10px; border-left: 3px solid var(--cyan);
-    font-family: var(--mono);
-  }
-  .ap-result .src { margin-top: 14px; font-size: 11px; color: var(--dim); font-family: var(--mono); }
+  .tooltip-desc { color: var(--muted); font-size: 12px; }
 
-  /* ───── feature cards ───── */
-  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .card {
-    padding: 26px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    transition: border-color .2s, transform .2s;
-    position: relative;
-    overflow: hidden;
+  /* ── error banner ──────────────────────────────────────────────────── */
+  .err {
+    width: 100%; max-width: 1280px; margin: 0 auto;
+    color: #ff7686; font: 12px/1.5 var(--mono);
+    text-align: center;
+    min-height: 16px;
   }
-  .card::before {
-    content: ""; position: absolute; inset: 0;
-    background: radial-gradient(circle at 20% 0%, rgba(76,214,230,.08), transparent 50%);
-    pointer-events: none; opacity: 0; transition: opacity .25s;
-  }
-  .card:hover { border-color: var(--line-2); transform: translateY(-3px); }
-  .card:hover::before { opacity: 1; }
-  .card .icon {
-    width: 42px; height: 42px; border-radius: 10px;
-    background: linear-gradient(135deg, rgba(76,214,230,.18), rgba(211,108,255,.18));
-    display: grid; place-items: center; margin-bottom: 18px;
-    border: 1px solid var(--line-2);
-  }
-  .card h3 { margin: 0 0 8px; font-size: 17px; letter-spacing: -.01em; }
-  .card .plain { color: var(--text); font-size: 14.5px; margin: 0 0 8px; line-height: 1.55; }
-  .card .tech { color: var(--muted); font-size: 12.5px; margin: 0; line-height: 1.5; font-family: var(--mono); }
 
-  /* ───── footer ───── */
-  footer {
-    border-top: 1px solid var(--line);
-    padding: 40px 0 36px; margin-top: 40px;
-    color: var(--muted); font-size: 13px;
-  }
-  footer .row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; }
-  footer .row .word { font-family: var(--mono); color: var(--dim); letter-spacing: .04em; }
-
+  /* ── responsive ────────────────────────────────────────────────────── */
   @media (max-width: 880px) {
-    .sim, .ee-grid, .impact-wrap, .race-grid { grid-template-columns: 1fr; }
-    .features, .steps { grid-template-columns: 1fr; }
-    nav .links { display: none; }
-    h1.hero-title { font-size: 64px; }
-    section { padding: 56px 0; }
-  }
-
-  /* ════════════════════════════════════════════════════════════════════
-     PRISM — 3D centerpiece, particles, halos, beams, floor shadows
-     ════════════════════════════════════════════════════════════════════ */
-  #prism { padding-top: 96px; padding-bottom: 96px; }
-  .prism-stage {
-    position: relative;
-    margin: 40px 0 0;
-    height: 560px;
-    perspective: 1100px;
-    perspective-origin: 35% 45%;
-    border-radius: 24px;
-    background:
-      radial-gradient(ellipse 90% 60% at 70% 110%, rgba(124,58,237,.15), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 25% 10%, rgba(76,214,230,.12), transparent 60%),
-      linear-gradient(180deg, rgba(7,8,13,.4) 0%, rgba(7,8,13,.85) 100%);
-    border: 1px solid var(--line);
-    overflow: hidden;
-  }
-  .prism-stage::before {
-    /* floor — receives the colored beam shadows */
-    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 38%;
-    background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,.025) 100%);
-    pointer-events: none;
-  }
-  .prism-floor {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    width: 100%; height: 38%;
-    pointer-events: none;
-  }
-  .prism-particles {
-    position: absolute; inset: 0; pointer-events: none;
-  }
-
-  /* ── Tilt wrapper holds mouse-driven parallax (no infinite anim) ── */
-  .prism-tilt {
-    position: absolute; left: 50%; top: 48%;
-    width: 240px; height: 240px;
-    transform: translate(-50%, -50%);
-    transform-style: preserve-3d;
-    transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1);
-    will-change: transform;
-  }
-  /* ── Spin wrapper carries the steady Y-axis rotation ── */
-  .prism-spin {
-    width: 100%; height: 100%;
-    transform-style: preserve-3d;
-    animation: rotatePrism 30s linear infinite;
-  }
-  .prism-tilt:hover .prism-spin { animation-play-state: paused; }
-  @keyframes rotatePrism {
-    0%   { transform: rotateY(0deg)   rotateX(-8deg); }
-    100% { transform: rotateY(360deg) rotateX(-8deg); }
-  }
-
-  /* triangular-prism faces. 3 rectangular side faces (120° apart) + top/bottom caps */
-  .prism-face {
-    position: absolute; inset: 0;
-    transform-style: preserve-3d;
-    backface-visibility: visible;
-  }
-  .prism-side {
-    width: 240px; height: 240px;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.02) 100%),
-      conic-gradient(from 220deg at 50% 50%,
-        hsla(280,90%,65%,.18), hsla(200,90%,65%,.18),
-        hsla(160,90%,65%,.18), hsla(50,90%,65%,.18),
-        hsla(0,90%,65%,.18), hsla(280,90%,65%,.18));
-    border: 1px solid rgba(255,255,255,.18);
-    box-shadow:
-      inset 0 0 60px rgba(124,58,237,.18),
-      0 0 24px rgba(76,214,230,.12);
-    backdrop-filter: blur(2px) saturate(140%);
-  }
-  .prism-side.s1 { transform: rotateY(  0deg) translateZ(70px); }
-  .prism-side.s2 { transform: rotateY(120deg) translateZ(70px); }
-  .prism-side.s3 { transform: rotateY(240deg) translateZ(70px); }
-
-  /* Top / bottom caps: triangle via clip-path */
-  .prism-cap {
-    width: 240px; height: 240px;
-    background: linear-gradient(135deg, rgba(124,58,237,.25), rgba(76,214,230,.18));
-    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-    border: 1px solid rgba(255,255,255,.22);
-    box-shadow: inset 0 0 30px rgba(255,255,255,.08);
-  }
-  .prism-cap.top    { transform: rotateX( 90deg) translateZ(120px); }
-  .prism-cap.bottom { transform: rotateX(-90deg) translateZ(120px) rotate(180deg); }
-
-  /* SVG halos rendered on a 2D plane that follows the prism rotation */
-  .prism-halos {
-    position: absolute; left: 50%; top: 50%;
-    width: 260px; height: 260px;
-    transform: translate(-50%,-50%);
-    pointer-events: none;
-    overflow: visible;
-    filter: drop-shadow(0 0 8px rgba(255,255,255,.15));
-  }
-  .halo-edge {
-    fill: none; stroke-width: 3; stroke-linecap: round;
-    animation: haloBreath 2.6s ease-in-out infinite;
-  }
-  .halo-edge.e2 { animation-delay: -0.7s; }
-  .halo-edge.e3 { animation-delay: -1.4s; }
-  @keyframes haloBreath {
-    0%, 100% { opacity: .25; filter: blur(4px); }
-    50%      { opacity: .85; filter: blur(2px); }
-  }
-
-  /* ── 8 spectral output beams to the right of the prism ── */
-  .prism-beams {
-    position: absolute; right: 0; top: 0; bottom: 0; width: 50%;
-    display: flex; flex-direction: column; justify-content: center;
-    gap: 18px; padding: 36px 36px 36px 0;
-  }
-  .beam {
-    display: grid;
-    grid-template-columns: 1fr 110px; align-items: center;
-    gap: 14px; height: 30px;
-    opacity: 0; transform: translateX(-12px);
-    animation: beamReveal 700ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
-  }
-  @keyframes beamReveal {
-    0%   { opacity: 0; transform: translateX(-12px) scaleX(0); transform-origin: left; }
-    60%  { opacity: 1; }
-    100% { opacity: 1; transform: translateX(0)    scaleX(1); transform-origin: left; }
-  }
-  .beam-line {
-    position: relative;
-    height: 6px; border-radius: 99px;
-    background: linear-gradient(90deg,
-      hsla(var(--hue), 95%, 70%, 0) 0%,
-      hsla(var(--hue), 95%, 70%, .28) 12%,
-      hsl(var(--hue), 100%, 65%) 60%,
-      hsl(var(--hue), 100%, 78%) 100%);
-    box-shadow:
-      0 0 12px hsla(var(--hue), 100%, 60%, .55),
-      0 0 28px hsla(var(--hue), 100%, 60%, .25);
-    transform-origin: left center;
-    transition: filter 200ms;
-  }
-  .beam-line::after {
-    /* glowing terminus dot */
-    content: "";
-    position: absolute; right: -6px; top: 50%;
-    width: 14px; height: 14px;
-    transform: translateY(-50%);
-    border-radius: 50%;
-    background: hsl(var(--hue), 100%, 80%);
-    box-shadow:
-      0 0 14px hsl(var(--hue), 100%, 65%),
-      0 0 28px hsla(var(--hue), 100%, 60%, .6);
-  }
-  .beam-meta { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
-  .beam-name { font-size: 11px; font-family: var(--mono); letter-spacing: .12em; color: var(--muted); }
-  .beam-score {
-    font-size: 14px; font-weight: 700; font-family: var(--mono);
-    color: hsl(var(--hue), 100%, 80%);
-    text-shadow: 0 0 10px hsla(var(--hue), 100%, 60%, .4);
-  }
-  .beam:hover .beam-line { filter: brightness(1.3) saturate(1.2); }
-
-  /* Score panel below the prism — explains what each beam represents */
-  .prism-legend {
-    margin-top: 22px;
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-  }
-  .prism-legend .lcell {
-    padding: 12px 14px; border-radius: 10px;
-    background: rgba(255,255,255,.025);
-    border: 1px solid var(--line);
-    font-size: 12.5px; line-height: 1.45;
-  }
-  .prism-legend .lcell .ldot {
-    display: inline-block; width: 9px; height: 9px;
-    border-radius: 50%; margin-right: 7px; vertical-align: 1px;
-    background: hsl(var(--hue), 100%, 65%);
-    box-shadow: 0 0 8px hsl(var(--hue), 100%, 60%);
-  }
-  .prism-legend .lcell .lname { color: var(--text); font-weight: 700; font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; }
-  .prism-legend .lcell .ldesc { color: var(--muted); }
-
-  @media (max-width: 880px) {
-    .prism-stage { height: 460px; }
-    .prism-tilt { left: 35%; }
-    .prism-beams { padding-right: 18px; gap: 10px; }
-    .prism-legend { grid-template-columns: 1fr 1fr; }
-  }
-
-  /* ── Glass-morphism applied to AutoProfile + simulator inputs ── */
-  .ap-form input[type=text],
-  .ap-form input[type=number],
-  .ap-form textarea {
-    background: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    backdrop-filter: blur(12px) saturate(150%);
-    -webkit-backdrop-filter: blur(12px) saturate(150%);
-    transition: border-color 200ms, box-shadow 200ms, background 200ms;
-  }
-  .ap-form input[type=text]:focus,
-  .ap-form input[type=number]:focus,
-  .ap-form textarea:focus {
-    border-color: rgba(124, 58, 237, 0.6) !important;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
-    background: rgba(255, 255, 255, 0.06) !important;
-  }
-
-  /* ── Clip-path morph on AutoProfile meta cells when strategy flips ── */
-  .ap-result .meta .cell {
-    transition:
-      clip-path 420ms cubic-bezier(0.23, 1, 0.32, 1),
-      background 420ms,
-      border-color 420ms;
-    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-  }
-  .ap-result .meta .cell.morph {
-    /* hexagon-ish notch corners during the morph instant */
-    clip-path: polygon(8% 0%, 100% 0%, 100% 92%, 92% 100%, 0% 100%, 0% 8%);
+    main { padding-top: 76px; }
+    .stage { aspect-ratio: 4 / 3; }
+    .panels, .panels.ab { grid-template-columns: 1fr; }
   }
 </style>
 </head>
+
 <body>
 
-<nav>
-  <div class="inner">
-    <div class="logo"><div class="glyph">流</div> kairu</div>
-    <div class="links">
-      <a href="#race">race</a>
-      <a href="#how">how it works</a>
-      <a href="#simulator">simulator</a>
-      <a href="#autoprofile">autoprofile</a>
-      <a href="#exit">early exit</a>
-      <a href="#impact">impact</a>
-      <a href="https://github.com/konjoai/kairu">github</a>
-    </div>
-  </div>
-</nav>
-
-<!-- ─────────────────────────────────────── HERO ─────────────────────────────────────── -->
-<header class="hero wrap">
-  <div class="badge"><span class="dot"></span> v0.5.0 · open source · 112 tests passing</div>
-  <h1 class="hero-title">Kairu</h1>
-  <p class="tagline">
-    Make AI responses <span class="em">2× faster</span> by generating
-    <span class="em">multiple words at once.</span>
-  </p>
-  <p class="subtag">
-    Kairu is a small, open-source library that speeds up large language models. It guesses ahead,
-    verifies in parallel, and stops thinking the moment it is confident — so your users wait less.
-  </p>
-  <div class="cta">
-    <a href="#race" class="btn btn-primary">▶  Watch the race</a>
-    <a href="https://github.com/konjoai/kairu" class="btn btn-ghost">View on GitHub</a>
-  </div>
-  <div class="live-banner offline" id="live-banner">
-    <span class="pip"></span>
-    <span id="live-text">
-      Static mode — for live numbers from the real library, run
-      <code>python demo/server.py</code> from the repo root, then open
-      <code>http://127.0.0.1:7777/</code>.
-    </span>
+<header>
+  <div class="mark">流 &nbsp; <b>kairu</b> &nbsp;·&nbsp; prism</div>
+  <div class="pill-group" role="tablist" aria-label="evaluation mode">
+    <button class="pill active" data-mode="single" type="button">single</button>
+    <button class="pill"        data-mode="ab"     type="button">a / b</button>
   </div>
 </header>
 
-<!-- ─────────────────────────────────────── PRISM ─────────────────────────────────────── -->
-<section id="prism" class="wrap">
-  <div class="center">
-    <div class="eyebrow">流 · spectral decomposition</div>
-    <h2>One input. Eight optimization passes. One unified spectrum.</h2>
-    <p class="section-lede">
-      White light enters from the upper left. The prism splits it into eight beams — one per
-      kairu primitive — and each beam's brightness is its measured contribution. Hover the
-      prism to pause the rotation. Move your cursor inside the stage to tilt it.
-    </p>
+<main>
+  <div class="stage" id="stage" aria-label="evaluation prism — click the prism to evaluate">
+    <svg viewBox="0 0 1400 700" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <!-- prism body gradient — dark glass -->
+        <linearGradient id="prismFill" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0"   stop-color="#1a1c2c" stop-opacity=".95"/>
+          <stop offset="1"   stop-color="#0c0d18" stop-opacity=".95"/>
+        </linearGradient>
+        <!-- prism rim glow -->
+        <linearGradient id="prismRim" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0"   stop-color="rgba(255,255,255,.7)"/>
+          <stop offset="1"   stop-color="rgba(255,255,255,.18)"/>
+        </linearGradient>
+        <!-- inner highlight on the top-left face of the prism -->
+        <linearGradient id="prismFace" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0"   stop-color="rgba(255,255,255,.30)"/>
+          <stop offset="1"   stop-color="rgba(255,255,255,0)"/>
+        </linearGradient>
+        <!-- generic glow filter for beams (color set per-beam via stroke) -->
+        <filter id="beamGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <filter id="incidentGlow" x="-10%" y="-200%" width="120%" height="500%">
+          <feGaussianBlur stdDeviation="2.5"/>
+        </filter>
+      </defs>
+
+      <!-- incident beam: white light entering from the left -->
+      <g class="incident">
+        <line x1="0" y1="350" x2="540" y2="350"
+              stroke="rgba(255,255,255,.55)" stroke-width="2.5"
+              filter="url(#incidentGlow)"/>
+        <line x1="0" y1="350" x2="540" y2="350"
+              stroke="rgba(255,255,255,.95)" stroke-width="1.2"/>
+      </g>
+
+      <!-- prism (rotates idly via the .prism-group class) -->
+      <g class="prism-group" id="prismGroup">
+        <!-- soft halo behind the prism -->
+        <circle cx="700" cy="350" r="220" fill="rgba(255,255,255,.04)"/>
+        <!-- main triangle, apex up — Floyd-style -->
+        <polygon points="700,180 540,500 860,500"
+                 fill="url(#prismFill)" stroke="url(#prismRim)" stroke-width="1.5"/>
+        <!-- inner left-face highlight, suggesting volume -->
+        <polygon points="700,180 540,500 700,500"
+                 fill="url(#prismFace)" opacity=".55"/>
+      </g>
+
+      <!-- outgoing beams (8) — populated by JS so geometry stays in one place -->
+      <g id="beamsA"></g>
+      <g id="beamsB" style="display:none"></g>
+    </svg>
   </div>
 
-  <div class="prism-stage" id="prism-stage">
-    <canvas class="prism-floor" id="prism-floor" width="1000" height="220"></canvas>
-    <canvas class="prism-particles" id="prism-particles" width="1200" height="560"></canvas>
-
-    <div class="prism-tilt" id="prism-tilt">
-      <div class="prism-spin" id="prism-spin">
-        <div class="prism-face prism-side s1"></div>
-        <div class="prism-face prism-side s2"></div>
-        <div class="prism-face prism-side s3"></div>
-        <div class="prism-face prism-cap top"></div>
-        <div class="prism-face prism-cap bottom"></div>
-      </div>
-
-      <svg class="prism-halos" viewBox="-130 -130 260 260" aria-hidden="true">
-        <defs>
-          <linearGradient id="haloRainbow" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"   stop-color="hsl(0,100%,65%)"/>
-            <stop offset="14%"  stop-color="hsl(40,100%,60%)"/>
-            <stop offset="28%"  stop-color="hsl(70,100%,55%)"/>
-            <stop offset="42%"  stop-color="hsl(140,100%,55%)"/>
-            <stop offset="56%"  stop-color="hsl(190,100%,60%)"/>
-            <stop offset="70%"  stop-color="hsl(220,100%,65%)"/>
-            <stop offset="84%"  stop-color="hsl(270,100%,70%)"/>
-            <stop offset="100%" stop-color="hsl(320,100%,70%)"/>
-          </linearGradient>
-        </defs>
-        <!-- 3 edges of the visible-front prism — each a curved arc with the rainbow gradient -->
-        <path class="halo-edge e1" d="M -110 70 Q 0 -130 110 70" stroke="url(#haloRainbow)"/>
-        <path class="halo-edge e2" d="M -110 70 L 110 70"        stroke="url(#haloRainbow)"/>
-        <path class="halo-edge e3" d="M 0 -130 L 0 70"            stroke="url(#haloRainbow)" opacity=".55"/>
-      </svg>
+  <div class="panels" id="panels">
+    <div class="panel">
+      <span class="panel-tag">prompt</span>
+      <textarea id="promptInput" rows="3"
+                placeholder="ask anything — what is the global interpreter lock, write a haiku about the moon, explain why the sky is blue..."></textarea>
     </div>
-
-    <div class="prism-beams" id="prism-beams"></div>
-  </div>
-
-  <div class="prism-legend">
-    <div class="lcell" style="--hue:0">  <span class="ldot"></span><span class="lname">SPECULATIVE</span><br><span class="ldesc">draft+verify; γ tokens at a time</span></div>
-    <div class="lcell" style="--hue:35"> <span class="ldot"></span><span class="lname">EARLY EXIT</span><br><span class="ldesc">stop when confident, skip layers</span></div>
-    <div class="lcell" style="--hue:55"> <span class="ldot"></span><span class="lname">KV CACHE</span><br><span class="ldesc">memoize logits across calls</span></div>
-    <div class="lcell" style="--hue:135"><span class="ldot"></span><span class="lname">GAMMA AIMD</span><br><span class="ldesc">grow / shrink lookahead live</span></div>
-    <div class="lcell" style="--hue:175"><span class="ldot"></span><span class="lname">AUTOPROFILE</span><br><span class="ldesc">strategy from model metadata</span></div>
-    <div class="lcell" style="--hue:215"><span class="ldot"></span><span class="lname">STREAMING</span><br><span class="ldesc">SSE token-by-token transport</span></div>
-    <div class="lcell" style="--hue:265"><span class="ldot"></span><span class="lname">METRICS</span><br><span class="ldesc">Prometheus exposition, native</span></div>
-    <div class="lcell" style="--hue:310"><span class="ldot"></span><span class="lname">RATE LIMIT</span><br><span class="ldesc">sliding window, in-mem or Redis</span></div>
-  </div>
-</section>
-
-<!-- ─────────────────────────────────────── RACE ─────────────────────────────────────── -->
-<section id="race" class="wrap">
-  <div class="center">
-    <div class="eyebrow">live demo</div>
-    <h2>See it live: standard AI vs. Kairu</h2>
-    <p class="section-lede">
-      Same model. Same prompt. Two ways of generating the answer. Hit <strong>Race</strong> and watch
-      Kairu pull ahead — words appear in bursts as the fast guesser predicts ahead and the main model
-      confirms.
-    </p>
-  </div>
-  <div class="race-wrap">
-    <div class="race-controls">
-      <button class="race-btn" id="race-go">
-        <svg class="play" viewBox="0 0 14 14" fill="currentColor"><path d="M3 1l9 6-9 6z"/></svg>
-        Race them
-      </button>
-      <button class="btn btn-ghost" id="race-reset">Reset</button>
+    <div class="panel" id="responseAPanel">
+      <span class="panel-tag">response</span>
+      <textarea id="responseAInput" rows="3"
+                placeholder="paste a model response — the prism will split it into eight readings."></textarea>
     </div>
-    <div class="race-grid">
-      <div class="runner standard">
-        <div class="runner-head">
-          <div class="runner-label"><span class="pip"></span> Standard generation</div>
-          <div class="runner-clock" id="clock-std">0.00 s</div>
-        </div>
-        <div class="runner-text" id="text-std"><span class="caret"></span></div>
-        <div class="runner-bar"><div class="fill" id="bar-std"></div></div>
-      </div>
-      <div class="runner kairu">
-        <div class="runner-head">
-          <div class="runner-label"><span class="pip"></span> Kairu (draft + verify)</div>
-          <div class="runner-clock" id="clock-kai">0.00 s</div>
-        </div>
-        <div class="runner-text" id="text-kai"><span class="caret"></span></div>
-        <div class="runner-bar"><div class="fill" id="bar-kai"></div></div>
-      </div>
-    </div>
-    <div class="race-result"><div class="verdict" id="verdict"></div></div>
-    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--muted)">
-      simulation source: <span class="src-badge est" id="race-src"><span class="ddot"></span>visual estimate</span>
-      <span id="race-source-detail" style="margin-left:6px;font-family:var(--mono)"></span>
+    <div class="panel b-panel" id="responseBPanel" style="display:none">
+      <span class="panel-tag">response b</span>
+      <textarea id="responseBInput" rows="3"
+                placeholder="paste a second response to compare — the brighter set of beams wins."></textarea>
     </div>
   </div>
-</section>
 
-<!-- ─────────────────────────────────────── HOW IT WORKS ─────────────────────────────────────── -->
-<section id="how" class="wrap">
-  <div class="center">
-    <div class="eyebrow">how it works</div>
-    <h2>Three steps. No magic.</h2>
-    <p class="section-lede">
-      The trick is splitting the work between two models — a small fast one that <em>guesses</em>
-      and a large slow one that <em>checks the guesses in one shot</em>.
-    </p>
+  <div class="controls">
+    <div class="hint"><b>click the prism</b> to split light · <span id="kbdHint">⌘ ↵</span></div>
+    <div class="winner-badge" id="winner"></div>
   </div>
+  <div class="err" id="err"></div>
+</main>
 
-  <div class="steps">
-    <div class="step">
-      <div class="num">1</div>
-      <h3>A fast guesser predicts ahead</h3>
-      <p>A small AI proposes the next 4 words it thinks will come — it is quick but not always right.</p>
-      <div class="step-anim"><svg id="step1" viewBox="0 0 240 80"></svg></div>
-    </div>
-    <div class="step">
-      <div class="num">2</div>
-      <h3>The main model checks all 4 at once</h3>
-      <p>Instead of generating one word at a time, the main model looks at the 4 guesses together — that is the speed-up.</p>
-      <div class="step-anim"><svg id="step2" viewBox="0 0 240 80"></svg></div>
-    </div>
-    <div class="step">
-      <div class="num">3</div>
-      <h3>Keep the good guesses, redo the rest</h3>
-      <p>Whatever the main model agrees with becomes part of the answer. Wrong guesses are tossed and re-rolled.</p>
-      <div class="step-anim"><svg id="step3" viewBox="0 0 240 80"></svg></div>
-    </div>
-  </div>
-</section>
-
-<!-- ─────────────────────────────────────── SIMULATOR ─────────────────────────────────────── -->
-<section id="simulator" class="wrap">
-  <div class="center">
-    <div class="eyebrow">interactive</div>
-    <h2>Tune the dials yourself</h2>
-    <p class="section-lede">
-      Move the sliders. Watch the speedometer swing and the answer-quality bar shift. Hover the
-      little <strong>?</strong> next to each name for a plain-English explanation.
-    </p>
-  </div>
-  <div class="sim">
-    <div class="controls">
-      <h3>Inputs</h3>
-      <p class="desc">Two knobs control the trade-off. The math behind them is simple — a closed-form curve from a 2023 paper.</p>
-
-      <div class="field">
-        <label>
-          <span class="name">
-            How often the guess is right
-            <span class="help" data-tip="The fraction of guesses the small model gets right. If the guesser is almost always correct, you save a lot of time. If it is rarely right, you mostly waste compute on bad guesses.">?</span>
-          </span>
-          <span class="val" id="rho-val">0.70</span>
-        </label>
-        <input type="range" id="rho" min="0" max="100" value="70" />
-      </div>
-
-      <div class="field">
-        <label>
-          <span class="name">
-            How many words to guess at once
-            <span class="help" data-tip="How many tokens the small model proposes per round. Bigger = more speedup if guesses are right, but more wasted work if they are wrong. The technical name for this is gamma (γ).">?</span>
-          </span>
-          <span class="val" id="gamma-val">4</span>
-        </label>
-        <input type="range" id="gamma" min="1" max="12" value="4" />
-      </div>
-
-      <div class="field">
-        <label>
-          <span class="name">
-            Answer quality
-            <span class="help" data-tip="Kairu provably keeps quality identical to the main model on its own — every accepted token follows the exact same probability distribution. The bar below reflects that mathematical guarantee.">?</span>
-          </span>
-          <span class="val" style="color:var(--green)">guaranteed identical</span>
-        </label>
-        <div class="quality-bar"><div class="fill" id="quality-fill" style="width:100%"></div></div>
-        <div class="quality-note">Speculative decoding does not change what the model would have said — only how fast it says it.</div>
-      </div>
-    </div>
-
-    <div>
-      <div class="speedo-wrap">
-        <svg id="speedo" viewBox="0 0 360 230"></svg>
-      </div>
-      <div class="speedo-readout">
-        <div class="big" id="speedo-num">2.43×</div>
-        <div class="lbl">expected speedup <span class="src-badge est" id="speedup-src"><span class="ddot"></span>estimated</span></div>
-      </div>
-      <div class="derivation" id="speedup-derivation">
-        <span class="lbl">formula:</span> (1 − ρ<sup>γ+1</sup>) / ((1 − ρ) · (1 + γ · (1 − ρ)))<br>
-        Run <code>python demo/server.py</code> to see the real per-step derivation from kairu.gamma_scheduler.
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─────────────────────────────────────── AUTOPROFILE ─────────────────────────────────────── -->
-<section id="autoprofile" class="wrap">
-  <div class="center">
-    <div class="eyebrow">smart defaults</div>
-    <h2>Tell Kairu about your model. It picks the rest.</h2>
-    <p class="section-lede">
-      Pick a preset or describe your own. The recommendation comes straight from
-      <code style="color:var(--cyan)">AutoProfile.recommend()</code> — same code path your inference server would call.
-    </p>
-  </div>
-  <div class="ap-wrap">
-    <div class="ap-grid">
-      <div>
-        <h3 style="margin:0 0 6px;font-size:18px">Describe your model</h3>
-        <p class="desc" style="color:var(--muted);font-size:14px;margin:0 0 10px;">
-          Try a preset, then tweak any field. The result updates instantly.
-        </p>
-        <div class="ap-presets">
-          <button class="ap-preset active" data-name="llama-3-70b" data-vocab="128000" data-draft="1" data-layered="0">llama-3-70b + draft</button>
-          <button class="ap-preset" data-name="qwen-2-7b" data-vocab="32000" data-draft="0" data-layered="0">qwen-2-7b solo</button>
-          <button class="ap-preset" data-name="kairu-mid" data-vocab="32000" data-draft="0" data-layered="1">layered mid-size</button>
-          <button class="ap-preset" data-name="tinyllama-draft" data-vocab="32000" data-draft="0" data-layered="0">tinyllama-draft</button>
-          <button class="ap-preset" data-name="custom" data-vocab="2000" data-draft="0" data-layered="0">tiny custom</button>
-        </div>
-        <div class="ap-form">
-          <div class="row"><label>name hint</label><input type="text" id="ap-name" value="llama-3-70b" /></div>
-          <div class="row"><label>vocab size</label><input type="number" id="ap-vocab" value="128000" min="500" max="500000" step="1000"/></div>
-          <div class="row"><label>has draft model</label>
-            <div class="switch">
-              <label><input type="radio" name="ap-draft" value="1" checked /><span>yes</span></label>
-              <label><input type="radio" name="ap-draft" value="0" /><span>no</span></label>
-            </div>
-          </div>
-          <div class="row"><label>per-layer logits</label>
-            <div class="switch">
-              <label><input type="radio" name="ap-layered" value="1" /><span>yes</span></label>
-              <label><input type="radio" name="ap-layered" value="0" checked /><span>no</span></label>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="ap-result" id="ap-result">
-        <div style="display:flex;align-items:baseline;gap:10px">
-          <div class="strategy" id="ap-strategy">speculative</div>
-          <span class="src-badge est" id="ap-src"><span class="ddot"></span>estimated</span>
-        </div>
-        <div style="color:var(--muted);font-size:13px">recommended decoder strategy</div>
-        <div class="meta" id="ap-meta"></div>
-        <div class="rationale" id="ap-rationale">Move the controls to see the live recommendation.</div>
-        <div class="src" id="ap-source">source: client-side mirror — start the server for live calls</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─────────────────────────────────────── EARLY EXIT ─────────────────────────────────────── -->
-<section id="exit" class="wrap">
-  <div class="center">
-    <div class="eyebrow">second trick</div>
-    <h2>Stop thinking when the answer is obvious</h2>
-    <p class="section-lede">
-      A modern AI processes every word through dozens of layers. But for easy words — like
-      finishing the phrase “New York City” after “New York” — the model is sure after just a few
-      layers. Kairu lets it stop early.
-    </p>
-  </div>
-
-  <div class="ee-wrap">
-    <div class="ee-grid">
-      <div class="ee-text">
-        <h3>How to read this</h3>
-        <p>Each rising column is one word being generated. It climbs through the layers of the
-          model. The moment its confidence crosses the green line, it lights up <strong>“done!”</strong>
-          and stops — saving every layer above.</p>
-        <p>Tap a column to see the per-token detail. Easy words exit at the bottom. Hard words climb
-          to the top.</p>
-        <p class="stat-pill" id="ee-stat">Click <em>Run again</em> to start the animation</p>
-        <div class="ee-controls">
-          <button class="ee-btn" id="ee-run">▶  Run again</button>
-          <button class="ee-btn" id="ee-toggle">Easy words</button>
-        </div>
-      </div>
-      <div class="ee-svg-wrap">
-        <svg id="ee-svg" viewBox="0 0 600 380"></svg>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─────────────────────────────────────── IMPACT / CLOCKS ─────────────────────────────────────── -->
-<section id="impact" class="wrap">
-  <div class="impact-wrap">
-    <div class="impact-text">
-      <div class="eyebrow">real-world impact</div>
-      <h2>Half the wait. Same answer.</h2>
-      <p>A 2× speedup is not abstract. If your AI assistant takes 6 seconds to answer a question
-        today, with Kairu it answers in <strong>3 seconds</strong> instead.</p>
-      <p>Across a million daily queries that is <strong>~830 hours</strong> of cumulative user wait
-        time saved every day — and a proportionally lower compute bill.</p>
-      <p style="color:var(--text)"><strong>Same model. Same response. Half the latency.</strong></p>
-    </div>
-    <div class="clocks">
-      <div class="clock-row standard">
-        <div class="face"><div class="hand" id="hand-std"></div><div class="center"></div></div>
-        <div class="lbl">Standard generation<small>one word at a time</small></div>
-        <div class="time" id="time-std">6.00 s</div>
-      </div>
-      <div class="clock-divider"></div>
-      <div class="clock-row kairu">
-        <div class="face"><div class="hand" id="hand-kai"></div><div class="center"></div></div>
-        <div class="lbl">Kairu<small>guess + verify, exit early</small></div>
-        <div class="time" id="time-kai">3.00 s</div>
-      </div>
-      <div class="clock-savings" id="savings">Saves 3.00 s per response — ~830 user-hours / day at 1M queries</div>
-    </div>
-  </div>
-</section>
-
-<!-- ─────────────────────────────────────── FEATURES ─────────────────────────────────────── -->
-<section class="wrap">
-  <div class="center">
-    <div class="eyebrow">what is in the box</div>
-    <h2>Six composable building blocks</h2>
-    <p class="section-lede">Use one. Use all six. Each one ships with tests, stats, and a documented API.</p>
-  </div>
-  <div class="features">
-    <div class="card">
-      <div class="icon">⚡</div>
-      <h3>Draft + verify</h3>
-      <p class="plain">Generate a guess with a small model, check it instantly with a big one. Most guesses are right — that is your speedup.</p>
-      <p class="tech">kairu.SpeculativeDecoder</p>
-    </div>
-    <div class="card">
-      <div class="icon">⏩</div>
-      <h3>Stop when confident</h3>
-      <p class="plain">Halt halfway through the model when the answer is already obvious. Easy words skip up to 60% of the work.</p>
-      <p class="tech">kairu.LayerwiseEarlyExitDecoder</p>
-    </div>
-    <div class="card">
-      <div class="icon">💾</div>
-      <h3>Remember answers</h3>
-      <p class="plain">Cache what the model already computed for a given prefix. The next request that starts the same way is instant.</p>
-      <p class="tech">kairu.LogitsCache · CachedModel</p>
-    </div>
-    <div class="card">
-      <div class="icon">🎯</div>
-      <h3>Auto-tune lookahead</h3>
-      <p class="plain">If the guesser is on a streak, guess further. If it is missing, pull back. Same idea as TCP congestion control.</p>
-      <p class="tech">kairu.DynamicGammaScheduler</p>
-    </div>
-    <div class="card">
-      <div class="icon">🧭</div>
-      <h3>Pick the right strategy</h3>
-      <p class="plain">Tell Kairu about your model and it picks the best mix of techniques — with a one-line explanation of why.</p>
-      <p class="tech">kairu.AutoProfile</p>
-    </div>
-    <div class="card">
-      <div class="icon">🌊</div>
-      <h3>Stream to the browser</h3>
-      <p class="plain">A built-in server speaks the same protocol as OpenAI — drop it in and your existing client code keeps working.</p>
-      <p class="tech">kairu.create_app · POST /generate</p>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <div class="wrap row">
-    <div>© 2026 kairu · BUSL-1.1 · built in the <span class="word">konjo</span> way</div>
-    <div class="word">ቆンjo · 根性 · 康宙 · कोहजो · ᨀᨚᨐᨚ · конйо · 건조 · কুঞ্জ</div>
-  </div>
-</footer>
+<div class="tooltip" id="tip" role="status" aria-live="polite">
+  <div class="tooltip-name" id="tipName"></div>
+  <div class="tooltip-score" id="tipScore"></div>
+  <div class="tooltip-desc" id="tipDesc"></div>
+</div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════════════
-// 0. LIVE-MODE PROBE — detect demo/server.py and switch badges
-// ═══════════════════════════════════════════════════════════════════════
-const Kairu = {
-  liveMode: false,
-  base: '',  // same-origin when served from demo/server.py
-  fetchJson: async function (path, body) {
-    const url = (this.base || '') + path;
-    const opts = body
-      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-      : { method: 'GET' };
-    const r = await fetch(url, opts);
-    if (!r.ok) throw new Error('http ' + r.status);
-    return await r.json();
-  },
-  setBadge: function (el, isLive) {
-    if (!el) return;
-    el.classList.toggle('live', isLive);
-    el.classList.toggle('est', !isLive);
-    el.innerHTML = '<span class="ddot"></span>' + (isLive ? 'live' : 'estimated');
-  },
+"use strict";
+
+// ── canonical rubric order + colors (mirrors kairu.rubrics.RUBRIC_DEFS) ──
+const RUBRICS = [
+  {name:"helpfulness",  color:"#6BFF8E", desc:"Does the response address the prompt?"},
+  {name:"accuracy",     color:"#9D6BFF", desc:"Concrete, on-topic, and specific."},
+  {name:"safety",       color:"#4FA8FF", desc:"Penalises PII, secrets, and unsafe patterns."},
+  {name:"coherence",    color:"#3DDDE6", desc:"Internally consistent, non-repetitive."},
+  {name:"conciseness",  color:"#F5C84B", desc:"Length matched to the prompt."},
+  {name:"creativity",   color:"#FF6BD0", desc:"Diverse, rich language."},
+  {name:"groundedness", color:"#5BFFD0", desc:"Answers every named part of the prompt."},
+  {name:"tone",         color:"#FF9466", desc:"Reads like well-formed prose."},
+];
+
+// ── prism geometry: beams emanate from the right face exit point ────────
+const ORIGIN = { x: 780, y: 350 };
+const BEAM_END_X = 1380;
+const BEAM_Y_TOP = 60;
+const BEAM_Y_BOTTOM = 640;
+const AB_OFFSET = 8;  // perpendicular pixels between A and B beams of one rubric
+
+// ── DOM refs ────────────────────────────────────────────────────────────
+const els = {
+  prism:        document.getElementById("prismGroup"),
+  beamsA:       document.getElementById("beamsA"),
+  beamsB:       document.getElementById("beamsB"),
+  promptInput:  document.getElementById("promptInput"),
+  responseA:    document.getElementById("responseAInput"),
+  responseB:    document.getElementById("responseBInput"),
+  bPanel:       document.getElementById("responseBPanel"),
+  panels:       document.getElementById("panels"),
+  err:          document.getElementById("err"),
+  tip:          document.getElementById("tip"),
+  tipName:      document.getElementById("tipName"),
+  tipScore:     document.getElementById("tipScore"),
+  tipDesc:      document.getElementById("tipDesc"),
+  winner:       document.getElementById("winner"),
+  kbdHint:      document.getElementById("kbdHint"),
 };
-(async () => {
-  // Try same-origin first; fall back to localhost:7777 (the documented port).
-  const candidates = ['', 'http://127.0.0.1:7777'];
-  for (const base of candidates) {
-    try {
-      const r = await fetch(base + '/api/health', { cache: 'no-store' });
-      if (!r.ok) continue;
-      const j = await r.json();
-      if (j && j.ok) {
-        Kairu.liveMode = true;
-        Kairu.base = base;
-        const banner = document.getElementById('live-banner');
-        const text = document.getElementById('live-text');
-        banner.classList.remove('offline');
-        banner.classList.add('live');
-        text.innerHTML = `Live mode — connected to <code>${base || window.location.origin}</code> · kairu v${j.version} · every number below comes from the real library.`;
-        // Flip every visible source badge to LIVE.
-        ['speedup-src', 'race-src', 'ap-src'].forEach(id => Kairu.setBadge(document.getElementById(id), true));
-        // Trigger fresh updates on all interactive widgets.
-        document.dispatchEvent(new CustomEvent('kairu-live-ready'));
-        return;
-      }
-    } catch (_) { /* try next */ }
+
+let state = {
+  mode: "single",  // "single" | "ab"
+  scoresA: null,
+  scoresB: null,
+  busy: false,
+};
+
+// ── kbd hint OS-aware ───────────────────────────────────────────────────
+els.kbdHint.textContent = /Mac|iPhone|iPod|iPad/.test(navigator.platform) ? "⌘ ↵" : "ctrl ↵";
+
+// ── build the 8 beam SVG elements, lay them out evenly fan-shaped ───────
+function buildBeams(group, isB) {
+  group.innerHTML = "";
+  const n = RUBRICS.length;
+  const step = (BEAM_Y_BOTTOM - BEAM_Y_TOP) / (n - 1);
+  for (let i = 0; i < n; i++) {
+    const r = RUBRICS[i];
+    const ty = BEAM_Y_TOP + step * i;
+    // perpendicular offset: rotate (0, ±AB_OFFSET) onto the beam's normal
+    const dx = BEAM_END_X - ORIGIN.x;
+    const dy = ty - ORIGIN.y;
+    const len = Math.hypot(dx, dy);
+    const nx = -dy / len, ny = dx / len;  // unit normal
+    const offset = isB ? +AB_OFFSET : (group === els.beamsA && state.mode === "ab" ? -AB_OFFSET : 0);
+    const x1 = ORIGIN.x + nx * offset;
+    const y1 = ORIGIN.y + ny * offset;
+    const x2 = BEAM_END_X + nx * offset;
+    const y2 = ty + ny * offset;
+    const beam = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    beam.setAttribute("x1", x1); beam.setAttribute("y1", y1);
+    beam.setAttribute("x2", x2); beam.setAttribute("y2", y2);
+    beam.setAttribute("stroke", r.color);
+    beam.setAttribute("stroke-width", "3");
+    beam.setAttribute("stroke-linecap", "round");
+    beam.setAttribute("filter", "url(#beamGlow)");
+    beam.setAttribute("class", "beam unlit" + (isB ? " beam-pair-b" : ""));
+    beam.dataset.rubric = r.name;
+    beam.dataset.color  = r.color;
+    beam.dataset.desc   = r.desc;
+    beam.dataset.side   = isB ? "b" : "a";
+    beam.addEventListener("mouseenter", onBeamEnter);
+    beam.addEventListener("mousemove",  onBeamMove);
+    beam.addEventListener("mouseleave", onBeamLeave);
+    group.appendChild(beam);
   }
-  // No server — leave the offline banner alone.
-})();
+}
 
-// ═══════════════════════════════════════════════════════════════════════
-// 1. RACE — animated head-to-head comparison
-// ═══════════════════════════════════════════════════════════════════════
-(function () {
-  const STORY =
-    "Once upon a time, in a small village nestled between the mountains and the sea, " +
-    "there lived a clever fox who dreamed of building a ship that could carry her across " +
-    "the great ocean to the lands beyond the sunset.";
+// ── tooltip ─────────────────────────────────────────────────────────────
+function onBeamEnter(e) { showTip(e); }
+function onBeamMove(e)  { positionTip(e); }
+function onBeamLeave()  { els.tip.classList.remove("show"); }
 
-  const els = {
-    btn: document.getElementById('race-go'),
-    reset: document.getElementById('race-reset'),
-    textStd: document.getElementById('text-std'),
-    textKai: document.getElementById('text-kai'),
-    clockStd: document.getElementById('clock-std'),
-    clockKai: document.getElementById('clock-kai'),
-    barStd: document.getElementById('bar-std'),
-    barKai: document.getElementById('bar-kai'),
-    verdict: document.getElementById('verdict'),
-  };
-
-  // tuning so the race takes ~9s standard vs ~4s kairu
-  const STD_MS_PER_CHAR = 28;       // sequential character reveal
-  const KAI_BURST_TOKENS = 4;       // tokens per speculative burst
-  const KAI_BURST_INTERVAL = 220;   // ms per burst
-  const KAI_REJECT_PROB = 0.18;     // chance a burst gets one rejection
-  const TOK_SIZE = 5;               // approx avg chars per "token"
-
-  let running = false;
-  let abortFn = null;
-
-  function reset() {
-    if (abortFn) abortFn();
-    abortFn = null;
-    running = false;
-    els.textStd.innerHTML = '<span class="caret"></span>';
-    els.textKai.innerHTML = '<span class="caret"></span>';
-    els.clockStd.textContent = '0.00 s';
-    els.clockKai.textContent = '0.00 s';
-    els.barStd.style.width = '0%';
-    els.barKai.style.width = '0%';
-    els.verdict.classList.remove('show');
-    els.verdict.innerHTML = '';
-    els.btn.disabled = false;
+function showTip(e) {
+  const beam = e.currentTarget;
+  const rubric = beam.dataset.rubric;
+  const desc   = beam.dataset.desc;
+  const color  = beam.dataset.color;
+  els.tipName.textContent = rubric;
+  els.tipName.style.color = color;
+  els.tipDesc.textContent = desc;
+  if (state.mode === "ab" && state.scoresA && state.scoresB) {
+    const a = state.scoresA[rubric], b = state.scoresB[rubric];
+    els.tipScore.innerHTML =
+      `<span style="color:${color}">A&nbsp;${(a*100).toFixed(0)}</span>` +
+      `<span style="color:#6a708a"> / </span>` +
+      `<span style="color:${color};opacity:.6">B&nbsp;${(b*100).toFixed(0)}</span>`;
+  } else if (state.scoresA) {
+    els.tipScore.textContent = (state.scoresA[rubric] * 100).toFixed(0);
+    els.tipScore.style.color = color;
+  } else {
+    els.tipScore.textContent = "—";
   }
+  positionTip(e);
+  els.tip.classList.add("show");
+}
 
-  function placeCaret(node) {
-    const caret = document.createElement('span');
-    caret.className = 'caret';
-    node.appendChild(caret);
-  }
+function positionTip(e) {
+  const x = e.clientX + 16;
+  const y = e.clientY;
+  els.tip.style.left = x + "px";
+  els.tip.style.top  = y + "px";
+}
 
-  // Standard runner — char by char
-  function runStandard(onDone) {
-    const start = performance.now();
-    let i = 0;
-    let stopped = false;
-    function step() {
-      if (stopped) return;
-      const elapsed = performance.now() - start;
-      if (i >= STORY.length) {
-        els.clockStd.textContent = (elapsed / 1000).toFixed(2) + ' s';
-        els.barStd.style.width = '100%';
-        onDone(elapsed / 1000);
-        return;
-      }
-      const ch = STORY[i++];
-      // Build content fresh each tick (cheap for ~200 chars)
-      els.textStd.innerHTML = STORY.slice(0, i).replace(/</g, '&lt;');
-      placeCaret(els.textStd);
-      els.clockStd.textContent = (elapsed / 1000).toFixed(2) + ' s';
-      els.barStd.style.width = (100 * i / STORY.length).toFixed(1) + '%';
-      setTimeout(step, STD_MS_PER_CHAR);
+// ── apply scores → beam intensities + stroke widths ─────────────────────
+function applyBeamIntensity(group, scores) {
+  const beams = group.querySelectorAll(".beam");
+  beams.forEach((beam, i) => {
+    const name = beam.dataset.rubric;
+    const score = scores ? scores[name] : 0;
+    const opacity = scores ? Math.max(.18, score) : .12;
+    const sw = scores ? (1.4 + 4.6 * score) : 2.2;
+    beam.style.setProperty("--beam-opacity", opacity);
+    beam.classList.toggle("lit",   !!scores);
+    beam.classList.toggle("unlit", !scores);
+    beam.classList.remove("beam-reveal");
+    // re-trigger the reveal animation with stagger
+    if (scores) {
+      void beam.getBoundingClientRect();
+      beam.style.animationDelay = (i * 70) + "ms";
+      beam.classList.add("beam-reveal");
     }
-    step();
-    return () => { stopped = true; };
-  }
-
-  // Kairu runner — bursts of multiple tokens, occasional reject
-  function runKairu(onDone) {
-    const start = performance.now();
-    let pos = 0;
-    let stopped = false;
-    function burst() {
-      if (stopped) return;
-      const elapsed = performance.now() - start;
-      if (pos >= STORY.length) {
-        els.clockKai.textContent = (elapsed / 1000).toFixed(2) + ' s';
-        els.barKai.style.width = '100%';
-        onDone(elapsed / 1000);
-        return;
-      }
-      // Try to take γ * TOK_SIZE chars; reject one occasionally
-      let take = KAI_BURST_TOKENS * TOK_SIZE;
-      const isReject = Math.random() < KAI_REJECT_PROB;
-      if (isReject) take = Math.max(1, Math.floor(take * 0.5));
-      take = Math.min(take, STORY.length - pos);
-      const accepted = STORY.slice(pos, pos + take);
-      pos += take;
-
-      const safeBefore = STORY.slice(0, pos - take).replace(/</g, '&lt;');
-      const safeBurst = accepted.replace(/</g, '&lt;');
-      let html = safeBefore + '<span class="burst">' + safeBurst + '</span>';
-      if (isReject && pos < STORY.length) {
-        // Show a fake rejected guess after the accepted burst, then let next round overwrite
-        const fakeChars = "xqzjvk".slice(0, 3);
-        html += '<span class="reject">' + fakeChars + '</span>';
-      }
-      els.textKai.innerHTML = html;
-      placeCaret(els.textKai);
-      els.clockKai.textContent = (elapsed / 1000).toFixed(2) + ' s';
-      els.barKai.style.width = (100 * pos / STORY.length).toFixed(1) + '%';
-      setTimeout(burst, KAI_BURST_INTERVAL);
-    }
-    burst();
-    return () => { stopped = true; };
-  }
-
-  async function fetchRealSpeedup() {
-    if (!Kairu.liveMode) return null;
-    try {
-      const j = await Kairu.fetchJson('/api/simulate-race', { rho: 0.8, gamma: 4, n_tokens: 50, seed: 42 });
-      return j;
-    } catch (_) { return null; }
-  }
-
-  async function showVerdict(stdT, kaiT) {
-    const ratio = stdT / kaiT;
-    const saved = (stdT - kaiT).toFixed(2);
-    let extra = '';
-    const real = await fetchRealSpeedup();
-    const detailEl = document.getElementById('race-source-detail');
-    if (real) {
-      extra = ` &nbsp;·&nbsp; <span style="font-size:13px;color:var(--muted)">live sim: ` +
-        `${real.standard_steps} target calls vs <strong style="color:var(--cyan)">${real.kairu_steps}</strong> ` +
-        `verification rounds → <strong style="color:var(--green)">${real.actual_speedup.toFixed(2)}×</strong> ` +
-        `(closed-form ${real.closed_form_speedup.toFixed(2)}×)</span>`;
-      if (detailEl) {
-        detailEl.textContent = `· ρ=${real.rho_input} γ=${real.gamma_input} n=${real.n_tokens} · empirical accept ${(real.empirical_acceptance_rate*100).toFixed(0)}%`;
-      }
-    } else if (detailEl) {
-      detailEl.textContent = '· numbers from animation timing only';
-    }
-    els.verdict.innerHTML =
-      `<span>Kairu finished in</span> <span class="x">${kaiT.toFixed(2)}s</span>` +
-      ` <span>vs</span> <span style="font-family:var(--mono);color:var(--muted)">${stdT.toFixed(2)}s</span>` +
-      ` <span>—</span> <span class="x">${ratio.toFixed(2)}×</span> <span>faster, ${saved}s saved</span>` +
-      extra;
-    els.verdict.classList.add('show');
-  }
-
-  els.btn.addEventListener('click', () => {
-    if (running) return;
-    reset();
-    running = true;
-    els.btn.disabled = true;
-    let stdDone = null, kaiDone = null;
-    function maybeFinish() {
-      if (stdDone !== null && kaiDone !== null) {
-        showVerdict(stdDone, kaiDone).catch(() => {});
-        running = false;
-        els.btn.disabled = false;
-      }
-    }
-    const stopStd = runStandard(t => { stdDone = t; maybeFinish(); });
-    const stopKai = runKairu(t => { kaiDone = t; maybeFinish(); });
-    abortFn = () => { stopStd(); stopKai(); };
+    beam.setAttribute("stroke-width", sw.toFixed(2));
   });
-  els.reset.addEventListener('click', reset);
-})();
+}
 
-// ═══════════════════════════════════════════════════════════════════════
-// 2. STEP-BY-STEP MINI ANIMATIONS
-// ═══════════════════════════════════════════════════════════════════════
-(function () {
-  // Step 1: small model emitting 4 dots
-  function paint1() {
-    const svg = document.getElementById('step1');
-    const t = (Date.now() / 600) % 1;
-    let s = '';
-    s += `<circle cx="30" cy="40" r="14" fill="rgba(76,214,230,0.18)" stroke="#4cd6e6" stroke-width="1.5"/>`;
-    s += `<text x="30" y="44" fill="#4cd6e6" font-size="12" text-anchor="middle" font-weight="700">fast</text>`;
-    for (let i = 0; i < 4; i++) {
-      const phase = (t - i * 0.15 + 1) % 1;
-      const x = 60 + i * 38;
-      const opacity = phase < 0.5 ? phase * 2 : 1 - (phase - 0.5) * 2;
-      s += `<rect x="${x}" y="32" width="30" height="16" rx="4"
-        fill="rgba(76,214,230,${0.15 + opacity * 0.4})" stroke="#4cd6e6" stroke-width="1" opacity="${0.5 + opacity * 0.5}"/>`;
-      s += `<text x="${x + 15}" y="44" fill="#e8ebf5" font-size="11" text-anchor="middle" font-family="ui-monospace">w${i+1}</text>`;
-    }
-    svg.innerHTML = s;
+// ── mode switching ──────────────────────────────────────────────────────
+function setMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll(".pill").forEach(p => {
+    p.classList.toggle("active", p.dataset.mode === mode);
+  });
+  els.bPanel.style.display = (mode === "ab") ? "" : "none";
+  els.panels.classList.toggle("ab", mode === "ab");
+  els.beamsB.style.display = (mode === "ab") ? "" : "none";
+  els.winner.classList.remove("show");
+  buildBeams(els.beamsA, false);
+  buildBeams(els.beamsB, true);
+  if (state.scoresA) applyBeamIntensity(els.beamsA, state.scoresA);
+  if (state.scoresB && mode === "ab") applyBeamIntensity(els.beamsB, state.scoresB);
+}
+
+// ── network ─────────────────────────────────────────────────────────────
+async function evaluate() {
+  if (state.busy) return;
+  const prompt   = els.promptInput.value.trim();
+  const respA    = els.responseA.value.trim();
+  const respB    = state.mode === "ab" ? els.responseB.value.trim() : "";
+  if (!prompt || !respA) {
+    showErr("enter a prompt and a response");
+    return;
   }
-  // Step 2: big model checking all 4 in parallel
-  function paint2() {
-    const svg = document.getElementById('step2');
-    const t = (Date.now() / 800) % 1;
-    let s = '';
-    // 4 token boxes
-    for (let i = 0; i < 4; i++) {
-      const x = 16 + i * 38;
-      s += `<rect x="${x}" y="14" width="30" height="16" rx="4" fill="rgba(76,214,230,0.18)" stroke="#4cd6e6" stroke-width="1"/>`;
-      s += `<text x="${x + 15}" y="26" fill="#e8ebf5" font-size="11" text-anchor="middle" font-family="ui-monospace">w${i+1}</text>`;
-      // verify pulse line down to big model
-      const lineOpacity = Math.max(0, Math.sin(t * Math.PI * 2 + i * 0.3));
-      s += `<line x1="${x+15}" y1="32" x2="${x+15}" y2="54" stroke="#d36cff" stroke-width="1.5" opacity="${0.3 + lineOpacity * 0.7}"/>`;
-    }
-    s += `<rect x="14" y="56" width="172" height="20" rx="6" fill="rgba(211,108,255,0.18)" stroke="#d36cff" stroke-width="1.5"/>`;
-    s += `<text x="100" y="70" fill="#d36cff" font-size="12" text-anchor="middle" font-weight="700">main model — verifies all at once</text>`;
-    svg.innerHTML = s;
+  if (state.mode === "ab" && !respB) {
+    showErr("a/b mode needs both responses");
+    return;
   }
-  // Step 3: keep good, reject one
-  function paint3() {
-    const svg = document.getElementById('step3');
-    const t = (Date.now() / 1000) % 1;
-    let s = '';
-    const states = [['ok','#62e6a0'],['ok','#62e6a0'],['ok','#62e6a0'],['x','#ff7686']];
-    for (let i = 0; i < 4; i++) {
-      const x = 16 + i * 38;
-      const [kind, color] = states[i];
-      const pop = Math.max(0, Math.sin(t * Math.PI * 2 + i * 0.5));
-      s += `<rect x="${x}" y="32" width="30" height="16" rx="4"
-        fill="${color}22" stroke="${color}" stroke-width="${1 + pop}"/>`;
-      s += `<text x="${x + 15}" y="44" fill="${color}" font-size="11" text-anchor="middle" font-family="ui-monospace" font-weight="700">${kind === 'ok' ? '✓ w'+(i+1) : '✗ w4'}</text>`;
-    }
-    s += `<text x="120" y="68" fill="#8c93ab" font-size="11" text-anchor="middle">3 kept · 1 redone</text>`;
-    svg.innerHTML = s;
-  }
-  function loop() {
-    paint1(); paint2(); paint3();
-    requestAnimationFrame(loop);
-  }
-  requestAnimationFrame(loop);
-})();
+  state.busy = true;
+  showErr("");
+  flashPrism();
 
-// ═══════════════════════════════════════════════════════════════════════
-// 3. SIMULATOR — speedometer + sliders + quality bar
-// ═══════════════════════════════════════════════════════════════════════
-(function () {
-  const rhoEl = document.getElementById('rho');
-  const gammaEl = document.getElementById('gamma');
-  const rhoVal = document.getElementById('rho-val');
-  const gammaVal = document.getElementById('gamma-val');
-  const speedoNum = document.getElementById('speedo-num');
-  const speedo = document.getElementById('speedo');
-  const qFill = document.getElementById('quality-fill');
+  const body = { prompt, response: respA };
+  if (state.mode === "ab") body.response_b = respB;
 
-  function expectedSpeedup(rho, gamma) {
-    if (rho >= 0.9999) return gamma + 1;
-    return (1 - Math.pow(rho, gamma + 1)) / (1 - rho);
-  }
-
-  // Animated needle state
-  let displayedAngle = 0;
-  let targetAngle = 0;
-
-  function speedupToAngle(speedup) {
-    // Map speedup [1, 13] → angle [-110, +110] degrees (220° sweep)
-    const minS = 1, maxS = 13;
-    const t = Math.max(0, Math.min(1, (speedup - minS) / (maxS - minS)));
-    return -110 + t * 220;
-  }
-
-  function drawSpeedo(angle) {
-    const W = 360, H = 230;
-    const cx = 180, cy = 180, r = 130;
-    let s = '';
-
-    // arc background
-    function polar(deg, rad) {
-      const rad2 = (deg - 90) * Math.PI / 180;
-      return [cx + Math.cos(rad2) * rad, cy + Math.sin(rad2) * rad];
-    }
-    function arcPath(a1, a2, rad) {
-      const [x1, y1] = polar(a1, rad);
-      const [x2, y2] = polar(a2, rad);
-      const large = Math.abs(a2 - a1) > 180 ? 1 : 0;
-      return `M ${x1} ${y1} A ${rad} ${rad} 0 ${large} 1 ${x2} ${y2}`;
-    }
-    // base arc
-    s += `<path d="${arcPath(-110, 110, r)}" stroke="rgba(255,255,255,0.06)" stroke-width="14" fill="none" stroke-linecap="round"/>`;
-    // gradient arc up to needle
-    s += `<defs><linearGradient id="speedGrad" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stop-color="#62e6a0"/>
-            <stop offset="50%" stop-color="#4cd6e6"/>
-            <stop offset="100%" stop-color="#d36cff"/>
-          </linearGradient></defs>`;
-    s += `<path d="${arcPath(-110, angle, r)}" stroke="url(#speedGrad)" stroke-width="14" fill="none" stroke-linecap="round" filter="drop-shadow(0 0 8px rgba(76,214,230,0.5))"/>`;
-
-    // tick marks
-    for (let v = 1; v <= 13; v += 2) {
-      const tt = (v - 1) / 12;
-      const a = -110 + tt * 220;
-      const [x1, y1] = polar(a, r - 22);
-      const [x2, y2] = polar(a, r - 14);
-      s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5b6275" stroke-width="2"/>`;
-      const [tx, ty] = polar(a, r - 36);
-      s += `<text x="${tx}" y="${ty + 4}" fill="#8c93ab" font-size="11" text-anchor="middle" font-family="ui-monospace">${v}×</text>`;
-    }
-
-    // needle
-    const needleR = r - 8;
-    const [nx, ny] = polar(angle, needleR);
-    s += `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#f3c969" stroke-width="3.5" stroke-linecap="round" filter="drop-shadow(0 0 6px rgba(243,201,105,0.8))"/>`;
-    s += `<circle cx="${cx}" cy="${cy}" r="14" fill="#13182680" stroke="#f3c969" stroke-width="2"/>`;
-    s += `<circle cx="${cx}" cy="${cy}" r="5" fill="#f3c969"/>`;
-
-    speedo.innerHTML = s;
-  }
-
-  function tickAnim() {
-    const diff = targetAngle - displayedAngle;
-    if (Math.abs(diff) > 0.05) {
-      displayedAngle += diff * 0.18;
-      drawSpeedo(displayedAngle);
-    }
-    requestAnimationFrame(tickAnim);
-  }
-  requestAnimationFrame(tickAnim);
-
-  const derivEl = document.getElementById('speedup-derivation');
-  let liveTimer = null;
-
-  function applyEstimate(rho, gamma) {
-    const s = expectedSpeedup(rho, gamma);
-    speedoNum.textContent = s.toFixed(2) + '×';
-    targetAngle = speedupToAngle(s);
-    qFill.style.width = '100%';
-  }
-  async function applyLive(rho, gamma) {
-    try {
-      const j = await Kairu.fetchJson('/api/speedup', { rho, gamma });
-      speedoNum.textContent = j.speedup.toFixed(2) + '×';
-      targetAngle = speedupToAngle(j.speedup);
-      derivEl.innerHTML =
-        `<span class="lbl">formula:</span> ${j.formula_used}<br>` +
-        `<span class="lbl">live derivation:</span> ${j.derivation}<br>` +
-        `<span class="lbl">tokens / verify-round:</span> ${j.expected_tokens_per_step.toFixed(4)} &nbsp; · &nbsp; ` +
-        `<span class="lbl">source:</span> ${j.source}`;
-    } catch (e) {
-      applyEstimate(rho, gamma);
-    }
-  }
-
-  function update() {
-    const rho = +rhoEl.value / 100;
-    const gamma = +gammaEl.value;
-    rhoVal.textContent = rho.toFixed(2);
-    gammaVal.textContent = gamma;
-    qFill.style.width = '100%';
-    if (Kairu.liveMode) {
-      // Debounce slider drags so we do not flood the server.
-      clearTimeout(liveTimer);
-      applyEstimate(rho, gamma);  // optimistic so the needle moves immediately
-      liveTimer = setTimeout(() => applyLive(rho, gamma), 90);
-    } else {
-      applyEstimate(rho, gamma);
-    }
-  }
-
-  rhoEl.addEventListener('input', update);
-  gammaEl.addEventListener('input', update);
-  document.addEventListener('kairu-live-ready', update);
-  update();
-  // Init the speedo immediately so the page does not flash empty
-  drawSpeedo(targetAngle);
-})();
-
-// ═══════════════════════════════════════════════════════════════════════
-// 4. EARLY-EXIT — animated layer climb with "done!" effect
-// ═══════════════════════════════════════════════════════════════════════
-(function () {
-  const svg = document.getElementById('ee-svg');
-  const stat = document.getElementById('ee-stat');
-  const runBtn = document.getElementById('ee-run');
-  const toggleBtn = document.getElementById('ee-toggle');
-
-  const NUM_LAYERS = 12;
-  const W = 600, H = 380, pad = { l: 44, r: 24, t: 22, b: 38 };
-  const innerW = W - pad.l - pad.r, innerH = H - pad.t - pad.b;
-
-  // Two profiles: easy text (mostly low exits) vs hard text (deeper)
-  const EASY = [3, 4, 4, 3, 5, 4, 6, 3, 4, 4, 3, 5];
-  const HARD = [7, 9, 6, 11, 8, 10, 7, 9, 8, 11, 6, 9];
-  let mode = 'easy';
-  let exits = EASY.slice();
-
-  function laneY(layer) {
-    return pad.t + (1 - layer / NUM_LAYERS) * innerH;
-  }
-
-  let progress = 0; // 0..tokens.length
-
-  function paint() {
-    const tokens = exits;
-    const colW = innerW / tokens.length;
-    let s = '';
-
-    // lane lines
-    for (let l = 1; l <= NUM_LAYERS; l++) {
-      const y = laneY(l);
-      const isMajor = l % 4 === 0;
-      s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,${isMajor ? 0.10 : 0.04})"/>`;
-      s += `<text x="${pad.l - 8}" y="${y + 3}" fill="#5b6275" font-size="9" text-anchor="end" font-family="ui-monospace">L${l}</text>`;
-    }
-
-    // confidence threshold line (between L4 and L5 for easy, L7 and L8 for hard)
-    const threshLayer = mode === 'easy' ? 4.5 : 7.5;
-    const yThresh = laneY(threshLayer);
-    s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${yThresh}" y2="${yThresh}" stroke="#62e6a0" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.65"/>`;
-    s += `<text x="${W - pad.r - 6}" y="${yThresh - 6}" fill="#62e6a0" font-size="10" text-anchor="end" font-family="ui-monospace">confidence threshold</text>`;
-
-    // token columns
-    let totalExit = 0;
-    let completed = 0;
-    tokens.forEach((targetLayer, i) => {
-      const tProg = Math.max(0, Math.min(1, progress - i));
-      const animatedExit = 1 + (targetLayer - 1) * tProg;
-      const cx = pad.l + (i + 0.5) * colW;
-      const yTop = laneY(animatedExit);
-      const yBot = laneY(0.4);
-      const colInner = colW * 0.55;
-
-      // gradient column
-      s += `<defs><linearGradient id="ee-g${i}" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stop-color="#4cd6e6" stop-opacity="0.22"/>
-              <stop offset="100%" stop-color="#d36cff" stop-opacity="0.85"/>
-            </linearGradient></defs>`;
-      s += `<rect x="${cx - colInner / 2}" y="${yTop}" width="${colInner}" height="${yBot - yTop}" fill="url(#ee-g${i})" rx="4"/>`;
-
-      if (tProg >= 1) {
-        completed++;
-        totalExit += targetLayer;
-        // done dot with halo
-        s += `<circle cx="${cx}" cy="${yTop}" r="14" fill="#62e6a0" opacity="0.18"/>`;
-        s += `<circle cx="${cx}" cy="${yTop}" r="9" fill="#62e6a0" opacity="0.32"/>`;
-        s += `<circle cx="${cx}" cy="${yTop}" r="5" fill="#62e6a0"/>`;
-        s += `<text x="${cx}" y="${yTop - 18}" fill="#62e6a0" font-size="10" text-anchor="middle" font-family="ui-monospace" font-weight="700">done!</text>`;
-      } else if (tProg > 0) {
-        totalExit += animatedExit;
-        // pulse at current head
-        s += `<circle cx="${cx}" cy="${yTop}" r="6" fill="#4cd6e6" opacity="${0.4 + 0.6 * Math.sin(performance.now() / 120)}"/>`;
-        s += `<circle cx="${cx}" cy="${yTop}" r="3" fill="#4cd6e6"/>`;
-      }
-
-      s += `<text x="${cx}" y="${H - 16}" fill="#8c93ab" font-size="10" text-anchor="middle" font-family="ui-monospace">t${i + 1}</text>`;
+  let data;
+  try {
+    const r = await fetch("/api/prism", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
     });
-
-    s += `<text x="${pad.l + innerW / 2}" y="${H - 2}" fill="#5b6275" font-size="10" text-anchor="middle">generated tokens (left to right)</text>`;
-
-    svg.innerHTML = s;
-
-    if (completed === tokens.length) {
-      const meanExit = totalExit / tokens.length;
-      const saved = (1 - meanExit / NUM_LAYERS) * 100;
-      stat.innerHTML = `mean exit layer: <strong>${meanExit.toFixed(1)} / ${NUM_LAYERS}</strong> · compute saved: <strong>${saved.toFixed(1)}%</strong>`;
-    } else if (completed > 0) {
-      const meanExit = totalExit / Math.max(1, completed);
-      const saved = (1 - meanExit / NUM_LAYERS) * 100;
-      stat.innerHTML = `${completed}/${tokens.length} done · running… (estimated ${saved.toFixed(0)}% saved)`;
-    } else {
-      stat.innerHTML = `Click <em>Run again</em> to start the animation`;
+    if (!r.ok) {
+      const errBody = await r.json().catch(() => ({error: r.statusText}));
+      throw new Error(errBody.error || `http ${r.status}`);
     }
+    data = await r.json();
+  } catch (e) {
+    state.busy = false;
+    showErr(e.message);
+    return;
   }
+  state.busy = false;
+  applyScores(data);
+}
 
-  let raf = null;
-  function animate() {
-    if (raf) cancelAnimationFrame(raf);
-    progress = 0;
-    const total = exits.length;
-    const start = performance.now();
-    const dur = 2400;
-    function tick(now) {
-      const p = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 3);
-      progress = eased * total;
-      paint();
-      if (p < 1) raf = requestAnimationFrame(tick);
-    }
-    raf = requestAnimationFrame(tick);
+function applyScores(data) {
+  const a = {};
+  for (const b of data.beams_a) a[b.rubric] = b.score;
+  state.scoresA = a;
+  applyBeamIntensity(els.beamsA, a);
+
+  if (data.beams_b) {
+    const b = {};
+    for (const x of data.beams_b) b[x.rubric] = x.score;
+    state.scoresB = b;
+    applyBeamIntensity(els.beamsB, b);
+    const w = data.winner;
+    els.winner.innerHTML = (w === "tie")
+      ? `<span style="color:var(--muted)">tie</span> · margin ${(data.margin*100).toFixed(1)}`
+      : `winner <b>${w === "a" ? "A" : "B"}</b> · margin ${(data.margin*100).toFixed(1)}`;
+    els.winner.classList.add("show");
+  } else {
+    state.scoresB = null;
+    els.winner.classList.remove("show");
   }
+}
 
-  runBtn.addEventListener('click', animate);
-  toggleBtn.addEventListener('click', () => {
-    mode = mode === 'easy' ? 'hard' : 'easy';
-    exits = mode === 'easy' ? EASY.slice() : HARD.slice();
-    toggleBtn.textContent = mode === 'easy' ? 'Easy words' : 'Hard words';
-    animate();
-  });
+function flashPrism() {
+  els.prism.classList.remove("flashing");
+  void els.prism.getBoundingClientRect();
+  els.prism.classList.add("flashing");
+}
 
-  // start once visible
-  let started = false;
-  function maybeStart() {
-    if (started) return;
-    const r = svg.getBoundingClientRect();
-    if (r.top < window.innerHeight && r.bottom > 0) {
-      started = true;
-      animate();
-    }
+function showErr(msg) {
+  els.err.textContent = msg || "";
+}
+
+// ── interactions ────────────────────────────────────────────────────────
+els.prism.addEventListener("click", evaluate);
+els.prism.style.cursor = "pointer";
+els.prism.style.pointerEvents = "auto";
+
+document.querySelectorAll(".pill").forEach(p => {
+  p.addEventListener("click", () => setMode(p.dataset.mode));
+});
+
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    evaluate();
   }
-  window.addEventListener('scroll', maybeStart, { passive: true });
-  maybeStart();
-  paint();
-})();
+});
 
-// ═══════════════════════════════════════════════════════════════════════
-// 5. CLOCK COMPARISON — animated hands sweeping the time
-// ═══════════════════════════════════════════════════════════════════════
-(function () {
-  const STD_S = 6.0;
-  const KAI_S = 3.0;
-  const handStd = document.getElementById('hand-std');
-  const handKai = document.getElementById('hand-kai');
-  const timeStd = document.getElementById('time-std');
-  const timeKai = document.getElementById('time-kai');
-  const savings = document.getElementById('savings');
+// ── seed examples on first load so the demo shows immediately ───────────
+function seedExample() {
+  els.promptInput.value =
+    "Explain how the global interpreter lock affects Python multi-threaded performance for CPU-bound and I/O-bound work.";
+  els.responseA.value =
+    "The global interpreter lock in CPython forces Python multi-threaded code to serialize: only one thread executes Python bytecode at a time. For CPU-bound work, multi-threaded performance therefore matches single-threaded performance — threads do not run in parallel. For I/O-bound work, the interpreter lock is released during the blocking call (network, disk, subprocess), so threads overlap their wait time and you do see real concurrency. To unlock CPU-bound parallelism, use multiprocessing (separate processes, separate locks), C extensions that release the lock such as NumPy or Cython nogil, or the Python 3.13 free-threaded build (PEP 703).";
+  els.responseB.value =
+    "The interpreter lock is a thing in Python. It can sometimes slow things down. Multi-threaded code is complicated.";
+}
 
-  function animate() {
-    const start = performance.now();
-    const dur = 2600;
-    function tick(now) {
-      const p = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 2.5);
-      const stdElapsed = eased * STD_S;
-      const kaiElapsed = Math.min(STD_S * eased, KAI_S);
-      timeStd.textContent = stdElapsed.toFixed(2) + ' s';
-      timeKai.textContent = kaiElapsed.toFixed(2) + ' s';
-      // 60s = full revolution; 6s = 36°
-      handStd.style.transform = `translate(-50%, -100%) rotate(${stdElapsed * 6}deg)`;
-      handKai.style.transform = `translate(-50%, -100%) rotate(${kaiElapsed * 6}deg)`;
-      if (p < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }
-  let started = false;
-  const sec = document.getElementById('impact');
-  function maybeStart() {
-    if (started) return;
-    const r = sec.getBoundingClientRect();
-    if (r.top < window.innerHeight * 0.85 && r.bottom > 0) {
-      started = true;
-      animate();
-    }
-  }
-  window.addEventListener('scroll', maybeStart, { passive: true });
-  sec.addEventListener('click', () => { started = false; animate(); started = true; });
-  maybeStart();
-})();
-
-// ═══════════════════════════════════════════════════════════════════════
-// 6. AUTOPROFILE — live recommendation widget
-// ═══════════════════════════════════════════════════════════════════════
-(function () {
-  const els = {
-    name: document.getElementById('ap-name'),
-    vocab: document.getElementById('ap-vocab'),
-    presets: document.querySelectorAll('.ap-preset'),
-    strategy: document.getElementById('ap-strategy'),
-    meta: document.getElementById('ap-meta'),
-    rationale: document.getElementById('ap-rationale'),
-    source: document.getElementById('ap-source'),
-    src: document.getElementById('ap-src'),
-  };
-  const draftRadios = document.querySelectorAll('input[name=ap-draft]');
-  const layeredRadios = document.querySelectorAll('input[name=ap-layered]');
-
-  function readForm() {
-    const draft = [...draftRadios].find(r => r.checked).value === '1';
-    const layered = [...layeredRadios].find(r => r.checked).value === '1';
-    return {
-      model_name: els.name.value.trim(),
-      vocab_size: Math.max(500, +els.vocab.value || 32000),
-      has_draft: draft,
-      layered: layered,
-    };
-  }
-
-  // Faithful client-side mirror of kairu.auto_profile.AutoProfile.recommend.
-  // Used when the server is offline so the widget still works on a static page.
-  const FRONTIER = /\b(llama|mistral|mixtral|qwen|deepseek|phi|gpt|gemma|claude)\b/i;
-  const DRAFT_HINT = /\b(tiny|small|mini|draft|125m|350m)\b/i;
-  function clientRecommend(req) {
-    const name = req.model_name || '';
-    const vocab = +req.vocab_size;
-    if (name && DRAFT_HINT.test(name)) {
-      return { strategy: 'vanilla', gamma: 1, early_exit_threshold: 1.0, temperature: 1.0,
-        use_cache: true, cache_capacity: 64,
-        rationale: `name '${name}' matches draft-model pattern; no speculation, no early exit` };
-    }
-    if (req.has_draft && (vocab >= 30000 || FRONTIER.test(name))) {
-      const gamma = vocab >= 100000 ? 6 : 4;
-      return { strategy: 'speculative', gamma, early_exit_threshold: 0.9, temperature: 1.0,
-        use_cache: true, cache_capacity: 256,
-        rationale: `large target (vocab=${vocab})${FRONTIER.test(name) ? ' / frontier family' : ''} with draft → speculative γ=${gamma}` };
-    }
-    if (req.layered) {
-      return { strategy: 'layered_early_exit', gamma: 1, early_exit_threshold: 0.85, temperature: 1.0,
-        use_cache: true, cache_capacity: 128,
-        rationale: 'model exposes per-layer logits → architecture-aware early exit' };
-    }
-    if (vocab >= 5000) {
-      return { strategy: 'early_exit', gamma: 1, early_exit_threshold: 0.9, temperature: 1.0,
-        use_cache: true, cache_capacity: 128,
-        rationale: `mid-size single-backbone model (vocab=${vocab}) → confidence early exit` };
-    }
-    return { strategy: 'vanilla', gamma: 1, early_exit_threshold: 1.0, temperature: 1.0,
-      use_cache: true, cache_capacity: 32,
-      rationale: `tiny model (vocab=${vocab}) → vanilla decoding` };
-  }
-
-  function render(profile, isLive, sourceText) {
-    els.strategy.textContent = profile.strategy;
-    els.meta.innerHTML = `
-      <div class="cell"><div class="k">γ (lookahead)</div><div class="v">${profile.gamma}</div></div>
-      <div class="cell"><div class="k">exit threshold</div><div class="v">${profile.early_exit_threshold.toFixed(2)}</div></div>
-      <div class="cell"><div class="k">cache cap</div><div class="v">${profile.cache_capacity}</div></div>
-    `;
-    els.rationale.textContent = profile.rationale;
-    els.source.textContent = 'source: ' + sourceText;
-    Kairu.setBadge(els.src, isLive);
-  }
-
-  let timer = null;
-  function update() {
-    const req = readForm();
-    // Always show client-mirror first for instant feedback.
-    render(clientRecommend(req), false, 'client-side mirror of AutoProfile.recommend');
-    if (!Kairu.liveMode) return;
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      try {
-        const j = await Kairu.fetchJson('/api/recommend', req);
-        render(j, true, j.source + ` · vocab=${j.model_inspected.vocab_size}`);
-      } catch (_) { /* keep client-side render */ }
-    }, 80);
-  }
-
-  els.presets.forEach(btn => {
-    btn.addEventListener('click', () => {
-      els.presets.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      els.name.value = btn.dataset.name;
-      els.vocab.value = btn.dataset.vocab;
-      [...draftRadios].forEach(r => r.checked = (r.value === btn.dataset.draft));
-      [...layeredRadios].forEach(r => r.checked = (r.value === btn.dataset.layered));
-      update();
-    });
-  });
-  els.name.addEventListener('input', update);
-  els.vocab.addEventListener('input', update);
-  draftRadios.forEach(r => r.addEventListener('change', update));
-  layeredRadios.forEach(r => r.addEventListener('change', update));
-  document.addEventListener('kairu-live-ready', update);
-  update();
-})();
-
-// ═══════════════════════════════════════════════════════════════════════
-// 7. PRISM — 3D centerpiece, particle stream, floor shadows, beam reveal
-// ═══════════════════════════════════════════════════════════════════════
-(function () {
-  const SPEC = [
-    { name: 'SPECULATIVE',  hue: 0,   score: 2.42 },
-    { name: 'EARLY EXIT',   hue: 35,  score: 1.62 },
-    { name: 'KV CACHE',     hue: 55,  score: 1.31 },
-    { name: 'GAMMA AIMD',   hue: 135, score: 1.15 },
-    { name: 'AUTOPROFILE',  hue: 175, score: 0.96 },
-    { name: 'STREAMING',    hue: 215, score: 0.88 },
-    { name: 'METRICS',      hue: 265, score: 0.72 },
-    { name: 'RATE LIMIT',   hue: 310, score: 0.55 },
-  ];
-  const stage    = document.getElementById('prism-stage');
-  const tilt     = document.getElementById('prism-tilt');
-  const beamsRoot = document.getElementById('prism-beams');
-  const floor    = document.getElementById('prism-floor');
-  const particleCanvas = document.getElementById('prism-particles');
-  if (!stage) return;
-
-  // ── Build beam rows. Order: weakest first so the strongest reveals last
-  //    with the visual "flourish". Stagger = 60ms × rank.
-  const sorted = [...SPEC].sort((a, b) => a.score - b.score);
-  sorted.forEach((b, i) => {
-    const row = document.createElement('div');
-    row.className = 'beam';
-    row.style.setProperty('--hue', b.hue);
-    row.style.animationDelay = `${i * 60}ms`;
-    // width scales with score relative to max score
-    const widthPct = 35 + (b.score / 2.5) * 60;
-    row.innerHTML = `
-      <div class="beam-line" style="width:${widthPct}%"></div>
-      <div class="beam-meta">
-        <span class="beam-name">${b.name}</span>
-        <span class="beam-score">${b.score.toFixed(2)}×</span>
-      </div>`;
-    beamsRoot.appendChild(row);
-  });
-
-  // ── Re-trigger the stagger reveal whenever live mode flips on.
-  document.addEventListener('kairu-live-ready', () => {
-    [...beamsRoot.children].forEach((row, i) => {
-      row.style.animation = 'none';
-      row.offsetHeight; // reflow
-      row.style.animation = `beamReveal 700ms cubic-bezier(0.23,1,0.32,1) ${i * 60}ms forwards`;
-    });
-  });
-
-  // ── Mouse-driven parallax tilt over the prism stage.
-  //    Composes cleanly with the inner @keyframes spin.
-  let restTimer = null;
-  stage.addEventListener('mousemove', (e) => {
-    const r = stage.getBoundingClientRect();
-    const nx = ((e.clientX - r.left) / r.width  - 0.5) * 2;   // [-1, 1]
-    const ny = ((e.clientY - r.top)  / r.height - 0.5) * 2;
-    tilt.style.transform = `translate(-50%,-50%) rotateY(${ -nx * 8 }deg) rotateX(${ ny * 6 }deg)`;
-    clearTimeout(restTimer);
-  });
-  stage.addEventListener('mouseleave', () => {
-    restTimer = setTimeout(() => {
-      tilt.style.transform = 'translate(-50%,-50%) rotateY(0deg) rotateX(0deg)';
-    }, 60);
-  });
-
-  // ── Floor shadows: one soft colored ellipse per beam, intensity = score.
-  function paintFloor() {
-    const dpr = window.devicePixelRatio || 1;
-    const W = floor.clientWidth, H = floor.clientHeight;
-    if (W === 0) return;
-    floor.width  = W * dpr;
-    floor.height = H * dpr;
-    const ctx = floor.getContext('2d');
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, W, H);
-    const beams = [...beamsRoot.children];
-    beams.forEach((row, i) => {
-      const hue = +row.style.getPropertyValue('--hue');
-      const data = sorted[i] || { score: 1 };
-      // Project beam terminus onto floor: beams are right-half of stage,
-      // distributed vertically; floor occupies bottom 38% of stage.
-      const stageRect = stage.getBoundingClientRect();
-      const beamRect  = row.getBoundingClientRect();
-      const cx = (beamRect.right  - stageRect.left);
-      const beamY = (beamRect.top + beamRect.height / 2) - stageRect.top;
-      // Floor canvas is bottom 38% of stage; map beamY → floor X axis.
-      const floorX = cx - (stageRect.width - W);
-      const floorY = H * 0.55 + ((beamY / stageRect.height) - 0.5) * H * 0.4;
-      const intensity = Math.min(1, data.score / 2.5);
-      const grad = ctx.createRadialGradient(floorX, floorY, 0, floorX, floorY, 130);
-      grad.addColorStop(0,    `hsla(${hue}, 100%, 60%, ${0.25 * intensity})`);
-      grad.addColorStop(0.45, `hsla(${hue}, 100%, 55%, ${0.10 * intensity})`);
-      grad.addColorStop(1,    `hsla(${hue}, 100%, 50%, 0)`);
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.ellipse(floorX, floorY, 140, 32, 0, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  }
-  paintFloor();
-  window.addEventListener('resize', paintFloor);
-
-  // ── Particle stream: white motes flow into the prism center, split.
-  const pctx = particleCanvas.getContext('2d');
-  let particles = [];
-  let pwidth = 0, pheight = 0;
-
-  function sizeParticleCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    pwidth  = particleCanvas.clientWidth;
-    pheight = particleCanvas.clientHeight;
-    particleCanvas.width  = pwidth  * dpr;
-    particleCanvas.height = pheight * dpr;
-    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  sizeParticleCanvas();
-  window.addEventListener('resize', () => { sizeParticleCanvas(); paintFloor(); });
-
-  function spawnIncoming(now) {
-    // Center of prism (in stage-local px). The .prism-tilt is at left:50% top:48%.
-    const cx = pwidth * 0.5;
-    const cy = pheight * 0.48;
-    // Source: top-left, just outside the stage border.
-    const sx = -10, sy = pheight * 0.18 + (Math.random() - 0.5) * 30;
-    particles.push({
-      kind: 'incoming',
-      x: sx, y: sy,
-      tx: cx, ty: cy,
-      vx: 0, vy: 0,
-      hue: 0, sat: 0,
-      life: 0,
-      ttl: 1800,
-      born: now,
-    });
-  }
-
-  function splitAtPrism(p, now) {
-    // Eight colored particles, one per spectrum band, shooting toward each beam.
-    const beams = [...beamsRoot.children];
-    beams.forEach((row, i) => {
-      const stageRect = stage.getBoundingClientRect();
-      const r = row.getBoundingClientRect();
-      const tx = (r.left + r.width * 0.92) - stageRect.left;
-      const ty = (r.top  + r.height * 0.5)  - stageRect.top;
-      const hue = +row.style.getPropertyValue('--hue');
-      particles.push({
-        kind: 'split',
-        x: p.x, y: p.y,
-        tx, ty,
-        hue, sat: 100,
-        life: 0,
-        ttl: 1100 + Math.random() * 200,
-        born: now,
-      });
-    });
-  }
-
-  function step(now) {
-    pctx.clearRect(0, 0, pwidth, pheight);
-    pctx.globalCompositeOperation = 'lighter';
-    const next = [];
-    for (const p of particles) {
-      const t = (now - p.born) / p.ttl;
-      if (t >= 1) continue;
-      // Smooth ease-in-out toward target.
-      const ease = 1 - Math.pow(1 - t, 2.5);
-      const x = p.x + (p.tx - p.x) * ease;
-      const y = p.y + (p.ty - p.y) * ease;
-      p.life = t;
-
-      const r = p.kind === 'incoming' ? 2.4 : 2.0;
-      const alpha = (1 - t) * (p.kind === 'incoming' ? 0.95 : 0.85);
-
-      pctx.beginPath();
-      pctx.fillStyle = p.kind === 'incoming'
-        ? `rgba(255,255,255,${alpha})`
-        : `hsla(${p.hue}, 100%, 70%, ${alpha})`;
-      pctx.shadowBlur = p.kind === 'incoming' ? 14 : 12;
-      pctx.shadowColor = p.kind === 'incoming'
-        ? '#ffffff'
-        : `hsl(${p.hue}, 100%, 60%)`;
-      pctx.arc(x, y, r, 0, Math.PI * 2);
-      pctx.fill();
-
-      // When an incoming particle reaches the prism core, fork it into 8 colored.
-      if (p.kind === 'incoming' && t > 0.92 && !p.split) {
-        p.split = true;
-        splitAtPrism({ x, y }, now);
-      } else if (t < 1) {
-        next.push(p);
-      }
-    }
-    pctx.shadowBlur = 0;
-    particles = next;
-
-    // ~6 incoming per second when the tab is active.
-    if (Math.random() < 0.10) spawnIncoming(now);
-    requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-
-  // ── AutoProfile clip-path morph: tag .cell with .morph briefly when
-  //    the strategy text changes, then remove it so the transition runs.
-  const strategyEl = document.getElementById('ap-strategy');
-  if (strategyEl) {
-    let prev = strategyEl.textContent;
-    new MutationObserver(() => {
-      if (strategyEl.textContent === prev) return;
-      prev = strategyEl.textContent;
-      const cells = document.querySelectorAll('#ap-result .meta .cell');
-      cells.forEach((c, i) => {
-        c.classList.add('morph');
-        setTimeout(() => c.classList.remove('morph'), 200 + i * 60);
-      });
-    }).observe(strategyEl, { childList: true, characterData: true, subtree: true });
-  }
-})();
+// ── boot ────────────────────────────────────────────────────────────────
+buildBeams(els.beamsA, false);
+buildBeams(els.beamsB, true);
+seedExample();
+// soft welcome: idle beams unlit; user clicks the prism to evaluate
 </script>
 </body>
 </html>

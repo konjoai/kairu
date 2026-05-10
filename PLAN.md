@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.10.0**
+Current version: **v0.12.0**
 
 ---
 
@@ -187,7 +187,21 @@ Deliverables:
 
 ---
 
-## Phase 13 — Prompt Shield & Content Policy 🔜 DEFERRED
+## Phase 13 — Eight Named Rubrics + Prism UI (v0.12.0) ✅ COMPLETE
+
+**Ship Gate:** 313 tests passing, 4 HF-gated skipped (13 rubric + 6 API-route tests added).
+
+Deliverables:
+- `kairu/rubrics.py` — `RUBRIC_DEFS`: eight named rubrics (helpfulness, accuracy, safety, coherence, conciseness, creativity, groundedness, tone) with curated weights + canonical hex color per rubric.
+- `kairu/evaluation.RUBRICS` auto-materialises from `RUBRIC_DEFS`.
+- API: `GET /rubrics/{name}` + `POST /evaluate/rubric/{name}` (path-param routing).
+- `demo/server.py` — `POST /api/prism` runs all eight rubrics on one (prompt, response[, response_b]); pure stdlib, 16 KB input cap.
+- `demo/index.html` — full rebuild as the prism UI: pure dark `#06060f`, idly-rotating SVG triangular prism, eight color-coded beams, A/B mode with offset dashed beams, click-to-evaluate, hover tooltips, kbd shortcut.
+- 19 new tests across `tests/test_rubrics.py` and `api/test_api.py`.
+
+---
+
+## Phase 14 — Prompt Shield & Content Policy 🔜 NEXT
 
 **Goal:** Production-safe content screening at the API boundary, prior to tokenization.
 

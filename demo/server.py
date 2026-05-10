@@ -46,7 +46,12 @@ from kairu import (  # noqa: E402 — sys.path manipulation must precede
     MockLayeredModel,
     __version__ as KAIRU_VERSION,
 )
+from kairu.evaluation import compare as eval_compare, evaluate as eval_one  # noqa: E402
 from kairu.mock_model import MockModel  # noqa: E402
+from kairu.rubrics import RUBRIC_DEFS, rubric_names  # noqa: E402
+
+# Prism input limits — boundary validation per .claude/rules/security.md.
+PRISM_MAX_TEXT = 16_384
 
 logger = logging.getLogger("kairu.demo")
 
@@ -234,6 +239,27 @@ def real_simulate_race(rho: float, gamma: int, n_tokens: int, seed: int = 42) ->
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# Prism: run all eight named rubrics on one (prompt, response) and return
+# the ordered list of beam payloads the UI renders.  Each entry carries the
+# rubric name, its canonical color, its aggregate score in [0, 1], and the
+# per-criterion sub-scores so hover tooltips can explain the result.
+# ════════════════════════════════════════════════════════════════════════════
+
+def _prism_beams(prompt: str, response: str) -> list:
+    out = []
+    for name in rubric_names():
+        ev = eval_one(prompt, response, rubric=name)
+        out.append({
+            "rubric": name,
+            "color": RUBRIC_DEFS[name]["color"],
+            "score": round(ev.aggregate, 4),
+            "description": RUBRIC_DEFS[name]["description"],
+            "components": {s.name: round(s.score, 4) for s in ev.scores},
+        })
+    return out
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # HTTP plumbing — stdlib only.
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -276,6 +302,18 @@ class DemoHandler(BaseHTTPRequestHandler):
             return self._serve_index()
         if self.path == "/api/health":
             return self._json(200, {"ok": True, "version": KAIRU_VERSION})
+        if self.path == "/api/rubrics":
+            return self._json(200, {
+                "rubrics": [
+                    {
+                        "name": n,
+                        "description": RUBRIC_DEFS[n]["description"],
+                        "color": RUBRIC_DEFS[n]["color"],
+                        "weights": dict(RUBRIC_DEFS[n]["weights"]),
+                    }
+                    for n in rubric_names()
+                ],
+            })
         return self._json(404, {"error": "not found", "path": self.path})
 
     def do_POST(self) -> None:  # noqa: N802
@@ -291,6 +329,8 @@ class DemoHandler(BaseHTTPRequestHandler):
                 return self._handle_recommend(body)
             if self.path == "/api/simulate-race":
                 return self._handle_simulate(body)
+            if self.path == "/api/prism":
+                return self._handle_prism(body)
         except (ValueError, TypeError, KeyError) as e:
             return self._json(400, {"error": str(e)})
         except Exception as e:  # noqa: BLE001
@@ -342,6 +382,36 @@ class DemoHandler(BaseHTTPRequestHandler):
         result["source"] = "kairu.auto_profile.AutoProfile.recommend (live call)"
         return self._json(200, result)
 
+    def _handle_prism(self, body: dict) -> None:
+        prompt = body.get("prompt")
+        response = body.get("response")
+        response_b = body.get("response_b")
+        if not isinstance(prompt, str) or not isinstance(response, str):
+            raise ValueError("prompt and response must be strings")
+        if not prompt or not response:
+            raise ValueError("prompt and response must be non-empty")
+        if len(prompt) > PRISM_MAX_TEXT or len(response) > PRISM_MAX_TEXT:
+            raise ValueError(f"text exceeds {PRISM_MAX_TEXT} chars")
+        if response_b is not None:
+            if not isinstance(response_b, str) or not response_b:
+                raise ValueError("response_b must be a non-empty string when provided")
+            if len(response_b) > PRISM_MAX_TEXT:
+                raise ValueError(f"response_b exceeds {PRISM_MAX_TEXT} chars")
+        beams_a = _prism_beams(prompt, response)
+        out: dict = {"beams_a": beams_a, "rubric_order": list(rubric_names())}
+        if response_b is not None:
+            beams_b = _prism_beams(prompt, response_b)
+            out["beams_b"] = beams_b
+            agg_a = sum(b["score"] for b in beams_a) / len(beams_a)
+            agg_b = sum(b["score"] for b in beams_b) / len(beams_b)
+            margin = abs(agg_a - agg_b)
+            winner = "a" if agg_a - agg_b > 0.005 else ("b" if agg_b - agg_a > 0.005 else "tie")
+            out["aggregate_a"] = round(agg_a, 4)
+            out["aggregate_b"] = round(agg_b, 4)
+            out["margin"] = round(margin, 4)
+            out["winner"] = winner
+        return self._json(200, out)
+
     def _handle_simulate(self, body: dict) -> None:
         rho = float(body.get("rho", 0.8))
         gamma = int(body.get("gamma", 4))
@@ -391,6 +461,8 @@ def main() -> None:
     print("    POST  /api/speedup       → real speedup formula")
     print("    POST  /api/recommend     → AutoProfile.recommend()")
     print("    POST  /api/simulate-race → seeded speculative-decoding sim")
+    print("    GET   /api/rubrics       → list 8 named prism rubrics")
+    print("    POST  /api/prism         → all 8 rubric scores for a (prompt, response)")
     print()
     print(f"  startup self-test  LogitsCache(4)  →  {cache_stats}")
     print(f"  Ctrl-C to stop")

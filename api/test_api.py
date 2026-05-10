@@ -182,6 +182,60 @@ async def test_batch_oversize_returns_413(client: AsyncClient) -> None:
     assert r.status_code == 413
 
 
+async def test_rubric_detail_returns_full_definition(client: AsyncClient) -> None:
+    r = await client.get("/rubrics/helpfulness")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["name"] == "helpfulness"
+    assert "weights" in body
+    assert "criteria" in body
+    assert body["color"].startswith("#")
+
+
+async def test_rubric_detail_unknown_returns_404(client: AsyncClient) -> None:
+    r = await client.get("/rubrics/does_not_exist")
+    assert r.status_code == 404
+
+
+async def test_evaluate_named_rubric_uses_path_param(client: AsyncClient) -> None:
+    r = await client.post(
+        "/evaluate/rubric/safety",
+        json={"prompt": "Generate test data", "response": "Email: a@b.test, no PII included."},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["rubric"] == "safety"
+    assert "color" in body
+    assert "scores" in body
+
+
+async def test_evaluate_named_rubric_unknown_returns_404(client: AsyncClient) -> None:
+    r = await client.post(
+        "/evaluate/rubric/ghost", json={"prompt": "p", "response": "r"}
+    )
+    assert r.status_code == 404
+
+
+async def test_evaluate_named_rubric_oversize_returns_413(client: AsyncClient) -> None:
+    from api.main import MAX_TEXT_CHARS
+    r = await client.post(
+        "/evaluate/rubric/helpfulness",
+        json={"prompt": "x" * (MAX_TEXT_CHARS + 1), "response": "r"},
+    )
+    assert r.status_code == 413
+
+
+async def test_rubrics_list_includes_color_for_named_rubrics(client: AsyncClient) -> None:
+    r = await client.get("/rubrics")
+    assert r.status_code == 200
+    body = r.json()
+    by_name = {rb["name"]: rb for rb in body["rubrics"]}
+    for name in ("helpfulness", "accuracy", "safety", "coherence",
+                 "conciseness", "creativity", "groundedness", "tone"):
+        assert name in by_name
+        assert by_name[name]["color"].startswith("#")
+
+
 async def test_batch_propagates_unknown_rubric(client: AsyncClient) -> None:
     r = await client.post(
         "/batch",
