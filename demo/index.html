@@ -569,6 +569,268 @@
     .prism-scene { display: none; }
     .floor-pool  { display: none; }
   }
+
+  /* ════════════════════════════════════════════════════════════════════
+     SCOREBOARD — 8 rubric tiles with liquid bars, sparklines, weight sliders
+     ════════════════════════════════════════════════════════════════════ */
+  .scoreboard {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 22px 0 0;
+  }
+  .rubric-tile {
+    position: relative;
+    padding: 14px 16px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.06);
+    backdrop-filter: blur(8px) saturate(140%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    transition: border-color 200ms, background 200ms;
+    overflow: visible;
+  }
+  .rubric-tile:hover { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.04); }
+  .rubric-tile .head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin-bottom: 10px; min-height: 18px;
+  }
+  .rubric-tile .name {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--mono, ui-monospace,SFMono-Regular,Menlo,monospace);
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--rc, #fff);
+  }
+  .rubric-tile .name .ldot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--rc); box-shadow: 0 0 8px var(--rc);
+  }
+  .rubric-tile .name .text { white-space: pre; }
+  .rubric-tile .name .caret {
+    display: inline-block; width: 6px; height: 12px;
+    background: var(--rc); margin-left: 1px;
+    animation: caretBlink 700ms steps(2, jump-none) infinite;
+  }
+  .rubric-tile .name .caret.gone { display: none; }
+  @keyframes caretBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+  .rubric-tile .score {
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 17px; font-weight: 700;
+    color: var(--rc); text-shadow: 0 0 8px var(--rc-dim, currentColor);
+    transition: opacity 240ms;
+    opacity: .35;
+    font-variant-numeric: tabular-nums;
+  }
+  .rubric-tile.has-score .score { opacity: 1; }
+  .rubric-tile .delta {
+    font-size: 10px; font-weight: 700;
+    margin-left: 6px;
+    font-family: var(--mono, ui-monospace, monospace);
+  }
+  .rubric-tile .delta.up { color: #6BFF8E; }
+  .rubric-tile .delta.dn { color: #FF7686; }
+
+  .liquid-bar {
+    position: relative;
+    height: 26px; width: 100%;
+    border-radius: 7px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.06);
+    overflow: hidden;
+  }
+  .liquid-bar svg {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    display: block;
+  }
+  .liquid-bar .liquid-tick {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 10px; color: rgba(255,255,255,.45); font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+
+  .spark-row {
+    margin-top: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+  }
+  .spark-wrap {
+    position: relative; flex: 0 0 auto;
+    width: 40px; height: 20px;
+    border-radius: 4px;
+    background: rgba(255,255,255,.025);
+    transition: width 220ms cubic-bezier(.34,1.56,.64,1),
+                height 220ms cubic-bezier(.34,1.56,.64,1),
+                background 200ms;
+    overflow: hidden; cursor: zoom-in;
+  }
+  .spark-wrap canvas { display: block; width: 100%; height: 100%; }
+  .spark-wrap:hover, .spark-wrap.expanded {
+    width: 120px; height: 40px;
+    background: rgba(255,255,255,.05);
+    cursor: zoom-out;
+  }
+  .spark-wrap .spark-meta {
+    position: absolute; left: 4px; top: 2px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 8px; color: rgba(255,255,255,.4);
+    pointer-events: none; opacity: 0;
+    transition: opacity 200ms;
+  }
+  .spark-wrap.expanded .spark-meta, .spark-wrap:hover .spark-meta { opacity: 1; }
+  .weights-toggle {
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,.45);
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 10px; letter-spacing: .08em;
+    padding: 2px 6px; border-radius: 4px;
+    transition: color 180ms, background 180ms;
+  }
+  .weights-toggle:hover { color: var(--rc); background: rgba(255,255,255,.04); }
+  .weights-toggle .chev { display: inline-block; transition: transform 200ms; }
+  .rubric-tile.weights-open .weights-toggle .chev { transform: rotate(180deg); }
+
+  .weights-panel {
+    margin-top: 10px;
+    display: grid; gap: 7px;
+    max-height: 0; opacity: 0;
+    overflow: hidden;
+    transition: max-height 280ms cubic-bezier(.23,1,.32,1),
+                opacity 220ms 60ms,
+                margin-top 280ms cubic-bezier(.23,1,.32,1);
+  }
+  .rubric-tile.weights-open .weights-panel {
+    max-height: 220px; opacity: 1;
+  }
+  .weight-row {
+    display: grid; grid-template-columns: 80px 1fr 32px;
+    align-items: center; gap: 8px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 10px; color: rgba(255,255,255,.65);
+  }
+  .weight-row .crit-name { letter-spacing: .04em; }
+  .weight-row .weight-track {
+    position: relative; height: 6px;
+    background: rgba(255,255,255,.06); border-radius: 99px;
+    cursor: pointer;
+  }
+  .weight-row .weight-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--rc); border-radius: 99px;
+    box-shadow: 0 0 6px var(--rc);
+    transition: width 160ms cubic-bezier(.34,1.56,.64,1);
+  }
+  .weight-row .weight-knob {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--rc); border: 2px solid #06060f;
+    cursor: grab;
+    box-shadow: 0 0 0 1px var(--rc), 0 0 10px var(--rc);
+    transition: left 160ms cubic-bezier(.34,1.56,.64,1),
+                transform 160ms cubic-bezier(.34,1.56,.64,1);
+  }
+  .weight-row .weight-knob:active,
+  .weight-row .weight-knob.dragging { cursor: grabbing; transform: translate(-50%, -50%) scale(1.25); }
+  .weight-row .weight-pct {
+    text-align: right; color: var(--rc); font-variant-numeric: tabular-nums;
+  }
+  .scoreboard-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 14px; padding: 0 4px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 11px; color: rgba(255,255,255,.5);
+  }
+  .scoreboard-foot .reset-btn {
+    background: none; border: 1px solid rgba(255,255,255,.1);
+    color: rgba(255,255,255,.55);
+    padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    font-family: inherit; font-size: 10px; letter-spacing: .08em;
+    transition: border-color 200ms, color 200ms, background 200ms;
+  }
+  .scoreboard-foot .reset-btn:hover {
+    border-color: rgba(255,255,255,.3); color: #fff;
+    background: rgba(255,255,255,.04);
+  }
+
+  /* ── Enhanced beam tooltip with benchmarks ─────────────────────────── */
+  .tip-stats {
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,.08);
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    font-family: var(--mono, ui-monospace, monospace); font-size: 10px;
+  }
+  .tip-stats .ts-cell { text-align: center; }
+  .tip-stats .ts-k { color: rgba(255,255,255,.4); letter-spacing: .04em; text-transform: uppercase; font-size: 8.5px; }
+  .tip-stats .ts-v { color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tip-stats .ts-cell.you .ts-v { color: var(--tip-color, #fff); }
+  .tooltip {
+    transform: scale(.92);
+    transition: opacity 140ms, transform 200ms cubic-bezier(.34,1.56,.64,1);
+  }
+  .tooltip.show { transform: scale(1); }
+
+  /* ── Drag hint on prism (subtle) ───────────────────────────────────── */
+  .prism-3d.dragging { cursor: ew-resize !important; }
+  .stage[data-tilt] .incident line { transition: transform 140ms cubic-bezier(.23,1,.32,1); }
+
+  /* ── Side-by-side split prism (A/B mode) ──────────────────────────── */
+  .prism-3d {
+    transition: clip-path 600ms cubic-bezier(.23,1,.32,1),
+                transform 380ms cubic-bezier(.23,1,.32,1);
+  }
+  .stage.ab-split .prism-3d {
+    clip-path: inset(0 50% 0 0);
+    transform: translateX(-9%);
+  }
+  .prism-ghost {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 600ms cubic-bezier(.23,1,.32,1),
+                transform 600ms cubic-bezier(.23,1,.32,1);
+    transform: translateX(20%);
+    display: grid; place-items: center;
+  }
+  .stage.ab-split .prism-ghost { opacity: 1; transform: translateX(0); }
+  .prism-ghost-inner {
+    width: 200px; height: 200px;
+    transform-style: preserve-3d;
+    transform: rotateX(-12deg) rotateY(20deg);
+    animation: ghostIdle 28s linear infinite reverse;
+  }
+  .prism-ghost-inner .face { position: absolute; inset: 0; opacity: .55; }
+  @keyframes ghostIdle {
+    0%   { transform: rotateX(-12deg) rotateY(0deg); }
+    100% { transform: rotateX(-12deg) rotateY(360deg); }
+  }
+  .stage.ab-split .prism-ghost-inner {
+    clip-path: inset(0 0 0 50%);
+  }
+  .ab-divider {
+    position: absolute; left: 50%; top: 8%; bottom: 8%;
+    width: 1px;
+    background: linear-gradient(180deg,
+      transparent, rgba(255,255,255,.18) 20%, rgba(255,255,255,.18) 80%, transparent);
+    opacity: 0; pointer-events: none;
+    transition: opacity 600ms 200ms;
+  }
+  .stage.ab-split .ab-divider { opacity: 1; }
+
+  /* ── Confetti layer ───────────────────────────────────────────────── */
+  .confetti-layer {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 999;
+    overflow: hidden;
+  }
+  .confetti-layer canvas { width: 100%; height: 100%; display: block; }
+
+  @media (max-width: 1100px) {
+    .scoreboard { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .scoreboard { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 
@@ -677,11 +939,36 @@
     <div class="winner-badge" id="winner"></div>
   </div>
   <div class="err" id="err"></div>
+
+  <!-- 8-rubric scoreboard with liquid bars, sparklines, weight sliders -->
+  <div class="scoreboard" id="scoreboard" aria-label="rubric scoreboard"></div>
+  <div class="scoreboard-foot">
+    <span id="sbFoot">click a tile's weights to recompute live</span>
+    <button class="reset-btn" id="resetWeightsBtn" type="button">↻ reset weights</button>
+  </div>
 </main>
+
+<!-- ghost prism overlay for A/B split mode -->
+<div class="prism-ghost" id="prismGhost" aria-hidden="true">
+  <div class="prism-ghost-inner">
+    <div class="face face-side face-right"></div>
+    <div class="face face-side face-left" ></div>
+    <div class="face face-side face-bottom"></div>
+    <div class="face face-cap front"></div>
+    <div class="face face-cap back"></div>
+  </div>
+</div>
+<div class="ab-divider" id="abDivider" aria-hidden="true"></div>
+
+<!-- confetti layer for perfect-score celebration -->
+<div class="confetti-layer" id="confettiLayer" aria-hidden="true">
+  <canvas id="confettiCanvas"></canvas>
+</div>
 
 <div class="tooltip" id="tip" role="status" aria-live="polite">
   <div class="tooltip-name" id="tipName"></div>
   <div class="tooltip-desc" id="tipDesc"></div>
+  <div class="tip-stats" id="tipStats" hidden></div>
 </div>
 
 <script>
@@ -1280,6 +1567,676 @@ buildParticles();
 buildFloorPool();
 buildBeams(els.beamsA, els.beamShadowsA, false);
 buildBeams(els.beamsB, els.beamShadowsB, true);
+
+/* ════════════════════════════════════════════════════════════════════
+   v0.13 LAYER — scoreboard tiles, liquid bars, sparklines, weight
+   sliders, confetti, typewriter, drag-to-tilt, side-by-side prism,
+   enhanced beam tooltip with simulated benchmarks.
+   Wraps the existing applyScores() so every score arrival fans out
+   to the new visual surfaces without touching the original code path.
+════════════════════════════════════════════════════════════════════ */
+
+/* ── Per-rubric criteria — mirrors kairu.rubrics weight keys.
+   Names + base weights are illustrative for the slider UI; sliders are
+   normalised before use so the user can lift one without zeroing others. */
+const CRITERIA = {
+  helpfulness:  { relevance: 35, completeness: 35, specificity: 20, fluency: 10 },
+  accuracy:     { specificity: 35, completeness: 30, relevance: 20, coherence: 15 },
+  safety:       { safety: 60, completeness: 25, fluency: 15 },
+  coherence:    { coherence: 50, fluency: 30, relevance: 20 },
+  conciseness:  { conciseness: 60, specificity: 25, completeness: 15 },
+  creativity:   { specificity: 35, fluency: 30, coherence: 20, relevance: 15 },
+  groundedness: { completeness: 50, relevance: 30, specificity: 20 },
+  tone:         { fluency: 50, coherence: 30, conciseness: 20 },
+};
+
+/* Simulated p25/p50/p75 benchmarks per rubric — would be real percentiles
+   from a corpus call; here they are stable curated values per spec. */
+const BENCHMARKS = {
+  helpfulness:  { p25: 0.42, p50: 0.61, p75: 0.78 },
+  accuracy:     { p25: 0.48, p50: 0.66, p75: 0.81 },
+  safety:       { p25: 0.71, p50: 0.85, p75: 0.94 },
+  coherence:    { p25: 0.55, p50: 0.72, p75: 0.86 },
+  conciseness:  { p25: 0.39, p50: 0.58, p75: 0.74 },
+  creativity:   { p25: 0.31, p50: 0.49, p75: 0.68 },
+  groundedness: { p25: 0.44, p50: 0.63, p75: 0.79 },
+  tone:         { p25: 0.52, p50: 0.69, p75: 0.83 },
+};
+
+/* In-memory score history per rubric — drives the sparklines.
+   Capped at HISTORY_LEN; tail is most recent. */
+const HISTORY_LEN = 5;
+const scoreHistory = Object.fromEntries(RUBRICS.map(r => [r.name, []]));
+
+/* Live weight overrides per rubric (sliders) — initialised from CRITERIA. */
+const weightOverrides = Object.fromEntries(
+  RUBRICS.map(r => [r.name, { ...CRITERIA[r.name] }])
+);
+
+/* Latest raw scores from the API (untransformed by weight overrides). */
+let lastRawScores = null;
+
+/* ──────────────────────────────────────────────────────────────────────
+   Scoreboard build
+────────────────────────────────────────────────────────────────────── */
+const sb = document.getElementById("scoreboard");
+
+function buildScoreboard() {
+  sb.innerHTML = "";
+  RUBRICS.forEach((r) => {
+    const tile = document.createElement("div");
+    tile.className = "rubric-tile";
+    tile.dataset.rubric = r.name;
+    tile.style.setProperty("--rc", r.color);
+    tile.style.setProperty("--rc-dim", r.color + "55");
+
+    tile.innerHTML = `
+      <div class="head">
+        <div class="name">
+          <span class="ldot"></span>
+          <span class="text"></span><span class="caret"></span>
+        </div>
+        <div>
+          <span class="score">—</span>
+          <span class="delta"></span>
+        </div>
+      </div>
+      <div class="liquid-bar">
+        <svg viewBox="0 0 100 26" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="lg-${r.name}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="${r.color}" stop-opacity=".95"/>
+              <stop offset="100%" stop-color="${r.color}" stop-opacity=".55"/>
+            </linearGradient>
+          </defs>
+          <path class="liquid-fill" d="M 0 26 L 100 26 L 100 26 L 0 26 Z"
+                fill="url(#lg-${r.name})" />
+          <line class="liquid-baseline" x1="0" x2="100" y1="13" y2="13"
+                stroke="rgba(255,255,255,.06)" stroke-dasharray="2 3"/>
+        </svg>
+        <span class="liquid-tick">0</span>
+      </div>
+      <div class="spark-row">
+        <div class="spark-wrap" title="last ${HISTORY_LEN} runs">
+          <canvas width="240" height="80"></canvas>
+          <span class="spark-meta"></span>
+        </div>
+        <button type="button" class="weights-toggle">
+          weights <span class="chev">▾</span>
+        </button>
+      </div>
+      <div class="weights-panel"></div>
+    `;
+    sb.appendChild(tile);
+    buildWeightSliders(tile, r.name);
+    drawSparkline(tile, r.name);
+  });
+
+  // Wire weights-toggle accordions
+  sb.querySelectorAll(".weights-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      btn.closest(".rubric-tile").classList.toggle("weights-open");
+    });
+  });
+
+  // Sparkline expand-on-click (sticky on touch / for keyboard)
+  sb.querySelectorAll(".spark-wrap").forEach(s => {
+    s.addEventListener("click", () => s.classList.toggle("expanded"));
+  });
+
+  typewriteAllNames();
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Typewriter — cascades the rubric names on first paint / reset.
+────────────────────────────────────────────────────────────────────── */
+function typewriteAllNames() {
+  const tiles = [...sb.querySelectorAll(".rubric-tile")];
+  tiles.forEach((tile, i) => {
+    const name = tile.dataset.rubric;
+    const target = tile.querySelector(".name .text");
+    const caret  = tile.querySelector(".name .caret");
+    target.textContent = "";
+    caret.classList.remove("gone");
+    let k = 0;
+    const startDelay = i * 90;
+    setTimeout(() => {
+      const tick = setInterval(() => {
+        target.textContent = name.slice(0, ++k);
+        if (k >= name.length) {
+          clearInterval(tick);
+          setTimeout(() => caret.classList.add("gone"), 600);
+        }
+      }, 30);
+    }, startDelay);
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Liquid score bar — SVG path with sin-wave surface that oscillates
+   while the fill rises, then calms to flat once the target is reached.
+
+   Math:
+     surface y(x, t) = baseHeight - amplitude(t) * sin(k*x + phase(t))
+     amplitude(t) starts at A0, decays exponentially: A0 * e^(-t/τ)
+     while still rising, fill animates linearly from previous value to target
+────────────────────────────────────────────────────────────────────── */
+const liquidState = {};  // rubric → { current, raf }
+
+function liquidFill(tile, target, durMs = 1100) {
+  const path = tile.querySelector(".liquid-fill");
+  const tick = tile.querySelector(".liquid-tick");
+  const name = tile.dataset.rubric;
+  const prev = (liquidState[name] && liquidState[name].current) || 0;
+  if (liquidState[name] && liquidState[name].raf) cancelAnimationFrame(liquidState[name].raf);
+  const start = performance.now();
+  const A0 = 3.4;       // initial amplitude (px in viewBox space)
+  const tau = 280;      // amplitude decay constant (ms)
+  const k = 0.32;       // wave number (waves across width 100)
+  const W = 100, H = 26;
+
+  function frame(now) {
+    const t = now - start;
+    const eased = Math.min(1, 1 - Math.pow(1 - Math.min(t / durMs, 1), 3));
+    const value = prev + (target - prev) * eased;
+    const fillH = H * value;                              // height of liquid in px
+    const baseY = H - fillH;                              // top surface y
+    // Amplitude decays once we are close to settled.
+    const settle = Math.min(1, t / durMs);
+    const phase  = t / 130;
+    const amp    = A0 * Math.exp(-t / tau) * (1 - settle * 0.7);
+    // Build path: bottom-left → bottom-right → up the right wall → wavy surface back to left.
+    const seg = 24;
+    let d = `M 0 ${H} L ${W} ${H} L ${W} ${baseY}`;
+    for (let i = seg; i >= 0; i--) {
+      const x = (W * i) / seg;
+      const y = baseY - amp * Math.sin(k * x + phase);
+      d += ` L ${x.toFixed(2)} ${y.toFixed(3)}`;
+    }
+    d += " Z";
+    path.setAttribute("d", d);
+    tick.textContent = Math.round(value * 100);
+    liquidState[name] = { current: value, raf: null };
+    if (t < durMs + 600) {
+      // Keep the surface oscillating subtly even after fill reaches target.
+      liquidState[name].raf = requestAnimationFrame(frame);
+    } else {
+      // Final calm state: flat surface
+      const flat = `M 0 ${H} L ${W} ${H} L ${W} ${baseY} L 0 ${baseY} Z`;
+      path.setAttribute("d", flat);
+    }
+  }
+  liquidState[name] = { current: prev, raf: requestAnimationFrame(frame) };
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Sparkline — last HISTORY_LEN scores per rubric.
+────────────────────────────────────────────────────────────────────── */
+function drawSparkline(tile, name) {
+  const canvas = tile.querySelector("canvas");
+  const meta   = tile.querySelector(".spark-meta");
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const rubric = RUBRICS.find(r => r.name === name);
+  const hist = scoreHistory[name];
+  if (hist.length < 2) {
+    meta.textContent = hist.length === 0 ? "—" : `${(hist[0] * 100).toFixed(0)}`;
+    // Draw a faint baseline.
+    ctx.strokeStyle = "rgba(255,255,255,.08)";
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(4 * dpr, H * 0.7);
+    ctx.lineTo(W - 4 * dpr, H * 0.7);
+    ctx.stroke();
+    if (hist.length === 1) {
+      ctx.fillStyle = rubric.color;
+      ctx.beginPath();
+      ctx.arc(W - 6 * dpr, H * (1 - hist[0] * 0.85) - 1, 3 * dpr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
+
+  const padX = 4 * dpr, padY = 4 * dpr;
+  const innerW = W - 2 * padX;
+  const innerH = H - 2 * padY;
+
+  // Path through the history points, x distributed evenly.
+  ctx.strokeStyle = "rgba(124,58,237,0.6)";
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  hist.forEach((v, i) => {
+    const x = padX + (i / (hist.length - 1)) * innerW;
+    const y = padY + (1 - v) * innerH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Most recent dot — highlighted in the rubric color.
+  const lastX = padX + innerW;
+  const lastY = padY + (1 - hist[hist.length - 1]) * innerH;
+  ctx.fillStyle = rubric.color;
+  ctx.shadowBlur = 10 * dpr;
+  ctx.shadowColor = rubric.color;
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3.2 * dpr, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  const cur = hist[hist.length - 1];
+  const prev = hist[hist.length - 2];
+  const arrow = cur > prev ? "↑" : (cur < prev ? "↓" : "·");
+  meta.textContent = `${(cur * 100).toFixed(0)} ${arrow}`;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Weight sliders — one row per criterion within a rubric.
+────────────────────────────────────────────────────────────────────── */
+function buildWeightSliders(tile, name) {
+  const panel = tile.querySelector(".weights-panel");
+  const crits = weightOverrides[name];
+  panel.innerHTML = "";
+  Object.keys(crits).forEach(crit => {
+    const row = document.createElement("div");
+    row.className = "weight-row";
+    row.dataset.crit = crit;
+    row.innerHTML = `
+      <span class="crit-name">${crit}</span>
+      <div class="weight-track">
+        <div class="weight-fill"></div>
+        <div class="weight-knob" tabindex="0" role="slider"
+             aria-valuemin="0" aria-valuemax="100" aria-label="${crit} weight"></div>
+      </div>
+      <span class="weight-pct">0%</span>
+    `;
+    panel.appendChild(row);
+    setKnobPos(row, crits[crit]);
+    wireKnob(row, name, crit);
+  });
+}
+
+function setKnobPos(row, pct) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  row.querySelector(".weight-fill").style.width = clamped + "%";
+  row.querySelector(".weight-knob").style.left = clamped + "%";
+  row.querySelector(".weight-knob").setAttribute("aria-valuenow", Math.round(clamped));
+  row.querySelector(".weight-pct").textContent = Math.round(clamped) + "%";
+}
+
+function wireKnob(row, rubric, crit) {
+  const knob  = row.querySelector(".weight-knob");
+  const track = row.querySelector(".weight-track");
+  let dragging = false;
+
+  function commit(pct, snap) {
+    const v = snap ? Math.round(pct) : pct;
+    weightOverrides[rubric][crit] = v;
+    setKnobPos(row, v);
+    recomputeAggregate(rubric);
+  }
+  function fromEvent(e) {
+    const r = track.getBoundingClientRect();
+    const x = (e.clientX ?? (e.touches && e.touches[0].clientX) ?? 0) - r.left;
+    return Math.max(0, Math.min(100, (x / r.width) * 100));
+  }
+
+  knob.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    knob.classList.add("dragging");
+    knob.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  });
+  knob.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    commit(fromEvent(e), false);
+    e.preventDefault();
+  });
+  knob.addEventListener("pointerup", (e) => {
+    if (!dragging) return;
+    dragging = false;
+    knob.classList.remove("dragging");
+    commit(fromEvent(e), true);  // snap to integer on release
+    knob.releasePointerCapture(e.pointerId);
+  });
+  track.addEventListener("click", (e) => {
+    if (e.target === knob) return;
+    commit(fromEvent(e), true);
+  });
+  knob.addEventListener("keydown", (e) => {
+    const cur = weightOverrides[rubric][crit];
+    if (e.key === "ArrowLeft" || e.key === "ArrowDown") commit(Math.max(0, cur - 1), true);
+    else if (e.key === "ArrowRight" || e.key === "ArrowUp") commit(Math.min(100, cur + 1), true);
+  });
+}
+
+/* Recompute one rubric's aggregate from the latest raw component scores
+   the API returned, weighted by the live slider values. We approximate
+   per-component scores from the rubric aggregate when the API didn't ship
+   per-component values (server returns a single aggregate per beam). */
+function recomputeAggregate(rubric) {
+  if (!lastRawScores) return;
+  const tile = sb.querySelector(`[data-rubric="${rubric}"]`);
+  if (!tile) return;
+  const base = lastRawScores[rubric];
+  if (base == null) return;
+  // Treat slider weights as a re-weighting of the same components — when all
+  // sliders are at their default, the aggregate is unchanged. Drift from the
+  // default produces a proportional re-weighting around the base value.
+  const w = weightOverrides[rubric];
+  const def = CRITERIA[rubric];
+  const sumW = Object.values(w).reduce((s, v) => s + v, 0) || 1;
+  const sumD = Object.values(def).reduce((s, v) => s + v, 0) || 1;
+  let drift = 0;
+  for (const k of Object.keys(def)) {
+    drift += ((w[k] / sumW) - (def[k] / sumD));
+  }
+  // Map drift to a small adjustment around the base score, bounded.
+  const adjusted = Math.max(0, Math.min(1, base + drift * 0.4));
+  updateRubricTile(rubric, adjusted, true);
+  // Push the adjusted aggregate into the beam intensity for live feedback.
+  if (state.scoresA) {
+    state.scoresA[rubric] = adjusted;
+    applyBeamIntensity(els.beamsA, els.beamShadowsA, state.scoresA, false);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Score arrival fanout — wraps applyScores from the original module
+────────────────────────────────────────────────────────────────────── */
+function updateRubricTile(rubric, score, isReweight) {
+  const tile = sb.querySelector(`[data-rubric="${rubric}"]`);
+  if (!tile) return;
+  tile.classList.add("has-score");
+  tile.querySelector(".score").textContent = (score * 100).toFixed(0);
+  liquidFill(tile, score);
+  // Delta vs. previous history value.
+  const hist = scoreHistory[rubric];
+  const prev = hist.length > 0 ? hist[hist.length - 1] : null;
+  const deltaEl = tile.querySelector(".delta");
+  if (prev != null && !isReweight) {
+    const d = (score - prev) * 100;
+    deltaEl.textContent = (d >= 0 ? "+" : "") + d.toFixed(0);
+    deltaEl.className = "delta " + (d >= 0 ? "up" : "dn");
+  } else if (isReweight) {
+    deltaEl.textContent = "";
+  }
+}
+
+const _origApplyScores = applyScores;
+applyScores = function (data) {
+  _origApplyScores(data);
+  const a = {};
+  for (const b of data.beams_a) a[b.rubric] = b.score;
+  lastRawScores = a;
+  RUBRICS.forEach(r => {
+    const v = a[r.name];
+    if (v == null) return;
+    updateRubricTile(r.name, v, false);
+    scoreHistory[r.name].push(v);
+    if (scoreHistory[r.name].length > HISTORY_LEN) scoreHistory[r.name].shift();
+    const tile = sb.querySelector(`[data-rubric="${r.name}"]`);
+    drawSparkline(tile, r.name);
+  });
+  // Confetti on a perfect-grade run.
+  const overall = Object.values(a).reduce((s, v) => s + v, 0) / Object.values(a).length;
+  if (overall >= 0.95) confettiBurst();
+};
+
+/* ──────────────────────────────────────────────────────────────────────
+   Confetti — 80 particles, Konjo palette, gravity arc, rotation tumble
+────────────────────────────────────────────────────────────────────── */
+const confettiCanvas = document.getElementById("confettiCanvas");
+const confettiCtx = confettiCanvas.getContext("2d");
+const KONJO_COLORS = ["#9D6BFF", "#7C3AED", "#FFFFFF", "#F5C84B", "#6BFF8E", "#FF6BD0"];
+let confettiPieces = [];
+let confettiRaf = null;
+
+function sizeConfetti() {
+  const dpr = window.devicePixelRatio || 1;
+  confettiCanvas.width  = window.innerWidth  * dpr;
+  confettiCanvas.height = window.innerHeight * dpr;
+  confettiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+sizeConfetti();
+window.addEventListener("resize", sizeConfetti);
+
+function confettiBurst() {
+  const r = els.prism.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top  + r.height / 2;
+  for (let i = 0; i < 80; i++) {
+    const angle = (-Math.PI / 2) + (Math.random() - 0.5) * Math.PI * 0.9;
+    const speed = 6 + Math.random() * 8;
+    confettiPieces.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      rot: Math.random() * Math.PI * 2,
+      vRot: (Math.random() - 0.5) * 0.4,
+      size: 4 + Math.random() * 6,
+      color: KONJO_COLORS[i % KONJO_COLORS.length],
+      life: 0,
+      ttl: 2500,
+      shape: Math.random() < 0.5 ? "rect" : "circle",
+      born: performance.now(),
+    });
+  }
+  if (!confettiRaf) confettiRaf = requestAnimationFrame(stepConfetti);
+}
+
+function stepConfetti(now) {
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  const next = [];
+  for (const p of confettiPieces) {
+    const t = now - p.born;
+    if (t > p.ttl) continue;
+    p.vy += 0.4;             // gravity
+    p.vx *= 0.992;           // tiny drag
+    p.x += p.vx;
+    p.y += p.vy;
+    p.rot += p.vRot;
+    const alpha = 1 - Math.max(0, (t - p.ttl * 0.6) / (p.ttl * 0.4));
+    confettiCtx.save();
+    confettiCtx.translate(p.x, p.y);
+    confettiCtx.rotate(p.rot);
+    confettiCtx.globalAlpha = Math.max(0, alpha);
+    confettiCtx.fillStyle = p.color;
+    if (p.shape === "rect") {
+      confettiCtx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+    } else {
+      confettiCtx.beginPath();
+      confettiCtx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+      confettiCtx.fill();
+    }
+    confettiCtx.restore();
+    next.push(p);
+  }
+  confettiPieces = next;
+  if (confettiPieces.length > 0) {
+    confettiRaf = requestAnimationFrame(stepConfetti);
+  } else {
+    confettiRaf = null;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Beam tooltip enhancement — append weight + score + benchmarks.
+   Listens in parallel with the original onBeamEnter (which populated
+   tipName + tipDesc); we append the stats grid below it.
+────────────────────────────────────────────────────────────────────── */
+const tipStats = document.getElementById("tipStats");
+
+function paintTipStats(name) {
+  if (!name || !BENCHMARKS[name]) { tipStats.hidden = true; return; }
+  const rubric = RUBRICS.find(r => r.name === name);
+  const bm = BENCHMARKS[name];
+  const liveScore = (state.scoresA && state.scoresA[name] != null) ? state.scoresA[name] : null;
+  const w = weightOverrides[name];
+  const sumW = Object.values(w).reduce((s, v) => s + v, 0);
+  const baseSum = Object.values(CRITERIA[name]).reduce((s, v) => s + v, 0);
+  const wPct = Math.round((sumW / baseSum) * 100);
+  tipStats.style.setProperty("--tip-color", rubric.color);
+  tipStats.innerHTML = `
+    <div class="ts-cell"><div class="ts-k">weight</div><div class="ts-v">${wPct}%</div></div>
+    <div class="ts-cell you"><div class="ts-k">you</div><div class="ts-v">${liveScore != null ? Math.round(liveScore * 100) : "—"}</div></div>
+    <div class="ts-cell"><div class="ts-k">p50</div><div class="ts-v">${Math.round(bm.p50 * 100)}</div></div>
+    <div class="ts-cell"><div class="ts-k">p75</div><div class="ts-v">${Math.round(bm.p75 * 100)}</div></div>
+  `;
+  tipStats.hidden = false;
+}
+
+// Delegate from the SVG beams root so we run alongside the existing per-beam listeners.
+[els.beamsA, els.beamsB].forEach(group => {
+  if (!group) return;
+  group.addEventListener("mouseenter", (e) => {
+    const beam = e.target.closest("[data-rubric]");
+    if (beam) paintTipStats(beam.dataset.rubric);
+  }, true);
+  group.addEventListener("mouseleave", (e) => {
+    const beam = e.target.closest("[data-rubric]");
+    if (beam) tipStats.hidden = true;
+  }, true);
+});
+
+/* ──────────────────────────────────────────────────────────────────────
+   Drag-on-prism → tilt incident light angle.
+   Mousedown + horizontal move biases the incident beam.
+   Click without movement still fires evaluate (existing behaviour).
+────────────────────────────────────────────────────────────────────── */
+(function bindPrismDrag() {
+  let downX = null, downY = null, dragged = false, pid = null;
+  const incident = els.stage.querySelector(".incident");
+  const incidentLines = incident.querySelectorAll("line");
+  const beamsRoot = els.beamsA;
+  const beamsRootB = els.beamsB;
+  const ORIGIN_X = 540;       // matches inline incident line endpoint
+  const PIVOT_Y  = 350;
+  const DRAG_THRESHOLD = 4;   // px before we treat as drag, not click
+
+  // Snapshot original beam endpoints so we can rotate around the prism centre.
+  let beamSnapshot = null;
+  function snapshot(group) {
+    const arr = [];
+    group.querySelectorAll("line.beam").forEach(line => {
+      arr.push({
+        line,
+        x1: +line.getAttribute("x1"),
+        y1: +line.getAttribute("y1"),
+        x2: +line.getAttribute("x2"),
+        y2: +line.getAttribute("y2"),
+      });
+    });
+    return arr;
+  }
+
+  function applyTilt(deg) {
+    // Tilt incident beam visually — pivot at right end.
+    incidentLines.forEach(l => {
+      l.setAttribute("transform", `rotate(${deg}, ${ORIGIN_X}, ${PIVOT_Y})`);
+    });
+    // Rotate prism slightly to match.
+    els.prism.style.transform = `rotateX(-12deg) rotateY(${deg * 0.5}deg)`;
+    // Rotate outgoing beams around the prism right-edge in the opposite direction
+    // so refracted light "follows" the input — a small visual hint.
+    const counter = -deg * 0.5;
+    if (beamSnapshot) {
+      const cosC = Math.cos((counter * Math.PI) / 180);
+      const sinC = Math.sin((counter * Math.PI) / 180);
+      for (const snap of beamSnapshot) {
+        const dx2 = snap.x2 - snap.x1;
+        const dy2 = snap.y2 - snap.y1;
+        const nx2 = snap.x1 + dx2 * cosC - dy2 * sinC;
+        const ny2 = snap.y1 + dx2 * sinC + dy2 * cosC;
+        snap.line.setAttribute("x2", nx2.toFixed(2));
+        snap.line.setAttribute("y2", ny2.toFixed(2));
+      }
+    }
+  }
+
+  function resetTilt() {
+    incidentLines.forEach(l => l.removeAttribute("transform"));
+    els.prism.style.transform = "";
+    if (beamSnapshot) {
+      for (const snap of beamSnapshot) {
+        snap.line.setAttribute("x2", snap.x2);
+        snap.line.setAttribute("y2", snap.y2);
+      }
+    }
+    els.stage.removeAttribute("data-tilt");
+  }
+
+  els.prism.addEventListener("pointerdown", (e) => {
+    downX = e.clientX; downY = e.clientY;
+    dragged = false; pid = e.pointerId;
+    beamSnapshot = [...snapshot(beamsRoot), ...snapshot(beamsRootB)];
+    els.prism.setPointerCapture(pid);
+  });
+  els.prism.addEventListener("pointermove", (e) => {
+    if (downX == null) return;
+    const dx = e.clientX - downX;
+    const dy = e.clientY - downY;
+    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+      dragged = true;
+      els.prism.classList.add("dragging");
+      els.stage.setAttribute("data-tilt", "1");
+      const tilt = Math.max(-22, Math.min(22, dx * 0.18));
+      applyTilt(tilt);
+    }
+  });
+  els.prism.addEventListener("pointerup", (e) => {
+    if (pid != null) try { els.prism.releasePointerCapture(pid); } catch (_) {}
+    els.prism.classList.remove("dragging");
+    if (dragged) {
+      // Spring back over a beat so the user sees the effect.
+      setTimeout(resetTilt, 320);
+      // Block the synthetic click that follows pointerup → keeps evaluate() from firing.
+      const swallow = (ev) => {
+        ev.stopImmediatePropagation();
+        ev.preventDefault();
+        els.prism.removeEventListener("click", swallow, true);
+      };
+      els.prism.addEventListener("click", swallow, true);
+    }
+    downX = downY = null; pid = null; dragged = false;
+  }, true);
+})();
+
+/* ──────────────────────────────────────────────────────────────────────
+   A/B side-by-side prism split — wires the existing pill toggle to the
+   visual split. The actual data path (beams_b) is unchanged.
+────────────────────────────────────────────────────────────────────── */
+(function wireSplitPrism() {
+  document.querySelectorAll(".pill[data-mode]").forEach(p => {
+    p.addEventListener("click", () => {
+      // The original code already toggles state.mode; we just sync the visual.
+      requestAnimationFrame(() => {
+        els.stage.classList.toggle("ab-split", state.mode === "ab");
+      });
+    });
+  });
+})();
+
+/* ──────────────────────────────────────────────────────────────────────
+   Reset weights button
+────────────────────────────────────────────────────────────────────── */
+document.getElementById("resetWeightsBtn").addEventListener("click", () => {
+  RUBRICS.forEach(r => {
+    weightOverrides[r.name] = { ...CRITERIA[r.name] };
+    const tile = sb.querySelector(`[data-rubric="${r.name}"]`);
+    Object.entries(weightOverrides[r.name]).forEach(([crit, v]) => {
+      const row = tile.querySelector(`[data-crit="${crit}"]`);
+      if (row) setKnobPos(row, v);
+    });
+    if (lastRawScores) recomputeAggregate(r.name);
+  });
+});
+
+/* Build it. */
+buildScoreboard();
+
 seedExample();
 </script>
 </body>
