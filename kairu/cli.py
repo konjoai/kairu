@@ -21,6 +21,7 @@ anyone benchmarking the orchestration layer in isolation.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from typing import Optional, Sequence
 
@@ -63,6 +64,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("bench", help="Run the BenchmarkRunner CLI (see kairu.bench).")
     sub.add_parser("version", help="Print version and exit.")
+
+    sh = sub.add_parser("shield", help="Screen a prompt through the default PromptShield.")
+    sh.add_argument("prompt", help="Prompt text to screen.")
+    sh.add_argument("--json", dest="as_json", action="store_true",
+                    help="Output raw JSON instead of human-readable text.")
     return p
 
 
@@ -144,17 +150,41 @@ def cmd_bench(_args: argparse.Namespace) -> int:
 
 
 def cmd_version(_args: argparse.Namespace) -> int:
+    """Print the installed kairu version and exit."""
     print(f"kairu {__version__}")
     return 0
 
 
+def cmd_shield(args: argparse.Namespace) -> int:
+    """Screen a prompt through the default PromptShield and print the result."""
+    from kairu.shield import get_default_shield
+
+    result = get_default_shield().check(args.prompt)
+    if args.as_json:
+        payload = {
+            "verdict": str(result.verdict),
+            "reason": result.reason,
+            "confidence": result.confidence,
+            "matched_rule": result.matched_rule,
+        }
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"verdict      : {result.verdict}")
+        print(f"reason       : {result.reason}")
+        print(f"confidence   : {result.confidence:.3f}")
+        print(f"matched_rule : {result.matched_rule}")
+    return 0 if str(result.verdict) == "allowed" else 1
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """Dispatch CLI subcommands: serve, bench, version, shield."""
     parser = _build_parser()
     args = parser.parse_args(argv)
     handlers = {
         "serve": cmd_serve,
         "bench": cmd_bench,
         "version": cmd_version,
+        "shield": cmd_shield,
     }
     return handlers[args.command](args)
 

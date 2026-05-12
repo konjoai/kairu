@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kairu"
-version = "0.12.0"
-description = "Real-time LLM inference optimizer: speculative decoding, layered early exit, KV-cache recycling, adaptive γ, SSE/JSONL streaming, Prometheus metrics, Redis-backed rate limiting, OpenTelemetry tracing, cluster token budgets, token watermarking, squish quantization-quality eval, rubric-based response evaluation + A/B comparison HTTP API, eight named rubrics + prism UI"
+version = "0.13.0"
+description = "Real-time LLM inference optimizer: speculative decoding, layered early exit, KV-cache recycling, adaptive γ, SSE/JSONL streaming, Prometheus metrics, Redis-backed rate limiting, OpenTelemetry tracing, cluster token budgets, token watermarking, squish quantization-quality eval, rubric-based response evaluation + A/B comparison HTTP API, eight named rubrics + prism UI, prompt shield content policy"
 license = { text = "BUSL-1.1" }
 requires-python = ">=3.10"
 dependencies = [

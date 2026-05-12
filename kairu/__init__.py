@@ -15,10 +15,16 @@ Provides:
   - FeedbackLoop      : benchmark-driven gamma scheduler feedback
   - WatermarkLogitsProcessor : green/red list logit bias (Kirchenbauer 2023)
   - WatermarkDetector        : z-score watermark detector
+  - PromptShield     : rule-based content policy gate
+  - ShieldConfig     : configurable rule sets and PII patterns
+  - ShieldResult     : immutable verdict + reason + confidence
+  - ShieldVerdict    : ALLOWED / FLAGGED / BLOCKED
+  - ShieldRule       : named regex rule with priority and verdict
+  - get_default_shield : module-level singleton shield
 """
 from __future__ import annotations
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
@@ -73,6 +79,14 @@ from kairu.rate_limit import (
     RateLimiter,
     RateLimiterBackend,
     RedisBackend,
+)
+from kairu.shield import (
+    PromptShield,
+    ShieldConfig,
+    ShieldResult,
+    ShieldRule,
+    ShieldVerdict,
+    get_default_shield,
 )
 
 try:
@@ -137,5 +151,11 @@ __all__ = [
     "Rubric",
     "CRITERIA",
     "RUBRICS",
+    "PromptShield",
+    "ShieldConfig",
+    "ShieldResult",
+    "ShieldRule",
+    "ShieldVerdict",
+    "get_default_shield",
     "__version__",
 ]

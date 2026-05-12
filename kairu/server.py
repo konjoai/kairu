@@ -68,6 +68,7 @@ from kairu.rate_limit import (
     RateLimiter,
     RateLimiterBackend,
 )
+from kairu.shield import PromptShield, ShieldVerdict
 from kairu.squish_eval import (
     SquishEvaluator,
     quality_degradation_report,
@@ -171,6 +172,7 @@ def create_app(
     rate_limit_backend: Optional[RateLimiterBackend] = None,
     metrics: Optional[MetricsCollector] = None,
     tracer: Optional[KairuTracer] = None,
+    shield: Optional[PromptShield] = None,
 ):
     """Build a FastAPI app. Lazy-imports FastAPI so ``import kairu`` stays cheap."""
     try:
@@ -200,6 +202,7 @@ def create_app(
     app.state.rate_limiter = limiter
     app.state.metrics = mtx
     app.state.tracer = otel
+    app.state.shield = shield
 
     def _client_key(request: Request) -> str:
         return request.client.host if request.client else "unknown"
@@ -235,6 +238,20 @@ def create_app(
             mtx.requests_total.inc(endpoint="/generate", status="422")
             mtx.errors_total.inc(kind="limit_violation")
             return JSONResponse(status_code=422, content={"detail": str(e)})
+
+        # Shield runs before rate limiting — cheapest guard first.
+        shield_warning_header: Optional[str] = None
+        if shield is not None:
+            shield_result = shield.check(req.prompt)
+            if shield_result.verdict == ShieldVerdict.BLOCKED:
+                mtx.requests_total.inc(endpoint="/generate", status="400")
+                mtx.errors_total.inc(kind="shield_blocked")
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "blocked", "reason": shield_result.reason},
+                )
+            if shield_result.verdict == ShieldVerdict.FLAGGED:
+                shield_warning_header = shield_result.reason
 
         key = _client_key(request)
         if not await limiter.check(key):
@@ -360,6 +377,10 @@ def create_app(
             finally:
                 mtx.active_streams.dec()
 
+        extra_headers: dict[str, str] = {}
+        if shield_warning_header is not None:
+            extra_headers["X-Shield-Warning"] = shield_warning_header
+
         if use_jsonl:
             # JSONL fallback: one JSON object per line, no SSE framing or sentinel.
             def _jsonl_frame(payload: dict) -> bytes:
@@ -373,10 +394,7 @@ def create_app(
             return StreamingResponse(
                 jsonl_stream(),
                 media_type="application/x-ndjson",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "X-Accel-Buffering": "no",
-                },
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", **extra_headers},
             )
 
         # Default: SSE stream.
@@ -393,6 +411,7 @@ def create_app(
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",
+                **extra_headers,
             },
         )
 

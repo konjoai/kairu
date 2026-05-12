@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.12.0**
+Current version: **v0.13.0**
 
 ---
 
@@ -201,12 +201,17 @@ Deliverables:
 
 ---
 
-## Phase 14 — Prompt Shield & Content Policy 🔜 NEXT
+## Phase 14 — Prompt Shield & Content Policy (v0.13.0) ✅ COMPLETE
 
-**Goal:** Production-safe content screening at the API boundary, prior to tokenization.
+**Ship Gate:** 336 Python tests passing, 4 HF-gated skipped (25 new shield tests added).
 
-Proposed deliverables:
-- `kairu/shield.py` — `PromptShield`: rule-based (regex + keyword) + configurable heuristic classifier. Checks for prompt-injection patterns, PII leakage templates, jailbreak canonical phrases. Returns a `ShieldVerdict` (allowed / blocked / flagged) with a `reason` string and `confidence` float.
-- `ShieldConfig` dataclass — configurable rule sets, PII patterns, injection signatures, custom allow/block lists.
-- Server integration: `create_app()` accepts optional `shield: PromptShield`; if present it runs *before* rate limiting (fail-fast, cheapest guard first).
-- 16+ tests in `tests/test_shield.py` — all offline, covering clean prompts, injection patterns, PII patterns, custom rules, server integration.
+Deliverables:
+- [x] `kairu/shield.py` — `PromptShield`, `ShieldVerdict` (StrEnum: ALLOWED/FLAGGED/BLOCKED), `ShieldResult` (frozen dataclass), `ShieldRule`, `ShieldConfig`, `get_default_shield()` singleton
+- [x] 12 default rules: prompt injection (ignore/disregard/forget/override), jailbreak (DAN mode, developer mode, you-are-now, pretend-no-restrictions), roleplay bypass, prompt manipulation
+- [x] PII detection: email, SSN (NNN-NN-NNNN), credit card (16-digit), phone — configurable FLAGGED or BLOCKED
+- [x] Fail-open design: shield exceptions log a warning and return ALLOWED (never crash callers)
+- [x] Patterns compiled at class construction, not per-call
+- [x] Server integration: `create_app(shield=...)` — shield runs before rate limiting; BLOCKED → HTTP 400 `{"error":"blocked","reason":...}`; FLAGGED → `X-Shield-Warning` header, request continues
+- [x] CLI: `kairu shield "<prompt>" [--json]` — uses `get_default_shield()`
+- [x] `kairu/__init__.py` exports: `PromptShield`, `ShieldConfig`, `ShieldResult`, `ShieldVerdict`, `ShieldRule`, `get_default_shield`
+- [x] 25 tests in `tests/test_shield.py` — all offline except 2 server integration tests (TestClient)
