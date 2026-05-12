@@ -9,6 +9,9 @@ Provides:
   - TokenBudget  : hard per-generation token cap
   - GenerationMetrics : timing and acceptance-rate tracking
   - StreamingDecoder  : token-by-token streaming generation
+  - StreamingConfig   : configuration dataclass for streaming requests
+  - StreamChunk       : frozen dataclass for a single SSE chunk
+  - TokenStreamer     : generates StreamChunks from a ModelInterface
   - MockTokenizer     : deterministic mock tokenizer for testing
   - TokenizerBase     : abstract tokenizer interface
   - DecoderRouter     : automatic strategy router
@@ -24,7 +27,7 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.13.0"
+__version__ = "0.14.0"
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
@@ -63,6 +66,7 @@ from kairu.squish_eval import (
     recommended_quant_tier,
 )
 from kairu.streaming import StreamingDecoder
+from kairu.streaming_api import StreamChunk, StreamingConfig, TokenStreamer
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 from kairu.tracing import KairuTracer, extract_trace_context
 from kairu.watermark import WatermarkDetector, WatermarkLogitsProcessor, WatermarkResult
@@ -101,6 +105,9 @@ __all__ = [
     "TokenBudget",
     "GenerationMetrics",
     "StreamingDecoder",
+    "StreamingConfig",
+    "StreamChunk",
+    "TokenStreamer",
     "MockTokenizer",
     "TokenizerBase",
     "HFTokenizer",

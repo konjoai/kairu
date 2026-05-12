@@ -75,6 +75,7 @@ from kairu.squish_eval import (
     recommended_quant_tier,
 )
 from kairu.streaming import StreamingDecoder
+from kairu.streaming_api import StreamingConfig, TokenStreamer
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 from kairu.tracing import KairuTracer, extract_trace_context, headers_from_request
 
@@ -131,6 +132,14 @@ try:  # Pydantic is required for the server but optional for the package
         temperature: float = Field(default=1.0, ge=0.0, le=2.0)
         stop_token_id: Optional[int] = Field(default=None, ge=0)
 
+    class StreamRequest(BaseModel):
+        """Request schema for POST /generate/stream."""
+
+        prompt: str = Field(..., min_length=1, max_length=1_000_000)
+        max_tokens: int = Field(default=256, ge=1, le=100_000)
+        temperature: float = Field(default=1.0, ge=0.0, le=2.0)
+        seed: int = Field(default=42)
+
     class QuantCompareRequest(BaseModel):
         """Side-by-side quantization comparison request.
 
@@ -149,6 +158,7 @@ try:  # Pydantic is required for the server but optional for the package
 except ImportError:  # pragma: no cover — server extras not installed
     GenerateRequest = None  # type: ignore[assignment,misc]
     QuantCompareRequest = None  # type: ignore[assignment,misc]
+    StreamRequest = None  # type: ignore[assignment,misc]
 
 
 def _enforce_limits(req: "GenerateRequest", cfg: ServerConfig) -> None:
@@ -469,6 +479,73 @@ def create_app(
                 "report": report.as_dict(),
                 "recommended_tier": recommendation,
                 "tolerance": req.tolerance,
+            },
+        )
+
+    @app.post("/generate/stream")
+    async def generate_stream(request: Request):
+        """POST /generate/stream — SSE token stream (OpenAI-compatible chunks).
+
+        Shield runs synchronously before streaming begins.
+        BLOCKED → HTTP 400 JSON. FLAGGED → X-Shield-Warning header + stream continues.
+        """
+        try:
+            req = StreamRequest.model_validate(await request.json())
+        except ValidationError as e:
+            return JSONResponse(status_code=422, content={"detail": e.errors()})
+        except Exception as e:  # noqa: BLE001 — invalid JSON
+            return JSONResponse(status_code=422, content={"detail": str(e)})
+
+        try:
+            _enforce_limits(
+                GenerateRequest(
+                    prompt=req.prompt,
+                    max_tokens=req.max_tokens,
+                    temperature=req.temperature,
+                ),
+                cfg,
+            )
+        except ValueError as e:
+            return JSONResponse(status_code=422, content={"detail": str(e)})
+
+        extra_headers: dict[str, str] = {}
+        if shield is not None:
+            shield_result = shield.check(req.prompt)
+            if shield_result.verdict == ShieldVerdict.BLOCKED:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "blocked", "reason": shield_result.reason},
+                )
+            if shield_result.verdict == ShieldVerdict.FLAGGED:
+                extra_headers["X-Shield-Warning"] = shield_result.reason
+
+        key = _client_key(request)
+        if not await limiter.check(key):
+            raise HTTPException(
+                status_code=429,
+                detail=f"rate limit exceeded ({cfg.rate_limit_requests}/{cfg.rate_limit_window_s}s)",
+            )
+
+        stream_cfg = StreamingConfig(
+            max_tokens=req.max_tokens,
+            temperature=req.temperature,
+            seed=req.seed,
+        )
+        streamer = TokenStreamer(mdl, stream_cfg)
+
+        def _sse_generator():
+            for chunk in streamer.stream(req.prompt, tok):
+                yield chunk.to_sse_line().encode("utf-8")
+            yield b"data: [DONE]\n\n"
+
+        return StreamingResponse(
+            _sse_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+                **extra_headers,
             },
         )
 

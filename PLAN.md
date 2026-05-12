@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.13.0**
+Current version: **v0.14.0**
 
 ---
 
@@ -215,3 +215,18 @@ Deliverables:
 - [x] CLI: `kairu shield "<prompt>" [--json]` — uses `get_default_shield()`
 - [x] `kairu/__init__.py` exports: `PromptShield`, `ShieldConfig`, `ShieldResult`, `ShieldVerdict`, `ShieldRule`, `get_default_shield`
 - [x] 25 tests in `tests/test_shield.py` — all offline except 2 server integration tests (TestClient)
+
+---
+
+## Phase 15 — Streaming API via SSE (v0.14.0) ✅ COMPLETE
+
+**Ship Gate:** 356 Python tests passing, 4 HF-gated skipped (20 new streaming-API tests added).
+
+Deliverables:
+- [x] `kairu/streaming_api.py` — `StreamingConfig` (dataclass: max_tokens, temperature, stop_sequences, seed, stream_chunk_delay_ms), `StreamChunk` (frozen dataclass: id, content, finish_reason, index; `to_sse_line()`, `to_dict()`), `TokenStreamer` (wraps `StreamingDecoder`; stop-sequence detection; max-tokens cap; never raises — exceptions yield `finish_reason="error"`)
+- [x] `POST /generate/stream` endpoint in `kairu/server.py` — `StreamRequest` Pydantic model; shield runs synchronously before streaming begins; BLOCKED → HTTP 400 JSON; FLAGGED → `X-Shield-Warning` header + stream continues; rate-limited; `StreamingResponse` with `media_type="text/event-stream"`
+- [x] SSE format: `data: {chunk_json}\n\n` per token, `data: [DONE]\n\n` sentinel at end; OpenAI-compatible `choices[0].delta.content` + `finish_reason`
+- [x] Seeded determinism via `StreamingConfig.seed` — same seed always yields same token sequence
+- [x] `kairu/__init__.py` exports `StreamingConfig`, `StreamChunk`, `TokenStreamer`; version `0.13.0 → 0.14.0`
+- [x] `pyproject.toml` version `0.13.0 → 0.14.0`
+- [x] 20 tests in `tests/test_streaming_api.py` — unit tests for StreamChunk + TokenStreamer, API endpoint tests (200, content-type, data lines, [DONE], JSON validity, choices field, shared id, shield block, shield flag header, max-tokens enforcement)
