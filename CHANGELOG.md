@@ -4,6 +4,37 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.15.0] — 2026-05-12
+
+### Added — P1 Evaluation Suite (score distributions, statistical significance, audit log, rubric versioning)
+
+- `kairu/benchmarks.py` — per-criterion reference distributions built once at import time from a deterministic 1000-pair synthetic corpus (`BENCHMARK_CORPUS_SIZE = 1000`). Each `BenchmarkStats` carries `mean`, `stdev`, `p25/p50/p75/p90/p99`, a 20-bucket histogram (`HISTOGRAM_BUCKETS = 20`) for violin/sparkline rendering, and a 12-char `samples_hash` for cross-process determinism. `percentile_rank(criterion, value)` returns `[0, 1]` via the cumulative histogram.
+- `GET /benchmarks` lists every criterion; `GET /benchmarks/{criterion}` returns the full distribution. Every `/evaluate` response gains a `benchmarks` block: `{you, rank, p25, p50, p75}` per criterion.
+- `kairu/significance.py` — paired t-test + Cohen's d over per-criterion score differences. `SignificanceResult` carries `n, mean_diff, stdev_diff, t_stat, df, p_value, effect_size, effect_label, confidence_interval, winner`. Pure stdlib — Student's t CDF via Simpson's rule numerical integration of the PDF (`SIMPSON_STEPS = 2000`), t critical value via bisection. Winner rule: `p < 0.05` AND `|Cohen's d| >= 0.2`; otherwise `"tie"`.
+- `POST /compare` now returns a `significance` block plus a `statistical_winner` field that overrides the heuristic winner whenever the difference is not statistically reliable.
+- `kairu/audit.py` — append-only SQLite audit log. `AuditLog` exposes only `record`, `query`, `count`, `export_csv` — no UPDATE / DELETE methods. Schema-level triggers `RAISE(ABORT, …)` on UPDATE / DELETE so even direct `sqlite3` access cannot rewrite history without a detectable schema change. WAL journaling for concurrent dashboard reads. Default path from `KAIRU_AUDIT_DB` env var.
+- `GET /audit` paginated query (`start`, `end`, `rubric_name`, `rubric_version`, `limit`, `offset`); `GET /audit.csv` flat export. Every `/evaluate` and `/compare` call records a row and returns the `audit_id` in the response. `hash_inputs(prompt, response, response_b?)` is the canonical SHA-256 over `prompt ‖ 0x1f ‖ response[ ‖ 0x1f ‖ response_b]`.
+- `kairu.evaluation.Rubric.version` field (default `"1.0.0"` / `RUBRIC_VERSION`); `RUBRIC_REGISTRY: Dict[name, Dict[version, Rubric]]` keeps every version ever served. `register_rubric(name, criteria, weights, description?, base_version?, version?)` patch-bumps when no explicit version is supplied. `get_rubric_version(name, version?)` and `list_rubric_versions(name)` resolve audit-log rows back to the exact rubric definition that produced them.
+- `POST /rubrics` creates a new versioned rubric; `GET /rubrics` now lists every known version per rubric. Validates that `criteria` and `weights` reference identical key sets.
+- 44 new tests across `tests/test_benchmarks.py` (10), `tests/test_significance.py` (13), `tests/test_audit.py` (15), and `api/test_api.py` (16 new HTTP-boundary tests). 397 total tests pass (was 353); 4 HF-gated skipped.
+
+### Changed
+
+- `pyproject.toml` — version `0.14.0 → 0.15.0`.
+- `kairu/__init__.py` — re-exports `AuditLog`, `AuditRecord`, `hash_inputs`, `open_default_audit`, `BENCHMARKS`, `BenchmarkStats`, `percentile_rank`, `SignificanceResult`, `paired_t_test`, `per_criterion_diffs`, `RUBRIC_REGISTRY`, `RUBRIC_VERSION`, `get_rubric_version`, `list_rubric_versions`, `register_rubric`.
+- `api/main.py` — `create_app(audit=...)` accepts an explicit audit log (defaults to `open_default_audit()`); `/evaluate` and `/compare` instrument every successful call with one audit row; `/rubrics` shape gains `version` + `versions`.
+- `PLAN.md` — new "Researched Feature Roadmap" section enumerating P1 (DONE), P2, P3 items with shipped status.
+
+### Architecture Decisions
+
+- **No scipy dependency.** The Student's t CDF is computed via Simpson's rule numerical integration of the PDF over `[0, |t|]`. 2000 steps gives ~5 decimal places of accuracy for `df` in the relevant range — comfortably better than the precision at which p-values are typically reported. The bisection-based critical-value lookup converges in 80 iterations.
+- **Winner rule = p < α AND |d| ≥ 0.2.** Significance without an effect size is a false-positive farm at large N; effect size without significance is a noise artifact at small N. Both gates close.
+- **Append-only enforced at two layers.** The Python class exposes no mutation methods and schema-level triggers abort UPDATE / DELETE. An operator with raw `sqlite3` access can drop the triggers — but that is a detectable, auditable schema change, not silent rewriting of history.
+- **In-process rubric registry.** Future work (P2: rubric marketplace) will persist registrations across processes; for now, `POST /rubrics` lives in memory so the registry is invariant per-process and trivially testable. Audit rows carry `rubric_name` + `rubric_version` so cross-process resolution is possible at query time even when an in-memory rubric has been garbage-collected.
+- **Benchmark corpus is synthetic, not curated.** A real corpus would couple kairu to a specific model's outputs and an opinion about "good responses". The synthetic distribution exists solely to give the UI a reasonable comparison surface — it is calibration, not benchmark.
+
+---
+
 ## [0.12.0] — 2026-05-10
 
 ### Added — Eight Named Rubrics + Prism UI

@@ -2,7 +2,87 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.14.0**
+Current version: **v0.15.0**
+
+---
+
+## Researched Feature Roadmap
+
+A curated map of the next two quarters of work, gathered from internal
+priorities + outside-in survey of regulated-AI evaluation tooling. Items
+are scoped by both *impact* (how much it unlocks for paying users) and
+*complexity* (engineering hours + ongoing maintenance). Every P1 item
+has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
+
+### 🔴 P1 — Critical *(shipped in v0.15.0)*
+
+- **Score distributions + percentile benchmarks** *(DONE — v0.15.0)*
+  Each criterion now carries a reference distribution built from a
+  deterministic 1000-pair synthetic corpus. `GET /benchmarks/{criterion}`
+  returns `p25/p50/p75/p90/p99/mean/stdev` plus a 20-bucket histogram
+  for violin / sparkline rendering. Every `/evaluate` response includes
+  a `benchmarks` block mapping each criterion to `{you, rank, p25, p50, p75}`.
+- **A/B statistical significance testing** *(DONE — v0.15.0)*
+  `POST /compare` now returns a `significance` block with the paired
+  t-test result over per-criterion differences: `n, mean_diff, stdev_diff,
+  t_stat, df, p_value, effect_size, effect_label, confidence_interval,
+  winner`. A `statistical_winner` field overrides the heuristic winner
+  to `"tie"` whenever `p > 0.05` or `|Cohen's d| < 0.2`. Pure stdlib —
+  Student's t CDF via Simpson's rule numerical integration of the PDF.
+- **Immutable audit log** *(DONE — v0.15.0)*
+  Append-only SQLite at `KAIRU_AUDIT_DB` (default `:memory:`).
+  Schema-level triggers `RAISE(ABORT, …)` on UPDATE / DELETE. Every
+  `/evaluate` and `/compare` call records `{timestamp_utc, input_hash,
+  rubric_name, rubric_version, judge_model, endpoint, scores, reasoning}`
+  and returns the row id in the response. `GET /audit?start=&end=&...`
+  paginated, `GET /audit.csv` flat export. WAL journaling — dashboards
+  read while the API writes.
+- **Rubric versioning** *(DONE — v0.15.0)*
+  Every `Rubric` carries a SemVer `version` (default `1.0.0`).
+  `RUBRIC_REGISTRY[name][version]` keeps every version ever served so
+  audit-log rows resolve back to the exact rubric that produced them.
+  `POST /rubrics` creates a new version (patch-bumps when no version
+  is supplied). `GET /rubrics` now lists every active version.
+
+### 🟠 P2 — High Impact / Medium Complexity *(next sprints)*
+
+- **Judge bias correction + multi-judge ensembles**
+  Run N judge models (configurable list), compute inter-rater agreement
+  (Krippendorff's alpha), return ensemble score + disagreement flag when
+  judges diverge >0.2. Accept `judges: ["gpt-4o", "claude-3-5-sonnet",
+  "gemini-1.5-pro"]` in the body; aggregate via median (robust to one
+  outlier) with disagreement reported explicitly.
+- **Constitutional evals from policy docs**
+  `POST /rubrics/generate` accepts a PDF/text policy document and
+  returns auto-generated rubric criteria with weights. NLP extraction
+  of "must", "shall not", "required" clauses → rubric items. The
+  generated rubric registers as a new versioned entry.
+- **Production traffic → auto-eval pipeline**
+  `POST /eval/from_log` accepts inference log JSONL (prompt + response
+  pairs), batches through evaluation, returns aggregate quality report.
+  CI-friendly: exit code 1 if mean score < threshold. Designed for
+  drop-in use in deploy gates.
+- **Agentic trajectory scoring**
+  `POST /eval/trajectory` accepts a sequence of `{step, tool_call,
+  observation, response}` records. Scores: tool selection correctness,
+  error recovery, goal completion, efficiency (steps taken vs. optimal).
+  Returns a per-step breakdown plus an overall trajectory grade.
+
+### 🟡 P3 — Strategic
+
+- **Human feedback integration**
+  `POST /eval/{id}/feedback` records human overrides on individual
+  audit rows. Accumulated feedback drives a fitness signal that
+  re-balances rubric weights over time (offline; gated behind a
+  `kairu finetune-weights` CLI command).
+- **Cross-model regression testing**
+  Run the same eval suite across model versions, flag regressions
+  >2% on any criterion. Surfaces as a new dashboard view: pick two
+  rubric+model pairs, see the diff.
+- **Rubric marketplace**
+  Share / import community rubrics by domain (medical, legal,
+  creative writing, code review). Backed by the version registry — a
+  marketplace entry is a `(name, version, signature, source_url)` tuple.
 
 ---
 

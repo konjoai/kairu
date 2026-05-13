@@ -219,19 +219,27 @@ CRITERIA: Dict[str, Tuple[Scorer, str]] = {
 }
 
 
+# Canonical version stamp for every built-in rubric. A rubric definition
+# change (criteria added, weights re-balanced) MUST bump this so audit
+# logs can correlate scores to the rubric definition that produced them.
+RUBRIC_VERSION: str = "1.0.0"
+
+
 @dataclass(frozen=True)
 class Rubric:
     name: str
     description: str
     criteria: Tuple[str, ...]
     weights: Mapping[str, float] = field(default_factory=dict)
+    version: str = RUBRIC_VERSION
 
     def weight_for(self, criterion: str) -> float:
         return self.weights.get(criterion, 1.0)
 
 
-def _rb(name: str, desc: str, criteria: Tuple[str, ...], weights: Optional[Mapping[str, float]] = None) -> Rubric:
-    return Rubric(name=name, description=desc, criteria=criteria, weights=weights or {})
+def _rb(name: str, desc: str, criteria: Tuple[str, ...], weights: Optional[Mapping[str, float]] = None,
+        version: str = RUBRIC_VERSION) -> Rubric:
+    return Rubric(name=name, description=desc, criteria=criteria, weights=weights or {}, version=version)
 
 
 # The eight named rubrics from `kairu.rubrics` are the prism's beams.
@@ -250,6 +258,87 @@ RUBRICS["default"] = _rb(
     "default", "Balanced — relevance, coherence, fluency, completeness, conciseness, safety.",
     ("relevance", "coherence", "fluency", "completeness", "conciseness", "safety"),
 )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Rubric version registry — every (name, version) combination ever served
+# is kept here so audit-log rows can be resolved back to the exact rubric
+# definition that produced them, even across in-process schema changes
+# triggered by `POST /rubrics`.
+# ─────────────────────────────────────────────────────────────────────────
+
+# Outer dict: name → version → Rubric. Insertion-ordered so the latest
+# version is the last entry per name.
+RUBRIC_REGISTRY: Dict[str, Dict[str, Rubric]] = {
+    name: {r.version: r} for name, r in RUBRICS.items()
+}
+
+
+def _bump_patch(version: str) -> str:
+    parts = version.split(".")
+    while len(parts) < 3:
+        parts.append("0")
+    parts[2] = str(int(parts[2]) + 1)
+    return ".".join(parts[:3])
+
+
+def register_rubric(
+    name: str,
+    *,
+    criteria: Sequence[str],
+    weights: Mapping[str, float],
+    description: str = "",
+    base_version: Optional[str] = None,
+    version: Optional[str] = None,
+) -> Rubric:
+    """Add a new rubric *version* to the registry.
+
+    If ``version`` is provided it must not collide with an existing version
+    for the same name. If ``version`` is omitted the patch level of either
+    ``base_version`` (when given) or the latest registered version is
+    auto-incremented.
+
+    The newest version becomes the active entry in :data:`RUBRICS` so that
+    subsequent un-versioned calls to :func:`evaluate` pick it up. The
+    earlier versions remain reachable via :func:`get_rubric_version`.
+    """
+    if not name:
+        raise ValueError("name must be non-empty")
+    if not criteria:
+        raise ValueError("criteria must be non-empty")
+    for c in criteria:
+        if c not in CRITERIA and c != "default":
+            raise ValueError(f"unknown criterion '{c}'")
+    versions = RUBRIC_REGISTRY.setdefault(name, {})
+    if version is None:
+        prev = base_version or (next(reversed(versions)) if versions else RUBRIC_VERSION)
+        version = _bump_patch(prev)
+    if version in versions:
+        raise ValueError(f"rubric '{name}' already has version {version}")
+    rubric = _rb(name, description, tuple(criteria), dict(weights), version=version)
+    versions[version] = rubric
+    RUBRICS[name] = rubric                  # newest version is active
+    return rubric
+
+
+def get_rubric_version(name: str, version: Optional[str] = None) -> Rubric:
+    """Resolve ``(name, version)`` to a :class:`Rubric`. ``version=None``
+    returns the active (latest) version."""
+    if name not in RUBRIC_REGISTRY:
+        raise KeyError(f"unknown rubric '{name}'")
+    versions = RUBRIC_REGISTRY[name]
+    if version is None:
+        return RUBRICS[name]
+    if version not in versions:
+        raise KeyError(f"unknown version '{version}' for rubric '{name}'")
+    return versions[version]
+
+
+def list_rubric_versions(name: str) -> Tuple[str, ...]:
+    """Return all known versions for ``name``, oldest → newest."""
+    if name not in RUBRIC_REGISTRY:
+        raise KeyError(f"unknown rubric '{name}'")
+    return tuple(RUBRIC_REGISTRY[name].keys())
 
 
 # ─────────────────────────────────────────────────────────────────────────
