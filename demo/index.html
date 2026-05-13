@@ -831,6 +831,308 @@
   @media (max-width: 600px) {
     .scoreboard { grid-template-columns: 1fr; }
   }
+
+  /* ════════════════════════════════════════════════════════════════════
+     v0.15 PRECISION-INSTRUMENT LAYER
+     spring bars · significance waveform · audit river · 3D flip card ·
+     shooting stars · CI band · version selector · scroll-stagger
+     ════════════════════════════════════════════════════════════════════ */
+
+  .rubric-tile { --v: 0; --v-ghost: 0; }
+  .liquid-bar {
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  }
+  .spring-fill {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+    border-radius: 7px;
+  }
+  .spring-fill::before {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 0;
+    width: calc(var(--v, 0) * 100%);
+    background: linear-gradient(90deg, #3b1a6b 0%, #7c3aed 50%, #a78bfa 100%);
+    box-shadow: inset 0 0 12px rgba(124,58,237,.35),
+                0 0 14px rgba(124,58,237,.25);
+    transition: width 720ms cubic-bezier(.34, 1.56, .64, 1);
+    will-change: width;
+  }
+  .spring-fill::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 0;
+    width: calc(var(--v-ghost, 0) * 100%);
+    background: linear-gradient(90deg, rgba(124,58,237,.35), rgba(167,139,250,.45));
+    opacity: 0;
+    pointer-events: none;
+  }
+  .rubric-tile.bar-bumped .spring-fill::after {
+    animation: ghostFade 800ms ease-out forwards;
+  }
+  @keyframes ghostFade { 0% { opacity: .85; } 100% { opacity: 0; } }
+
+  .spring-cursor {
+    position: absolute; top: 0; bottom: 0;
+    width: 2px;
+    left: calc(var(--v, 0) * 100%);
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,.6), transparent);
+    box-shadow: 0 0 8px rgba(255,255,255,.5);
+    opacity: 0;
+    transition: opacity 220ms, left 720ms cubic-bezier(.34, 1.56, .64, 1);
+    pointer-events: none;
+  }
+  .rubric-tile.has-score .spring-cursor { opacity: .9; }
+
+  .instrument-panel {
+    margin: 28px 0 0;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 16px;
+  }
+  .ipanel {
+    padding: 18px 20px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.06);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    position: relative;
+  }
+  .ipanel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .ipanel-title {
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: rgba(255,255,255,.55);
+  }
+
+  .sig-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 10.5px; letter-spacing: .08em;
+    background: rgba(255,255,255,.04); color: rgba(255,255,255,.55);
+    border: 1px solid rgba(255,255,255,.08);
+    transition: background 240ms, color 240ms, border-color 240ms,
+                box-shadow 320ms;
+  }
+  .sig-badge.tie     { background: rgba(255,255,255,.04); color: rgba(255,255,255,.65); }
+  .sig-badge.win-a   { background: rgba(124,58,237,.16); color: #c4b5fd; border-color: rgba(124,58,237,.4); }
+  .sig-badge.win-b   { background: rgba(245,158,11,.14); color: #fcd34d; border-color: rgba(245,158,11,.35); }
+  .sig-badge.sig     { box-shadow: 0 0 18px rgba(124,58,237,.45); }
+  .sig-badge .dot    { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+  .sig-badge.appear  { animation: sigBounce 700ms cubic-bezier(.34, 1.56, .64, 1) both; }
+  @keyframes sigBounce {
+    0%   { transform: scale(.6);  opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+
+  #sigWaveform {
+    width: 100%; height: 170px; display: block;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,.04));
+  }
+  #sigWaveform .axis  { stroke: rgba(255,255,255,.10); stroke-width: 1; stroke-dasharray: 3 4; }
+  #sigWaveform .zero  { stroke: rgba(255,255,255,.25); stroke-width: 1; }
+  #sigWaveform .curve { fill: none; stroke: #a78bfa; stroke-width: 1.6; }
+  #sigWaveform .area  {
+    fill: url(#sigGradient);
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path 800ms cubic-bezier(.23, 1, .32, 1);
+  }
+  #sigWaveform.swept .area { clip-path: inset(0 0% 0 0); }
+  #sigWaveform .dot   { fill: #f5c84b; }
+  #sigWaveform .label { font-family: var(--mono, ui-monospace, monospace); font-size: 9px; fill: rgba(255,255,255,.45); }
+  #sigWaveform .ci-band {
+    fill: rgba(124,58,237,.18);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 600ms cubic-bezier(.34, 1.56, .64, 1);
+  }
+  #sigWaveform.swept .ci-band { transform: scaleX(1); }
+
+  .sig-stats {
+    margin-top: 10px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    font-family: var(--mono, ui-monospace, monospace); font-size: 10.5px;
+  }
+  .sig-stats .cell {
+    padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.05);
+  }
+  .sig-stats .cell .k { color: rgba(255,255,255,.4); letter-spacing: .04em; text-transform: uppercase; font-size: 9px; }
+  .sig-stats .cell .v { color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .audit-count {
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 11px; padding: 3px 9px; border-radius: 6px;
+    background: rgba(124,58,237,.14); color: #c4b5fd;
+    border: 1px solid rgba(124,58,237,.3);
+    font-variant-numeric: tabular-nums;
+  }
+  #auditRiver {
+    width: 100%; height: 130px; display: block;
+    border-radius: 10px;
+    background: linear-gradient(90deg, rgba(255,255,255,.01), rgba(124,58,237,.04));
+    overflow: visible;
+  }
+  #auditRiver .timeline-line {
+    stroke: rgba(124,58,237,.4);
+    stroke-width: 1.5;
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: lineDraw 1400ms cubic-bezier(.23, 1, .32, 1) 200ms forwards;
+  }
+  @keyframes lineDraw { to { stroke-dashoffset: 0; } }
+  .river-node { cursor: pointer; transition: filter 220ms; }
+  .river-node .ring {
+    fill: none; stroke: rgba(124,58,237,.65); stroke-width: 1.5; opacity: 0;
+    transform-origin: center;
+    animation: nodeAppear 500ms cubic-bezier(.34, 1.56, .64, 1) both;
+  }
+  .river-node .core {
+    fill: #a78bfa;
+    filter: drop-shadow(0 0 4px #7c3aed);
+    transform-origin: center;
+    animation: nodeAppear 500ms cubic-bezier(.34, 1.56, .64, 1) both;
+  }
+  @keyframes nodeAppear {
+    0%   { transform: translateX(40px) scale(.6); opacity: 0; }
+    100% { transform: translateX(0)    scale(1);  opacity: 1; }
+  }
+  .river-node:hover .core,
+  .river-node:hover .ring {
+    animation: nodePulse 2000ms ease-in-out infinite;
+  }
+  @keyframes nodePulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.05); }
+  }
+  .river-node .label {
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 8.5px; fill: rgba(255,255,255,.5);
+    text-anchor: middle; opacity: 0;
+    transition: opacity 180ms;
+  }
+  .river-node:hover .label { opacity: 1; fill: #c4b5fd; }
+
+  .flip-card-wrap { perspective: 1200px; margin: 18px 0 0; }
+  .flip-card {
+    position: relative; width: 100%; min-height: 130px;
+    transform-style: preserve-3d;
+    transition: transform 500ms cubic-bezier(.23, 1, .32, 1);
+    cursor: pointer;
+  }
+  .flip-card.flipped { transform: rotateY(180deg); }
+  .flip-face {
+    position: absolute; inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    padding: 18px 22px;
+    border-radius: 14px;
+    border: 1px solid rgba(124,58,237,.22);
+    background: linear-gradient(140deg, rgba(124,58,237,.05), rgba(167,139,250,.025));
+    box-shadow: 0 0 20px rgba(124,58,237,.4);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .flip-back {
+    transform: rotateY(180deg);
+    border-color: rgba(245,158,11,.22);
+    box-shadow: 0 0 20px rgba(245,158,11,.35);
+  }
+  .flip-label {
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+    color: rgba(255,255,255,.45);
+  }
+  .flip-content {
+    font-size: 13px; line-height: 1.55;
+    color: rgba(255,255,255,.85);
+    overflow-y: auto; max-height: 160px;
+  }
+  .flip-hint {
+    display: block; margin-top: 6px; text-align: center;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 10px; color: rgba(255,255,255,.35);
+  }
+  .flip-aggregate {
+    margin-top: auto;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 11px; color: #a78bfa;
+    font-variant-numeric: tabular-nums;
+  }
+  .flip-back .flip-aggregate { color: #fcd34d; }
+
+  .shooting-star-layer {
+    position: fixed; inset: 0; pointer-events: none; z-index: 950;
+  }
+  .shooting-star-layer canvas { width: 100%; height: 100%; display: block; }
+
+  .ver-select { position: relative; margin-left: 12px; display: inline-block; }
+  .ver-btn {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.1);
+    color: rgba(255,255,255,.75);
+    padding: 6px 12px; border-radius: 8px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 11px; letter-spacing: .04em;
+    cursor: pointer;
+    transition: border-color 200ms, color 200ms;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ver-btn:hover { border-color: rgba(124,58,237,.45); color: #c4b5fd; }
+  .ver-btn .chev { display: inline-block; transition: transform 220ms; }
+  .ver-select.open .ver-btn .chev { transform: rotate(180deg); }
+  .ver-menu {
+    position: absolute; top: calc(100% + 6px); left: 0;
+    min-width: 200px;
+    background: rgba(20, 18, 36, .98);
+    border: 1px solid rgba(124,58,237,.3);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.55);
+    padding: 4px;
+    transform: scaleY(0);
+    transform-origin: top center;
+    opacity: 0;
+    transition: transform 250ms cubic-bezier(.22, 1, .36, 1),
+                opacity 220ms cubic-bezier(.22, 1, .36, 1);
+    pointer-events: none;
+    z-index: 60;
+  }
+  .ver-select.open .ver-menu {
+    transform: scaleY(1); opacity: 1; pointer-events: auto;
+  }
+  .ver-item {
+    position: relative; display: block; padding: 8px 14px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 11.5px; color: rgba(255,255,255,.7);
+    cursor: pointer; border-radius: 6px;
+    transition: background 180ms, color 180ms;
+  }
+  .ver-item:hover { background: rgba(124,58,237,.12); color: #fff; }
+  .ver-item.active { color: #c4b5fd; }
+  .ver-item::after {
+    content: "";
+    position: absolute;
+    left: 14px; right: 14px; bottom: 4px; height: 1.5px;
+    background: linear-gradient(90deg, transparent, #a78bfa, transparent);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 260ms cubic-bezier(.22, 1, .36, 1);
+  }
+  .ver-item.active::after { transform: scaleX(1); }
+  .ver-item .ver-meta { margin-left: 8px; color: rgba(255,255,255,.4); font-size: 10px; }
+
+  .fade-in {
+    opacity: 0; transform: translateY(28px);
+    transition: opacity 500ms cubic-bezier(.22, 1, .36, 1),
+                transform 500ms cubic-bezier(.22, 1, .36, 1);
+    will-change: transform, opacity;
+  }
+  .fade-in.in-view { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 880px) {
+    .instrument-panel { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 
@@ -838,9 +1140,18 @@
 
 <header>
   <div class="mark">流 &nbsp; <b>kairu</b> &nbsp;·&nbsp; prism</div>
-  <div class="pill-group" role="tablist" aria-label="evaluation mode">
-    <button class="pill active" data-mode="single" type="button">single</button>
-    <button class="pill"        data-mode="ab"     type="button">a / b</button>
+  <div style="display:flex; align-items:center; gap:6px">
+    <div class="pill-group" role="tablist" aria-label="evaluation mode">
+      <button class="pill active" data-mode="single" type="button">single</button>
+      <button class="pill"        data-mode="ab"     type="button">a / b</button>
+    </div>
+    <div class="ver-select" id="verSelect">
+      <button class="ver-btn" id="verBtn" type="button" aria-haspopup="listbox">
+        <span id="verBtnLabel">rubric · v1.0.0</span>
+        <span class="chev">▾</span>
+      </button>
+      <div class="ver-menu" role="listbox" id="verMenu"></div>
+    </div>
   </div>
 </header>
 
@@ -941,12 +1252,79 @@
   <div class="err" id="err"></div>
 
   <!-- 8-rubric scoreboard with liquid bars, sparklines, weight sliders -->
-  <div class="scoreboard" id="scoreboard" aria-label="rubric scoreboard"></div>
-  <div class="scoreboard-foot">
+  <div class="scoreboard fade-in" id="scoreboard" aria-label="rubric scoreboard"></div>
+  <div class="scoreboard-foot fade-in">
     <span id="sbFoot">click a tile's weights to recompute live</span>
     <button class="reset-btn" id="resetWeightsBtn" type="button">↻ reset weights</button>
   </div>
+
+  <!-- ── v0.15 instrument panel: A/B significance + audit trail river ── -->
+  <section class="instrument-panel" aria-label="precision instruments">
+    <div class="ipanel sig-card fade-in">
+      <div class="ipanel-head">
+        <span class="ipanel-title">paired t-test · per-criterion Δ</span>
+        <span class="sig-badge tie" id="sigBadge"><span class="dot"></span>awaiting comparison</span>
+      </div>
+      <svg id="sigWaveform" viewBox="0 0 600 170" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="sigGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#a78bfa" stop-opacity=".55"/>
+            <stop offset="100%" stop-color="#7c3aed" stop-opacity=".05"/>
+          </linearGradient>
+        </defs>
+        <line class="axis" x1="50"  x2="50"  y1="10" y2="160"/>
+        <line class="axis" x1="590" x2="590" y1="10" y2="160"/>
+        <line class="zero" x1="50"  x2="590" y1="85" y2="85"/>
+        <text class="label" x="50"  y="168">A wins  ←</text>
+        <text class="label" x="590" y="168" text-anchor="end">→  B wins</text>
+        <text class="label" x="58"  y="22">Δ = 0</text>
+        <rect class="ci-band" id="sigCIBand" x="270" y="20" width="60" height="130"/>
+        <path class="area"  id="sigArea"  d=""/>
+        <path class="curve" id="sigCurve" d=""/>
+        <circle class="dot" id="sigMeanDot" cx="320" cy="85" r="0"/>
+      </svg>
+      <div class="sig-stats" id="sigStats">
+        <div class="cell"><div class="k">p-value</div><div class="v" id="sigP">—</div></div>
+        <div class="cell"><div class="k">cohen's d</div><div class="v" id="sigD">—</div></div>
+        <div class="cell"><div class="k">95% CI</div><div class="v" id="sigCI">—</div></div>
+        <div class="cell"><div class="k">n</div><div class="v" id="sigN">—</div></div>
+      </div>
+    </div>
+
+    <div class="ipanel audit-card fade-in">
+      <div class="ipanel-head">
+        <span class="ipanel-title">audit trail · live evaluations</span>
+        <span class="audit-count" id="auditCount">0</span>
+      </div>
+      <svg id="auditRiver" viewBox="0 0 1000 130" preserveAspectRatio="none">
+        <line class="timeline-line" x1="20" y1="65" x2="980" y2="65"/>
+        <g id="riverNodes"></g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 3D flip card around the A/B response pair (visible only in A/B mode) -->
+  <div class="flip-card-wrap fade-in" id="flipCardWrap" style="display:none">
+    <div class="flip-card" id="flipCard" tabindex="0" aria-label="flip A/B comparison card">
+      <div class="flip-face flip-front">
+        <span class="flip-label">A</span>
+        <div class="flip-content" id="flipFrontContent">—</div>
+        <span class="flip-aggregate" id="flipFrontAgg">aggregate —</span>
+      </div>
+      <div class="flip-face flip-back">
+        <span class="flip-label">B</span>
+        <div class="flip-content" id="flipBackContent">—</div>
+        <span class="flip-aggregate" id="flipBackAgg">aggregate —</span>
+      </div>
+    </div>
+    <span class="flip-hint" id="flipHint">click card to flip ↔</span>
+  </div>
 </main>
+
+<!-- Shooting-star particle layer (full-viewport overlay). -->
+<div class="shooting-star-layer" aria-hidden="true">
+  <canvas id="starCanvas"></canvas>
+</div>
 
 <!-- ghost prism overlay for A/B split mode -->
 <div class="prism-ghost" id="prismGhost" aria-hidden="true">
@@ -2236,6 +2614,497 @@ document.getElementById("resetWeightsBtn").addEventListener("click", () => {
 
 /* Build it. */
 buildScoreboard();
+
+/* ════════════════════════════════════════════════════════════════════
+   v0.15 PRECISION-INSTRUMENT LAYER — JS
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Add spring fill + cursor + ghost-trail nodes inside every tile.
+   Hooks into the existing buildScoreboard output, which has already run. */
+(function injectSpringElements() {
+  sb.querySelectorAll(".rubric-tile").forEach(tile => {
+    const bar = tile.querySelector(".liquid-bar");
+    if (!bar.querySelector(".spring-fill")) {
+      const fill = document.createElement("div");
+      fill.className = "spring-fill";
+      bar.appendChild(fill);
+      const cursor = document.createElement("div");
+      cursor.className = "spring-cursor";
+      bar.appendChild(cursor);
+    }
+  });
+})();
+
+/* ── Spring-bar override of updateRubricTile.
+   Sets the CSS custom property --v to drive the cubic-bezier overshoot
+   transition declared in the CSS, then captures the previous value as
+   --v-ghost so the after-pseudo-element animates a fading trail. */
+const _origUpdateRubricTile = updateRubricTile;
+updateRubricTile = function (rubric, score, isReweight) {
+  _origUpdateRubricTile(rubric, score, isReweight);
+  const tile = sb.querySelector(`[data-rubric="${rubric}"]`);
+  if (!tile) return;
+  const prev = parseFloat(tile.style.getPropertyValue("--v")) || 0;
+  tile.style.setProperty("--v-ghost", prev);
+  // Force reflow so the animation re-fires when re-evaluating with same score.
+  tile.classList.remove("bar-bumped");
+  void tile.offsetWidth;
+  tile.classList.add("bar-bumped");
+  tile.style.setProperty("--v", score);
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   Paired t-test in JS — mirrors kairu.significance.paired_t_test.
+   Student's t CDF via Simpson's rule over [0, |t|], 400 steps (good to
+   ~4 decimal places, more than enough for a UI badge). No deps.
+════════════════════════════════════════════════════════════════════ */
+function lgamma(x) {
+  // Lanczos approximation — accurate to ~1e-10 for x > 0.5.
+  const g = 7;
+  const c = [
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7
+  ];
+  if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
+  x -= 1;
+  let a = c[0];
+  const t = x + g + 0.5;
+  for (let i = 1; i < g + 2; i++) a += c[i] / (x + i);
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+}
+function tPDF(t, df) {
+  const logC = lgamma((df + 1) / 2) - lgamma(df / 2) - 0.5 * Math.log(df * Math.PI);
+  const logK = -((df + 1) / 2) * Math.log1p(t * t / df);
+  return Math.exp(logC + logK);
+}
+function tCDF(t, df) {
+  if (t === 0) return 0.5;
+  const b = Math.abs(t), n = 400, h = b / n;
+  let s = tPDF(0, df) + tPDF(b, df);
+  for (let i = 1; i < n; i++) {
+    s += (i % 2 === 1 ? 4 : 2) * tPDF(i * h, df);
+  }
+  const half = (h / 3) * s;
+  return t > 0 ? 0.5 + half : 0.5 - half;
+}
+function tCritical(df, alpha) {
+  // Bisection for the value of |t| such that CDF(|t|) = 1 - alpha/2.
+  const target = 1 - alpha / 2;
+  let lo = 0, hi = 50;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (tCDF(mid, df) < target) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+function pairedTTest(a, b) {
+  if (a.length !== b.length || a.length < 2) return null;
+  const diffs = a.map((v, i) => v - b[i]);
+  const n = diffs.length, df = n - 1;
+  const mean = diffs.reduce((s, x) => s + x, 0) / n;
+  let sq = 0;
+  for (const d of diffs) sq += (d - mean) ** 2;
+  let sd = Math.sqrt(sq / (n - 1));
+  if (sd < 1e-12) sd = 0;
+  let t, p, d, ci;
+  if (sd === 0) {
+    t = mean === 0 ? NaN : (mean > 0 ? Infinity : -Infinity);
+    p = mean === 0 ? 1 : 0;
+    d = mean === 0 ? 0 : (mean > 0 ? Infinity : -Infinity);
+    ci = [mean, mean];
+  } else {
+    const se = sd / Math.sqrt(n);
+    t = mean / se;
+    p = Math.max(0, Math.min(1, 2 * (1 - tCDF(Math.abs(t), df))));
+    d = mean / sd;
+    const tc = tCritical(df, 0.05);
+    ci = [mean - tc * se, mean + tc * se];
+  }
+  const significant = p < 0.05;
+  let winner = "tie";
+  if (significant && Math.abs(d) >= 0.2) winner = mean > 0 ? "a" : "b";
+  return { n, mean, sd, t, df, p, d, ci, winner, significant };
+}
+
+/* ── Significance waveform — draws a Student's-t-shaped curve centred on
+     the mean difference. CI band rect is positioned to match the CI on
+     the x-axis (which spans [-0.5, +0.5] in score-diff units). */
+const sigEls = {
+  svg: document.getElementById("sigWaveform"),
+  area: document.getElementById("sigArea"),
+  curve: document.getElementById("sigCurve"),
+  band: document.getElementById("sigCIBand"),
+  dot: document.getElementById("sigMeanDot"),
+  badge: document.getElementById("sigBadge"),
+  p: document.getElementById("sigP"),
+  d: document.getElementById("sigD"),
+  ci: document.getElementById("sigCI"),
+  n: document.getElementById("sigN"),
+};
+const SIG = { xMin: -0.5, xMax: 0.5, W: 600, H: 170,
+              padL: 50, padR: 10, padT: 18, padB: 20 };
+
+function sigXToPx(x) {
+  const inner = SIG.W - SIG.padL - SIG.padR;
+  const norm = (x - SIG.xMin) / (SIG.xMax - SIG.xMin);
+  return SIG.padL + norm * inner;
+}
+function sigYToPx(yNorm) {
+  // yNorm ∈ [0, 1]; 1 = top of curve, 0 = baseline.
+  const inner = SIG.H - SIG.padT - SIG.padB;
+  return SIG.padT + (1 - yNorm) * inner;
+}
+
+function drawSigWaveform(sig) {
+  // Build a t-shaped curve centred at sig.mean with width set by sig.sd.
+  const mean = Math.max(SIG.xMin + 0.02, Math.min(SIG.xMax - 0.02, sig.mean));
+  const sigma = Math.max(0.05, Math.min(0.3, sig.sd || 0.12));
+  const N = 240;
+  let curveD = "", areaD = "";
+  let maxYNorm = 1;
+  for (let i = 0; i <= N; i++) {
+    const x = SIG.xMin + (i / N) * (SIG.xMax - SIG.xMin);
+    const z = (x - mean) / sigma;
+    // Use a Gaussian envelope for the visual — scaled to peak = 1.
+    const y = Math.exp(-0.5 * z * z);
+    const px = sigXToPx(x);
+    const py = sigYToPx(y * 0.9);
+    curveD += (i === 0 ? `M ${px} ${py}` : ` L ${px} ${py}`);
+    areaD  += (i === 0 ? `M ${px} ${py}` : ` L ${px} ${py}`);
+  }
+  // Close area to baseline.
+  areaD += ` L ${sigXToPx(SIG.xMax)} ${sigYToPx(0)} L ${sigXToPx(SIG.xMin)} ${sigYToPx(0)} Z`;
+  sigEls.curve.setAttribute("d", curveD);
+  sigEls.area.setAttribute("d", areaD);
+
+  // CI band: rect from ci[0] → ci[1].
+  const ciLo = Math.max(SIG.xMin, sig.ci[0]);
+  const ciHi = Math.min(SIG.xMax, sig.ci[1]);
+  const bandX = sigXToPx(ciLo);
+  const bandW = Math.max(2, sigXToPx(ciHi) - bandX);
+  sigEls.band.setAttribute("x", bandX);
+  sigEls.band.setAttribute("width", bandW);
+
+  // Mean dot.
+  sigEls.dot.setAttribute("cx", sigXToPx(mean));
+  sigEls.dot.setAttribute("cy", sigYToPx(0.9));
+  sigEls.dot.setAttribute("r", sig.significant ? 6 : 4);
+
+  // Reset + replay the sweep animation.
+  sigEls.svg.classList.remove("swept");
+  void sigEls.svg.offsetWidth;
+  sigEls.svg.classList.add("swept");
+
+  // Badge.
+  sigEls.badge.classList.remove("appear", "tie", "win-a", "win-b", "sig");
+  void sigEls.badge.offsetWidth;
+  let label;
+  if (sig.winner === "a") { sigEls.badge.classList.add("win-a"); label = "winner A"; }
+  else if (sig.winner === "b") { sigEls.badge.classList.add("win-b"); label = "winner B"; }
+  else { sigEls.badge.classList.add("tie"); label = sig.significant ? "small effect" : "no signal"; }
+  if (sig.significant) sigEls.badge.classList.add("sig");
+  sigEls.badge.innerHTML = `<span class="dot"></span>${label}`;
+  sigEls.badge.classList.add("appear");
+
+  // Stats grid.
+  sigEls.p.textContent  = (sig.p < 1e-4) ? "<0.0001" : sig.p.toFixed(4);
+  sigEls.d.textContent  = isFinite(sig.d) ? sig.d.toFixed(3) : "∞";
+  sigEls.ci.textContent = `[${sig.ci[0].toFixed(2)}, ${sig.ci[1].toFixed(2)}]`;
+  sigEls.n.textContent  = String(sig.n);
+}
+
+function resetSigPanel() {
+  sigEls.svg.classList.remove("swept");
+  sigEls.area.setAttribute("d", "");
+  sigEls.curve.setAttribute("d", "");
+  sigEls.dot.setAttribute("r", 0);
+  sigEls.badge.classList.remove("appear", "win-a", "win-b", "sig");
+  sigEls.badge.classList.add("tie");
+  sigEls.badge.innerHTML = `<span class="dot"></span>awaiting comparison`;
+  ["sigP", "sigD", "sigCI", "sigN"].forEach(id => document.getElementById(id).textContent = "—");
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Audit trail river — appends a node per successful evaluation.
+   Maintains in-memory history capped at MAX_AUDIT (drops oldest).
+════════════════════════════════════════════════════════════════════ */
+const MAX_AUDIT = 12;
+const auditHistory = [];
+const riverNodes = document.getElementById("riverNodes");
+const auditCountEl = document.getElementById("auditCount");
+
+function recordAuditEntry(data) {
+  // Aggregate = mean score across the eight rubrics.
+  const meanScore = data.beams_a.reduce((s, b) => s + b.score, 0) / data.beams_a.length;
+  const entry = {
+    t: new Date(),
+    mean: meanScore,
+    mode: data.beams_b ? "ab" : "single",
+    rubric: state.activeRubric || "default",
+    version: state.activeRubricVersion || "1.0.0",
+  };
+  auditHistory.push(entry);
+  if (auditHistory.length > MAX_AUDIT) auditHistory.shift();
+  redrawRiver();
+  auditCountEl.textContent = String(auditHistory.length);
+}
+
+function redrawRiver() {
+  const W = 1000, leftPad = 40, rightPad = 40, y = 65;
+  const innerW = W - leftPad - rightPad;
+  riverNodes.innerHTML = "";
+  if (auditHistory.length === 0) return;
+  const step = auditHistory.length === 1 ? 0 : innerW / (auditHistory.length - 1);
+  auditHistory.forEach((e, i) => {
+    const x = leftPad + i * step;
+    const radius = 5 + Math.min(8, e.mean * 8);
+    const color = e.mode === "ab" ? "#fcd34d" : "#a78bfa";
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", "river-node");
+    g.setAttribute("transform", `translate(${x}, ${y})`);
+    g.innerHTML = `
+      <circle class="ring" r="${radius + 4}" />
+      <circle class="core" r="${radius}" style="fill:${color}; filter:drop-shadow(0 0 4px ${color})" />
+      <text class="label" y="-${radius + 10}">${e.t.toTimeString().slice(0, 8)}</text>
+      <text class="label" y="${radius + 18}">${(e.mean * 100).toFixed(0)} · ${e.mode}</text>
+    `;
+    riverNodes.appendChild(g);
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   3D flip card — wires the existing A/B mode to populate front/back.
+════════════════════════════════════════════════════════════════════ */
+const flipWrap = document.getElementById("flipCardWrap");
+const flipCard = document.getElementById("flipCard");
+const flipFront = document.getElementById("flipFrontContent");
+const flipBack  = document.getElementById("flipBackContent");
+const flipFrontAgg = document.getElementById("flipFrontAgg");
+const flipBackAgg  = document.getElementById("flipBackAgg");
+const flipHint = document.getElementById("flipHint");
+flipCard.addEventListener("click", () => flipCard.classList.toggle("flipped"));
+flipCard.addEventListener("keydown", (e) => {
+  if (e.key === " " || e.key === "Enter") {
+    e.preventDefault();
+    flipCard.classList.toggle("flipped");
+  }
+});
+function updateFlipCard(data) {
+  if (!data.beams_b) { flipWrap.style.display = "none"; return; }
+  flipWrap.style.display = "";
+  flipFront.textContent = els.responseA.value || "—";
+  flipBack.textContent  = els.responseB.value || "—";
+  const aggA = data.beams_a.reduce((s, b) => s + b.score, 0) / data.beams_a.length;
+  const aggB = data.beams_b.reduce((s, b) => s + b.score, 0) / data.beams_b.length;
+  flipFrontAgg.textContent = `aggregate ${(aggA * 100).toFixed(1)}`;
+  flipBackAgg.textContent  = `aggregate ${(aggB * 100).toFixed(1)}`;
+  flipHint.textContent =
+    `click card to flip ↔  ·  margin ${Math.abs(aggA - aggB).toFixed(3)}`;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Shooting-star particles — one per criterion on every evaluation.
+   Travels from the stage centre to the matching score-bar tile in a
+   parabolic arc (Bézier midpoint lifted above the straight line by 60px).
+════════════════════════════════════════════════════════════════════ */
+const starCanvas = document.getElementById("starCanvas");
+const starCtx = starCanvas.getContext("2d");
+let stars = [];
+function sizeStarCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  starCanvas.width  = window.innerWidth  * dpr;
+  starCanvas.height = window.innerHeight * dpr;
+  starCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+sizeStarCanvas();
+window.addEventListener("resize", sizeStarCanvas);
+
+function shootStar(fromX, fromY, toX, toY) {
+  const ctrlX = (fromX + toX) / 2 + (Math.random() - 0.5) * 80;
+  const ctrlY = Math.min(fromY, toY) - 60 - Math.random() * 40;
+  stars.push({
+    fromX, fromY, toX, toY, ctrlX, ctrlY,
+    born: performance.now(), ttl: 700,
+    trail: [],
+  });
+  if (!starCtx._running) {
+    starCtx._running = true;
+    requestAnimationFrame(stepStars);
+  }
+}
+function bezier(p0, p1, p2, t) {
+  const u = 1 - t;
+  return u * u * p0 + 2 * u * t * p1 + t * t * p2;
+}
+function stepStars(now) {
+  starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+  starCtx.globalCompositeOperation = "lighter";
+  const next = [];
+  for (const s of stars) {
+    const t = (now - s.born) / s.ttl;
+    if (t >= 1) continue;
+    const x = bezier(s.fromX, s.ctrlX, s.toX, t);
+    const y = bezier(s.fromY, s.ctrlY, s.toY, t);
+    s.trail.push({ x, y, t });
+    if (s.trail.length > 14) s.trail.shift();
+    // Trail draw — white → purple gradient via per-segment hue interpolation.
+    for (let i = 0; i < s.trail.length - 1; i++) {
+      const p = s.trail[i], q = s.trail[i + 1];
+      const frac = i / s.trail.length;
+      const hue = 0 + frac * 70;  // white-ish via low saturation
+      starCtx.strokeStyle = `hsla(${280}, 80%, ${85 - frac * 35}%, ${0.9 * (1 - t) * (1 - frac * 0.6)})`;
+      starCtx.lineWidth = 2.4 * (1 - frac);
+      starCtx.beginPath();
+      starCtx.moveTo(p.x, p.y);
+      starCtx.lineTo(q.x, q.y);
+      starCtx.stroke();
+    }
+    // Head
+    const alpha = 1 - t;
+    starCtx.fillStyle = `rgba(255,255,255,${alpha})`;
+    starCtx.shadowBlur = 10;
+    starCtx.shadowColor = "#a78bfa";
+    starCtx.beginPath();
+    starCtx.arc(x, y, 2.2, 0, Math.PI * 2);
+    starCtx.fill();
+    starCtx.shadowBlur = 0;
+    next.push(s);
+  }
+  stars = next;
+  if (stars.length > 0) requestAnimationFrame(stepStars);
+  else starCtx._running = false;
+}
+
+function shootStarsForScores(data) {
+  const stageRect = els.stage.getBoundingClientRect();
+  const fromX = stageRect.left + stageRect.width / 2;
+  const fromY = stageRect.top  + stageRect.height / 2;
+  data.beams_a.forEach((b, i) => {
+    const tile = sb.querySelector(`[data-rubric="${b.rubric}"]`);
+    if (!tile) return;
+    const bar = tile.querySelector(".liquid-bar").getBoundingClientRect();
+    const toX = bar.left + bar.width * b.score;
+    const toY = bar.top + bar.height / 2;
+    setTimeout(() => shootStar(fromX, fromY, toX, toY), i * 60);
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Rubric version selector — populated from RUBRICS + /api/rubrics
+════════════════════════════════════════════════════════════════════ */
+state.activeRubric = "default";
+state.activeRubricVersion = "1.0.0";
+const verBtn = document.getElementById("verBtn");
+const verBtnLabel = document.getElementById("verBtnLabel");
+const verMenu = document.getElementById("verMenu");
+const verSelect = document.getElementById("verSelect");
+
+function buildVerMenu(items) {
+  verMenu.innerHTML = "";
+  items.forEach(it => {
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "ver-item" + (it.active ? " active" : "");
+    opt.dataset.rubric = it.rubric;
+    opt.dataset.version = it.version;
+    opt.innerHTML = `${it.rubric}<span class="ver-meta">v${it.version}</span>`;
+    opt.addEventListener("click", () => {
+      state.activeRubric = it.rubric;
+      state.activeRubricVersion = it.version;
+      verBtnLabel.textContent = `${it.rubric} · v${it.version}`;
+      verMenu.querySelectorAll(".ver-item").forEach(x => x.classList.remove("active"));
+      opt.classList.add("active");
+      verSelect.classList.remove("open");
+    });
+    verMenu.appendChild(opt);
+  });
+}
+verBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  verSelect.classList.toggle("open");
+});
+document.addEventListener("click", (e) => {
+  if (!verSelect.contains(e.target)) verSelect.classList.remove("open");
+});
+
+(async function loadRubricVersions() {
+  // Try the live eval-API /rubrics first; fall back to the in-page RUBRICS table.
+  const candidates = ["", "http://127.0.0.1:7777", "http://127.0.0.1:8000"];
+  for (const base of candidates) {
+    try {
+      const r = await fetch(base + "/rubrics", { cache: "no-store" });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const items = [];
+      for (const rb of j.rubrics || []) {
+        const versions = rb.versions || [rb.version || "1.0.0"];
+        versions.forEach(v => {
+          items.push({
+            rubric: rb.name,
+            version: v,
+            active: rb.name === "default" && v === (rb.version || "1.0.0"),
+          });
+        });
+      }
+      if (items.length > 0) { buildVerMenu(items); return; }
+    } catch (_) { /* try next */ }
+  }
+  // Fallback: synthesize from in-page RUBRICS.
+  const items = RUBRICS.map(r => ({ rubric: r.name, version: "1.0.0", active: r.name === RUBRICS[0].name }));
+  if (items.length > 0) {
+    items[0].active = true;
+    state.activeRubric = items[0].rubric;
+    verBtnLabel.textContent = `${items[0].rubric} · v1.0.0`;
+  }
+  buildVerMenu(items);
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   Fanout from applyScores: significance waveform, audit river,
+   shooting stars, 3D flip card.
+════════════════════════════════════════════════════════════════════ */
+const _origApplyScoresV15 = applyScores;
+applyScores = function (data) {
+  _origApplyScoresV15(data);
+  // Spring bars + shooting stars on every evaluation.
+  shootStarsForScores(data);
+  // 3D flip card visibility + content.
+  updateFlipCard(data);
+  // Significance waveform on A/B mode.
+  if (data.beams_b && data.beams_a) {
+    const aMap = {}, bMap = {};
+    for (const b of data.beams_a) aMap[b.rubric] = b.score;
+    for (const b of data.beams_b) bMap[b.rubric] = b.score;
+    const keys = Object.keys(aMap).filter(k => k in bMap);
+    if (keys.length >= 2) {
+      const sig = pairedTTest(keys.map(k => aMap[k]), keys.map(k => bMap[k]));
+      if (sig) drawSigWaveform(sig);
+    }
+  } else {
+    resetSigPanel();
+  }
+  // Audit river log.
+  recordAuditEntry(data);
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   Scroll-entrance stagger — IntersectionObserver over .fade-in
+════════════════════════════════════════════════════════════════════ */
+(function initFadeIn() {
+  const io = new IntersectionObserver((entries) => {
+    let stagger = 0;
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        const el = e.target;
+        setTimeout(() => el.classList.add("in-view"), stagger);
+        stagger += 80;
+        io.unobserve(el);
+      }
+    }
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".fade-in").forEach(el => io.observe(el));
+})();
 
 seedExample();
 </script>
