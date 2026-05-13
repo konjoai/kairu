@@ -27,15 +27,20 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.14.0"
+__version__ = "0.15.0"
 
+from kairu.audit import AuditLog, AuditRecord, hash_inputs, open_default_audit
+from kairu.significance import SignificanceResult, paired_t_test, per_criterion_diffs
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
+from kairu.benchmarks import BENCHMARKS, BenchmarkStats, percentile_rank
 from kairu.budget import TokenBudget
 from kairu.cluster_budget import ClusterTokenBudget, LocalClusterBudget
 from kairu.evaluation import (
     CRITERIA,
     RUBRICS,
+    RUBRIC_REGISTRY,
+    RUBRIC_VERSION,
     Comparison,
     CriterionComparison,
     CriterionScore,
@@ -44,6 +49,9 @@ from kairu.evaluation import (
     compare,
     evaluate,
     evaluate_batch,
+    get_rubric_version,
+    list_rubric_versions,
+    register_rubric,
     to_csv,
 )
 from kairu.feedback import FeedbackLoop, FeedbackSummary
