@@ -43,6 +43,21 @@ from kairu.evaluation import (
     register_rubric,
     to_csv,
 )
+from kairu.ci_regression import (
+    BaselineSnapshot,
+    BaselineStore,
+    DEFAULT_REGRESSION_THRESHOLD,
+    check_against_baseline,
+    open_default_store,
+    snapshot_baseline,
+)
+from kairu.ensemble import (
+    DEFAULT_DISAGREEMENT_THRESHOLD,
+    JudgeConfig,
+    ensemble_compare,
+    ensemble_evaluate,
+)
+from kairu.log_eval import DEFAULT_LOG_THRESHOLD, evaluate_log
 from kairu.rubrics import RUBRIC_DEFS
 from kairu.significance import paired_t_test, per_criterion_diffs
 
@@ -99,6 +114,85 @@ class BatchRequest(BaseModel):
     format: str = Field("json", pattern="^(json|csv)$")
 
 
+# ── v0.16 ensemble + CI + log-eval request models ────────────────────────
+
+
+class JudgeConfigRequest(BaseModel):
+    """Wire shape for a single judge's perspective."""
+
+    name: str = Field(..., min_length=1, max_length=64)
+    rubric: Optional[str] = "default"
+    criteria: Optional[List[str]] = None
+    weights: Optional[Dict[str, float]] = None
+    seed: Optional[int] = None
+    noise: float = Field(0.0, ge=0.0, le=1.0)
+
+    def to_config(self) -> JudgeConfig:
+        return JudgeConfig(
+            name=self.name,
+            rubric=self.rubric,
+            criteria=tuple(self.criteria) if self.criteria else None,
+            weights=self.weights,
+            seed=self.seed,
+            noise=self.noise,
+        )
+
+
+class EnsembleEvaluateRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    response: str = Field(..., min_length=1)
+    judges: List[JudgeConfigRequest] = Field(..., min_length=1, max_length=16)
+    disagreement_threshold: float = Field(
+        DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0
+    )
+
+
+class EnsembleCompareRequest(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    response_a: str = Field(..., min_length=1)
+    response_b: str = Field(..., min_length=1)
+    judges: List[JudgeConfigRequest] = Field(..., min_length=1, max_length=16)
+    disagreement_threshold: float = Field(
+        DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0
+    )
+
+
+class CIItem(BaseModel):
+    input: str = Field(..., min_length=1)
+    output: str = Field(..., min_length=1)
+
+
+class CIBaselineRequest(BaseModel):
+    items: List[CIItem] = Field(..., min_length=1)
+    rubric: Optional[str] = None
+    criteria: Optional[List[str]] = None
+    weights: Optional[Dict[str, float]] = None
+    label: str = Field("", max_length=256)
+
+
+class CICheckRequest(BaseModel):
+    snapshot_id: str = Field(..., min_length=1, max_length=128)
+    items: List[CIItem] = Field(..., min_length=1)
+    threshold: float = Field(DEFAULT_REGRESSION_THRESHOLD, ge=0.0, le=1.0)
+    rubric: Optional[str] = None
+    criteria: Optional[List[str]] = None
+    weights: Optional[Dict[str, float]] = None
+
+
+class LogEvalItem(BaseModel):
+    input: str = Field(..., min_length=1)
+    output: str = Field(..., min_length=1)
+    metadata: Optional[Dict[str, str]] = None
+
+
+class LogEvalRequest(BaseModel):
+    items: List[LogEvalItem] = Field(..., min_length=1)
+    rubric: Optional[str] = None
+    criteria: Optional[List[str]] = None
+    weights: Optional[Dict[str, float]] = None
+    threshold: float = Field(DEFAULT_LOG_THRESHOLD, ge=0.0, le=1.0)
+
+
 class RegisterRubricRequest(BaseModel):
     """Body for ``POST /rubrics`` — register a new rubric version.
 
@@ -147,13 +241,17 @@ def _to_eval_kwargs(
 # ─────────────────────────────────────────────────────────────────────────
 
 
-def create_app(audit: Optional[AuditLog] = None) -> FastAPI:
+def create_app(
+    audit: Optional[AuditLog] = None,
+    baseline_store: Optional[BaselineStore] = None,
+) -> FastAPI:
     app = FastAPI(
         title="kairu evaluation API",
         version=kairu.__version__,
         description="Rubric-based response evaluation and A/B comparison over HTTP.",
     )
     app.state.audit = audit if audit is not None else open_default_audit()
+    app.state.baselines = baseline_store if baseline_store is not None else open_default_store()
 
     @app.get("/health")
     def health() -> Dict[str, str]:
@@ -415,6 +513,161 @@ def create_app(audit: Optional[AuditLog] = None) -> FastAPI:
             rubric_name=rubric_name, rubric_version=rubric_version,
         )
         return PlainTextResponse(content=body, media_type="text/csv")
+
+    # ── v0.16 judge ensemble ──────────────────────────────────────────
+
+    def _validate_judges(judges: List[JudgeConfigRequest]) -> List[JudgeConfig]:
+        names = [j.name for j in judges]
+        if len(set(names)) != len(names):
+            raise HTTPException(status_code=422, detail="judge names must be unique")
+        configs: List[JudgeConfig] = []
+        for j in judges:
+            try:
+                configs.append(j.to_config())
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return configs
+
+    @app.post("/evaluate/ensemble")
+    def evaluate_ensemble_endpoint(req: EnsembleEvaluateRequest):
+        _check_text("prompt", req.prompt)
+        _check_text("response", req.response)
+        judges = _validate_judges(req.judges)
+        try:
+            result = ensemble_evaluate(
+                req.prompt, req.response, judges,
+                disagreement_threshold=req.disagreement_threshold,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return result.to_dict()
+
+    @app.post("/compare/ensemble")
+    def compare_ensemble_endpoint(req: EnsembleCompareRequest):
+        _check_text("prompt", req.prompt)
+        _check_text("response_a", req.response_a)
+        _check_text("response_b", req.response_b)
+        judges = _validate_judges(req.judges)
+        try:
+            result = ensemble_compare(
+                req.prompt, req.response_a, req.response_b, judges,
+                disagreement_threshold=req.disagreement_threshold,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return result.to_dict()
+
+    # ── v0.16 CI regression gating ────────────────────────────────────
+
+    def _validate_ci_items(items: List[CIItem]) -> List[Dict[str, str]]:
+        if len(items) > MAX_BATCH_ITEMS:
+            raise HTTPException(
+                status_code=413,
+                detail=f"items exceed {MAX_BATCH_ITEMS} (got {len(items)})",
+            )
+        for i, it in enumerate(items):
+            _check_text(f"items[{i}].input", it.input)
+            _check_text(f"items[{i}].output", it.output)
+        return [{"input": it.input, "output": it.output} for it in items]
+
+    @app.post("/ci/baseline")
+    def ci_baseline_endpoint(req: CIBaselineRequest):
+        items = _validate_ci_items(req.items)
+        try:
+            snap = snapshot_baseline(
+                items, rubric=req.rubric, criteria=req.criteria,
+                weights=req.weights, judge_model=JUDGE_MODEL_ID, label=req.label,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        store: BaselineStore = app.state.baselines
+        store.save(snap)
+        return snap.to_dict()
+
+    @app.get("/ci/baselines")
+    def ci_baselines_index() -> Dict[str, object]:
+        store: BaselineStore = app.state.baselines
+        ids = store.list()
+        return {
+            "snapshots": [
+                {
+                    "snapshot_id": sid,
+                    "created_utc": store.load(sid).created_utc,
+                    "rubric_name": store.load(sid).rubric_name,
+                    "rubric_version": store.load(sid).rubric_version,
+                    "n_items": store.load(sid).n_items,
+                    "mean_aggregate": store.load(sid).mean_aggregate,
+                    "label": store.load(sid).label,
+                }
+                for sid in ids
+            ],
+            "count": len(ids),
+        }
+
+    @app.get("/ci/baselines/{snapshot_id}")
+    def ci_baselines_get(snapshot_id: str) -> Dict[str, object]:
+        store: BaselineStore = app.state.baselines
+        try:
+            snap = store.load(snapshot_id)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail=f"snapshot '{snapshot_id}' not found",
+            ) from exc
+        return snap.to_dict()
+
+    @app.post("/ci/check")
+    def ci_check_endpoint(req: CICheckRequest):
+        items = _validate_ci_items(req.items)
+        store: BaselineStore = app.state.baselines
+        try:
+            baseline = store.load(req.snapshot_id)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail=f"snapshot '{req.snapshot_id}' not found",
+            ) from exc
+        try:
+            report = check_against_baseline(
+                baseline, items, threshold=req.threshold,
+                rubric=req.rubric, criteria=req.criteria, weights=req.weights,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return report.to_dict()
+
+    # ── v0.16 log → eval pipeline ─────────────────────────────────────
+
+    @app.post("/eval_from_log")
+    def eval_from_log_endpoint(req: LogEvalRequest):
+        if len(req.items) > MAX_BATCH_ITEMS:
+            raise HTTPException(
+                status_code=413,
+                detail=f"items exceed {MAX_BATCH_ITEMS} (got {len(req.items)})",
+            )
+        for i, it in enumerate(req.items):
+            _check_text(f"items[{i}].input", it.input)
+            _check_text(f"items[{i}].output", it.output)
+        # Flatten the request schema's nested ``metadata`` dict to match
+        # evaluate_log's "anything that isn't input/output is metadata" rule.
+        items_dicts: List[Dict[str, object]] = []
+        for it in req.items:
+            entry: Dict[str, object] = {"input": it.input, "output": it.output}
+            if it.metadata:
+                for k, v in it.metadata.items():
+                    if k in ("input", "output"):
+                        continue
+                    entry[k] = v
+            items_dicts.append(entry)
+        try:
+            report = evaluate_log(
+                items_dicts,
+                rubric=req.rubric, criteria=req.criteria, weights=req.weights,
+                threshold=req.threshold, judge_model=JUDGE_MODEL_ID,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return report.to_dict()
 
     return app
 

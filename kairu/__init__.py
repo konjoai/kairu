@@ -27,7 +27,7 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 
 from kairu.audit import AuditLog, AuditRecord, hash_inputs, open_default_audit
 from kairu.significance import SignificanceResult, paired_t_test, per_criterion_diffs
@@ -35,7 +35,30 @@ from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
 from kairu.benchmarks import BENCHMARKS, BenchmarkStats, percentile_rank
 from kairu.budget import TokenBudget
+from kairu.ci_regression import (
+    BaselineItem,
+    BaselineSnapshot,
+    BaselineStore,
+    CriterionRegression,
+    DEFAULT_REGRESSION_THRESHOLD,
+    FileBaselineStore,
+    RegressionReport,
+    check_against_baseline,
+    open_default_store,
+    snapshot_baseline,
+)
 from kairu.cluster_budget import ClusterTokenBudget, LocalClusterBudget
+from kairu.ensemble import (
+    DEFAULT_DISAGREEMENT_THRESHOLD,
+    EnsembleComparison,
+    EnsembleResult,
+    JudgeConfig,
+    JudgeScore,
+    ensemble_compare,
+    ensemble_evaluate,
+    judge_evaluate,
+)
+from kairu.log_eval import DEFAULT_LOG_THRESHOLD, LogEvalReport, LogItemResult, evaluate_log
 from kairu.evaluation import (
     CRITERIA,
     RUBRICS,
@@ -172,5 +195,28 @@ __all__ = [
     "ShieldRule",
     "ShieldVerdict",
     "get_default_shield",
+    # v0.16 — judge ensemble, CI regression, log → eval
+    "JudgeConfig",
+    "JudgeScore",
+    "EnsembleResult",
+    "EnsembleComparison",
+    "judge_evaluate",
+    "ensemble_evaluate",
+    "ensemble_compare",
+    "DEFAULT_DISAGREEMENT_THRESHOLD",
+    "BaselineItem",
+    "BaselineSnapshot",
+    "BaselineStore",
+    "FileBaselineStore",
+    "CriterionRegression",
+    "RegressionReport",
+    "snapshot_baseline",
+    "check_against_baseline",
+    "open_default_store",
+    "DEFAULT_REGRESSION_THRESHOLD",
+    "LogEvalReport",
+    "LogItemResult",
+    "evaluate_log",
+    "DEFAULT_LOG_THRESHOLD",
     "__version__",
 ]

@@ -429,3 +429,186 @@ async def test_register_rubric_rejects_mismatched_keys(client: AsyncClient) -> N
         },
     )
     assert r.status_code == 422
+
+
+# ════════════════════════════════════════════════════════════════════════
+# v0.16 — judge ensemble, CI regression, log → eval
+# ════════════════════════════════════════════════════════════════════════
+
+
+# ── /evaluate/ensemble + /compare/ensemble ───────────────────────────────
+
+
+async def test_evaluate_ensemble_returns_median_and_disagreement(client: AsyncClient) -> None:
+    r = await client.post("/evaluate/ensemble", json={
+        "prompt": "What is the speed of light?",
+        "response": "About 299,792 km/s in a vacuum.",
+        "judges": [
+            {"name": "j1", "rubric": "default"},
+            {"name": "j2", "rubric": "helpfulness"},
+            {"name": "j3", "rubric": "accuracy"},
+        ],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["judges"]) == 3
+    assert 0.0 <= body["median_aggregate"] <= 1.0
+    assert "max_disagreement" in body and "disagreement_flag" in body
+    assert set(body["median_scores"].keys()) == set(body["stdev_scores"].keys())
+
+
+async def test_compare_ensemble_picks_winner(client: AsyncClient) -> None:
+    r = await client.post("/compare/ensemble", json={
+        "prompt": "Define recursion.",
+        "response_a": "Recursion is when a function calls itself with a smaller input until reaching a base case.",
+        "response_b": "idk",
+        "judges": [
+            {"name": "j1"}, {"name": "j2"}, {"name": "j3"},
+        ],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["winner"] == "a"
+    assert body["median_diff"] > 0
+    assert "per_criterion" in body and body["per_criterion"]
+
+
+async def test_compare_ensemble_rejects_duplicate_judge_names(client: AsyncClient) -> None:
+    r = await client.post("/compare/ensemble", json={
+        "prompt": "x", "response_a": "y", "response_b": "z",
+        "judges": [{"name": "dup"}, {"name": "dup"}],
+    })
+    assert r.status_code == 422
+    assert "unique" in r.json()["detail"].lower()
+
+
+async def test_evaluate_ensemble_requires_at_least_one_judge(client: AsyncClient) -> None:
+    r = await client.post("/evaluate/ensemble", json={
+        "prompt": "p", "response": "r", "judges": [],
+    })
+    assert r.status_code == 422
+
+
+async def test_evaluate_ensemble_rejects_unknown_criteria(client: AsyncClient) -> None:
+    r = await client.post("/evaluate/ensemble", json={
+        "prompt": "p", "response": "r",
+        "judges": [{"name": "j1", "criteria": ["no_such_criterion"]}],
+    })
+    assert r.status_code == 422
+
+
+# ── /ci/baseline + /ci/check + listing endpoints ─────────────────────────
+
+
+GOLDEN_BODY = {
+    "items": [
+        {"input": "Capital of France?", "output": "Paris is the capital of France."},
+        {"input": "Sum of 2 + 2?",       "output": "Two plus two equals four."},
+    ],
+    "label": "golden-v1",
+}
+
+
+async def test_ci_baseline_and_check_roundtrip(client: AsyncClient) -> None:
+    r = await client.post("/ci/baseline", json=GOLDEN_BODY)
+    assert r.status_code == 200
+    snap = r.json()
+    assert snap["n_items"] == 2
+    assert snap["label"] == "golden-v1"
+    sid = snap["snapshot_id"]
+
+    # Same inputs → check passes.
+    r2 = await client.post("/ci/check", json={
+        "snapshot_id": sid,
+        "items": GOLDEN_BODY["items"],
+    })
+    assert r2.status_code == 200
+    report = r2.json()
+    assert report["passed"] is True
+    assert report["regressions"] == []
+    assert report["n_matched"] == 2
+
+
+async def test_ci_check_flags_regression(client: AsyncClient) -> None:
+    r = await client.post("/ci/baseline", json=GOLDEN_BODY)
+    sid = r.json()["snapshot_id"]
+    degraded = {
+        "snapshot_id": sid,
+        "items": [
+            {"input": "Capital of France?", "output": "paris"},
+            {"input": "Sum of 2 + 2?",       "output": "4"},
+        ],
+        "threshold": 0.05,
+    }
+    r2 = await client.post("/ci/check", json=degraded)
+    assert r2.status_code == 200
+    report = r2.json()
+    assert report["passed"] is False
+    assert len(report["regressions"]) >= 1
+
+
+async def test_ci_check_unknown_snapshot_returns_404(client: AsyncClient) -> None:
+    r = await client.post("/ci/check", json={
+        "snapshot_id": "does-not-exist",
+        "items": GOLDEN_BODY["items"],
+    })
+    assert r.status_code == 404
+
+
+async def test_ci_baselines_list_and_get(client: AsyncClient) -> None:
+    r = await client.post("/ci/baseline", json=GOLDEN_BODY)
+    sid = r.json()["snapshot_id"]
+    listing = await client.get("/ci/baselines")
+    assert listing.status_code == 200
+    ids = [s["snapshot_id"] for s in listing.json()["snapshots"]]
+    assert sid in ids
+
+    detail = await client.get(f"/ci/baselines/{sid}")
+    assert detail.status_code == 200
+    assert detail.json()["snapshot_id"] == sid
+
+
+async def test_ci_baselines_get_unknown_returns_404(client: AsyncClient) -> None:
+    r = await client.get("/ci/baselines/no-such-id")
+    assert r.status_code == 404
+
+
+# ── /eval_from_log ────────────────────────────────────────────────────────
+
+
+async def test_eval_from_log_returns_aggregate(client: AsyncClient) -> None:
+    r = await client.post("/eval_from_log", json={
+        "items": [
+            {"input": "Capital of France?",
+             "output": "The capital of France is Paris.",
+             "metadata": {"request_id": "req-1"}},
+            {"input": "Sum of 2 + 2?",
+             "output": "Two plus two equals four."},
+        ],
+        "threshold": 0.05,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["n_items"] == 2
+    assert body["passed"] is True
+    assert "mean_aggregate" in body
+    assert body["items"][0]["metadata"].get("request_id") == "req-1"
+
+
+async def test_eval_from_log_fails_when_mean_below_threshold(client: AsyncClient) -> None:
+    r = await client.post("/eval_from_log", json={
+        "items": [
+            {"input": "Explain CAP theorem", "output": "no"},
+            {"input": "Explain Raft",       "output": "idk"},
+        ],
+        "threshold": 0.9,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["passed"] is False
+    assert body["n_failed"] >= 1
+
+
+async def test_eval_from_log_requires_nonempty_items(client: AsyncClient) -> None:
+    r = await client.post("/eval_from_log", json={"items": [], "threshold": 0.5})
+    assert r.status_code == 422

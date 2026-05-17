@@ -4,6 +4,39 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.16.0] — 2026-05-13
+
+### Added — Judge Ensemble + CI Regression + Log-to-Eval Pipeline
+
+- `kairu/ensemble.py` — multi-judge evaluation. `JudgeConfig(name, rubric, criteria, weights, seed, noise)` defines a judge's perspective; `judge_evaluate`, `ensemble_evaluate`, `ensemble_compare` aggregate via **median** per criterion (robust to one outlier — for 3 judges, also the lowest-variance order statistic under heavy-tailed disagreement) and report per-criterion stdev as the disagreement metric. `disagreement_flag = max_stdev > 0.2` (default; tunable via `DEFAULT_DISAGREEMENT_THRESHOLD`). Deterministic seeded Gaussian noise simulates inter-judge variance without sacrificing test reproducibility. Real LLM judges plug in behind the same `JudgeConfig` contract — caller code does not change.
+- `kairu/ci_regression.py` — CI gating against a golden corpus. `BaselineSnapshot` (immutable, JSON-round-trippable, input-hash + per-item scores) frozen by `snapshot_baseline()`. `check_against_baseline()` matches items by input-hash (order-insensitive), records a regression whenever a per-criterion drop exceeds `threshold` (default 0.05), and surfaces unmatched-input drift in both directions. `BaselineStore` (in-memory) + `FileBaselineStore` (atomic write via tempfile + rename) persist snapshots under `KAIRU_CI_DIR`.
+- `kairu/log_eval.py` — production-log → eval pipeline. `evaluate_log()` batch-scores `{input, output, metadata?}` records through a named rubric; returns `LogEvalReport` with mean/median/min/max/stdev aggregates, per-criterion mean and min, per-item pass flags, and `passed: bool` keyed on `mean_aggregate >= threshold` (default 0.5). Metadata passes through to `per_item` untouched for downstream slicing by request id / region / model tag. Designed for drop-in use as a deploy gate.
+- `api/main.py` endpoints:
+  - `POST /evaluate/ensemble` — single (prompt, response) through N judges.
+  - `POST /compare/ensemble` — A/B through N judges with winner + per-criterion breakdown + propagated disagreement flag.
+  - `POST /ci/baseline` — freeze a golden snapshot; returns `snapshot_id`.
+  - `POST /ci/check` — compare a candidate run against a stored snapshot; returns `RegressionReport` with `passed: bool`.
+  - `GET /ci/baselines` — list snapshot ids with summary metadata.
+  - `GET /ci/baselines/{snapshot_id}` — full snapshot detail.
+  - `POST /eval_from_log` — batch evaluate inference-log records against a rubric + pass threshold.
+- `app.state.baselines` — `BaselineStore` injected into `create_app`; resolves from `KAIRU_CI_DIR` env when set.
+- 90 new test outcomes: `tests/test_ensemble.py` (18), `tests/test_ci_regression.py` (15), `tests/test_log_eval.py` (11), `api/test_api.py` (14 new endpoint tests). Total suite: 438 passed, 4 HF-gated skipped.
+
+### Changed
+
+- `kairu/__init__.py` — re-exports `JudgeConfig`, `JudgeScore`, `EnsembleResult`, `EnsembleComparison`, `ensemble_evaluate`, `ensemble_compare`, `judge_evaluate`, `BaselineSnapshot`, `BaselineItem`, `BaselineStore`, `FileBaselineStore`, `CriterionRegression`, `RegressionReport`, `snapshot_baseline`, `check_against_baseline`, `open_default_store`, `LogEvalReport`, `LogItemResult`, `evaluate_log`, and the three `DEFAULT_*_THRESHOLD` constants. Version `0.15.0 → 0.16.0`.
+- `pyproject.toml` — version `0.15.0 → 0.16.0`; description extended.
+- `PLAN.md` — P2 roadmap updated: judge ensemble, log-to-eval, and CI regression marked DONE.
+
+### Architecture Decisions
+
+- **Median over mean for ensemble aggregation.** Mean is poisoned by a single outlier judge (four agree at 0.8, one screams 0.2 → mean 0.68); median is 0.8. For N=3 the median is also the order statistic with the lowest variance under heavy-tailed disagreement. Stdev is the honest per-criterion disagreement signal — Krippendorff's alpha at N=2 is degenerate, and at N=3 it is dominated by stdev anyway.
+- **Seeded Gaussian noise simulates inter-judge variance.** The library's scorers are deterministic and we cannot literally call multiple LLMs from CI. `JudgeConfig(noise > 0)` adds reproducible per-(judge, input, criterion) noise so disagreement metrics are meaningful without sacrificing test reproducibility. Real LLM judges plug in later behind the same contract.
+- **Snapshot persistence as one JSON file per snapshot.** `FileBaselineStore` writes atomically via tempfile + `os.replace`. A corrupt file (manual edit, partial write from before atomic-write was added) is skipped at load time rather than crashing the store — degradation in service, not unavailability.
+- **`/eval_from_log` flattens metadata at the API edge.** The wire schema uses a nested `metadata: {...}` field for clarity, but `evaluate_log()` follows the "anything that isn't input/output is metadata" convention. The endpoint flattens at the boundary so library callers and HTTP callers see consistent semantics in their per-item output.
+
+---
+
 ## [0.15.0] — 2026-05-12
 
 ### Added — P1 Evaluation Suite (score distributions, statistical significance, audit log, rubric versioning)
