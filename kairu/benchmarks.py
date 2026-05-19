@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import math
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Mapping, Sequence, Tuple
 
 from kairu.evaluation import CRITERIA, ScorerResult

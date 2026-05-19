@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.16.0**
+Current version: **v0.17.0**
 
 ---
 
@@ -70,16 +70,16 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   JSON (atomic write via tempfile + rename). Designed for use as a
   deploy gate.
 
-- **Constitutional evals from policy docs**
-  `POST /rubrics/generate` accepts a PDF/text policy document and
+- **Constitutional evals from policy docs** *(DONE — v0.17.0)*
+  `POST /rubrics/generate` accepts plain-text policy documents and
   returns auto-generated rubric criteria with weights. NLP extraction
   of "must", "shall not", "required" clauses → rubric items. The
-  generated rubric registers as a new versioned entry.
-- **Agentic trajectory scoring**
+  generated rubric registers as a new versioned entry in RUBRIC_REGISTRY.
+- **Agentic trajectory scoring** *(DONE — v0.17.0)*
   `POST /eval/trajectory` accepts a sequence of `{step, tool_call,
   observation, response}` records. Scores: tool selection correctness,
-  error recovery, goal completion, efficiency (steps taken vs. optimal).
-  Returns a per-step breakdown plus an overall trajectory grade.
+  error recovery, goal progress/completion, efficiency (steps taken vs.
+  optimal). Returns a per-step breakdown plus an overall trajectory grade.
 
 ### 🟡 P3 — Strategic
 

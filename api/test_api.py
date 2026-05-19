@@ -612,3 +612,137 @@ async def test_eval_from_log_fails_when_mean_below_threshold(client: AsyncClient
 async def test_eval_from_log_requires_nonempty_items(client: AsyncClient) -> None:
     r = await client.post("/eval_from_log", json={"items": [], "threshold": 0.5})
     assert r.status_code == 422
+
+
+# ── v0.17 constitutional rubric generation ────────────────────────────────
+
+async def test_rubrics_generate_returns_clauses(client: AsyncClient) -> None:
+    r = await client.post("/rubrics/generate", json={
+        "text": "Users must encrypt all data. Passwords must not be stored in plain text.",
+        "name": "test_policy_rubric",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["name"] == "test_policy_rubric"
+    assert body["n_clauses"] >= 1
+    assert isinstance(body["criteria"], list)
+    assert isinstance(body["weights"], dict)
+    assert len(body["clauses"]) == body["n_clauses"]
+
+
+async def test_rubrics_generate_polarity_split(client: AsyncClient) -> None:
+    r = await client.post("/rubrics/generate", json={
+        "text": (
+            "The system shall log all requests. "
+            "Users must not share API keys. "
+            "All data must be encrypted at rest."
+        ),
+        "name": "polarity_test_rubric",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["n_positive"] >= 1
+    assert body["n_negative"] >= 1
+    polarities = {c["polarity"] for c in body["clauses"]}
+    assert "positive" in polarities
+    assert "negative" in polarities
+
+
+async def test_rubrics_generate_registers_rubric(client: AsyncClient) -> None:
+    rubric_name = "api_reg_test_rubric"
+    await client.post("/rubrics/generate", json={
+        "text": "Responses must be concise. Responses must not contain PII.",
+        "name": rubric_name,
+    })
+    r = await client.get(f"/rubrics/{rubric_name}")
+    assert r.status_code == 200
+    assert r.json()["name"] == rubric_name
+
+
+async def test_rubrics_generate_rejects_short_text(client: AsyncClient) -> None:
+    r = await client.post("/rubrics/generate", json={"text": "hi", "name": "x"})
+    assert r.status_code == 422
+
+
+async def test_rubrics_generate_max_clauses_respected(client: AsyncClient) -> None:
+    policy = " ".join(
+        [f"Rule {i}: users must comply with section {i}." for i in range(30)]
+    )
+    r = await client.post("/rubrics/generate", json={
+        "text": policy,
+        "name": "max_clauses_test",
+        "max_clauses": 5,
+    })
+    assert r.status_code == 200
+    assert r.json()["n_clauses"] <= 5
+
+
+# ── v0.17 agentic trajectory scoring ─────────────────────────────────────
+
+async def test_eval_trajectory_basic(client: AsyncClient) -> None:
+    r = await client.post("/eval/trajectory", json={
+        "goal": "search for recent papers on speculative decoding",
+        "steps": [
+            {
+                "step": 0,
+                "tool_call": "search_papers speculative decoding",
+                "observation": "Found 12 papers.",
+                "response": "I will search for speculative decoding papers.",
+            }
+        ],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["n_steps"] == 1
+    assert 0.0 <= body["aggregate"] <= 1.0
+    assert len(body["steps"]) == 1
+
+
+async def test_eval_trajectory_step_fields(client: AsyncClient) -> None:
+    r = await client.post("/eval/trajectory", json={
+        "goal": "retrieve user profile",
+        "steps": [
+            {"step": 0, "tool_call": "get_user profile", "observation": "ok", "response": "got user profile"},
+            {"step": 1, "tool_call": None, "observation": None, "response": "profile retrieved successfully"},
+        ],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    step_keys = {"step", "tool_selection", "error_recovery", "goal_progress", "efficiency", "score"}
+    assert step_keys <= set(body["steps"][0].keys())
+
+
+async def test_eval_trajectory_error_recovery_scored(client: AsyncClient) -> None:
+    r = await client.post("/eval/trajectory", json={
+        "goal": "fetch data from API",
+        "steps": [
+            {
+                "step": 0,
+                "tool_call": "fetch_api data",
+                "observation": "error: connection timeout",
+                "response": "I will retry with a different endpoint as an alternative.",
+            }
+        ],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["steps"][0]["error_recovery"] > 0.0
+
+
+async def test_eval_trajectory_optimal_steps_scaling(client: AsyncClient) -> None:
+    r = await client.post("/eval/trajectory", json={
+        "goal": "summarise document",
+        "steps": [
+            {"step": i, "tool_call": None, "observation": None, "response": "summarise document content"}
+            for i in range(6)
+        ],
+        "optimal_steps": 2,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert 0.0 <= body["efficiency"] <= 1.0
+
+
+async def test_eval_trajectory_rejects_empty_steps(client: AsyncClient) -> None:
+    r = await client.post("/eval/trajectory", json={"goal": "do something", "steps": []})
+    assert r.status_code == 422

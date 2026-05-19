@@ -46,14 +46,13 @@ from __future__ import annotations
 import hashlib
 import random
 import statistics
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from kairu.evaluation import (
     CRITERIA,
     Evaluation,
     TIE_EPSILON,
-    _resolve_rubric,
     evaluate,
 )
 

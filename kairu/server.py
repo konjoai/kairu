@@ -64,7 +64,6 @@ from kairu.base import ModelInterface
 from kairu.metrics_export import CONTENT_TYPE as METRICS_CT, MetricsCollector
 from kairu.mock_model import MockModel
 from kairu.rate_limit import (
-    InMemoryBackend,
     RateLimiter,
     RateLimiterBackend,
 )
