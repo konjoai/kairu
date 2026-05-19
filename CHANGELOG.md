@@ -4,6 +4,30 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.17.0] — 2026-05-19
+
+### Added — Constitutional Rubric Generation + Agentic Trajectory Scoring
+
+- `kairu/constitutional.py` — policy-document-driven rubric generation. `extract_clauses(text)` splits text into sentences, detects obligation triggers (`must`, `shall`, `required`, `mandatory`, `obligated`) and prohibition triggers (`must not`, `shall not`, `prohibited`, `forbidden`, `not allowed`, `not permitted`, `may not`) — negative checked before positive so "must not" is never double-counted. Criterion names are derived from the first 3 content tokens of each clause, deduplicated with `_2`, `_3`, … suffixes, capped at `max_clauses` (default 20). `score_response(response, clauses)` returns a `ConstitutionalEvaluation` with per-clause `ClauseScore` and an unweighted aggregate. Positive clauses scored by F1 of content-token overlap; negative clauses scored by absence of forbidden key terms. `generate_rubric(text, name)` calls `extract_clauses`, registers the result into `kairu.evaluation.RUBRICS` and `RUBRIC_REGISTRY`, and returns a frozen `GeneratedRubric`. All result types are frozen dataclasses; no numpy/scipy.
+- `kairu/trajectory.py` — agentic trajectory scoring. `evaluate_trajectory(goal, steps, *, optimal_steps?)` scores a sequence of `TrajectoryStep(step, tool_call, observation, response)` records on four dimensions: `tool_selection` (content-token recall of goal terms in tool call), `error_recovery` (recovery signals in response when observation contains error indicators — 0 signals→0.0, 1→0.5, ≥2→1.0), `goal_progress` (token recall of goal terms in response), `efficiency` (−0.5 for repeated tool call, −0.5 for zero goal progress, clamped to [0,1]). When `optimal_steps` is provided the mean efficiency is scaled by `actual/optimal` and clamped. `goal_completion` is the final step's `goal_progress`. Returns a frozen `TrajectoryEvaluation` with per-step `StepScore` breakdown and four dimension means.
+- `POST /rubrics/generate` in `api/main.py` — accepts `{text, name, max_clauses?}`. Validates text size via `_check_text`. Returns `{name, n_clauses, n_positive, n_negative, criteria, weights, clauses[]}`. Generated rubric is also discoverable via `GET /rubrics/{name}`.
+- `POST /eval/trajectory` in `api/main.py` — accepts `{goal, steps[], optimal_steps?}`. Each step carries `{step, tool_call?, observation?, response}`. Returns `{goal, n_steps, tool_selection, error_recovery, goal_completion, efficiency, aggregate, steps[]}`.
+- 30 new tests: `tests/test_constitutional.py` (15), `tests/test_trajectory.py` (15). 9 new HTTP endpoint tests in `api/test_api.py`.
+- `kairu/__init__.py` — exports `ClauseScore`, `ConstitutionalClause`, `ConstitutionalEvaluation`, `GeneratedRubric`, `extract_clauses`, `generate_rubric`, `score_constitutional`, `StepScore`, `TrajectoryStep`, `TrajectoryEvaluation`, `evaluate_trajectory`; also backfills `__all__` entries for audit, significance, benchmarks, and rubric-registry helpers that were imported but not listed. Version `0.16.0 → 0.17.0`.
+- `pyproject.toml` — version `0.16.0 → 0.17.0`; description updated.
+
+### Changed
+
+- `tests/test_evaluation.py` — `test_all_default_rubric_criteria_exist_in_registry` now filters to built-in rubrics whose criteria are drawn from the standard scorer registry; constitutional/generated rubrics carry custom criteria and are excluded from this invariant.
+
+### Architecture Decisions
+
+- **Constitutional rubric criteria are not standard evaluation criteria.** The seven scorers in `kairu.evaluation` (relevance, coherence, conciseness, safety, fluency, specificity, completeness) are fixed and shared. Constitutional rubrics derive criterion names from policy-document clause text — these names have no scorer registered in `CRITERIA`. `score_response()` is the dedicated scorer for constitutional criteria; `evaluate()` is not used. This keeps the two scoring domains orthogonal and avoids polluting the standard criterion registry.
+- **Negative triggers checked before positive.** "Must not" contains "must" — naive trigger detection would double-classify prohibition clauses as obligations. Checking the full negative-trigger list first prevents this without requiring a look-ahead parser.
+- **Efficiency per-step, then scaled by optimal_steps ratio.** Per-step efficiency captures tool-call repetition and stagnation locally. The `optimal_steps` parameter applies a global scaling factor afterward, modeling the intuition that taking 10 steps to accomplish a 2-step task is wasteful even if every individual step looks locally efficient.
+
+---
+
 ## [0.16.0] — 2026-05-13
 
 ### Added — Judge Ensemble + CI Regression + Log-to-Eval Pipeline

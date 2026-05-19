@@ -27,7 +27,7 @@ Provides:
 """
 from __future__ import annotations
 
-__version__ = "0.16.0"
+__version__ = "0.17.0"
 
 from kairu.audit import AuditLog, AuditRecord, hash_inputs, open_default_audit
 from kairu.significance import SignificanceResult, paired_t_test, per_criterion_diffs
@@ -101,6 +101,21 @@ from kairu.streaming_api import StreamChunk, StreamingConfig, TokenStreamer
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 from kairu.tracing import KairuTracer, extract_trace_context
 from kairu.watermark import WatermarkDetector, WatermarkLogitsProcessor, WatermarkResult
+from kairu.constitutional import (
+    ClauseScore,
+    ConstitutionalClause,
+    ConstitutionalEvaluation,
+    GeneratedRubric,
+    extract_clauses,
+    generate_rubric,
+    score_response as score_constitutional,
+)
+from kairu.trajectory import (
+    StepScore,
+    TrajectoryEvaluation,
+    TrajectoryStep,
+    evaluate_trajectory,
+)
 from kairu.wrapper import ModelWrapper, wrap_model
 
 try:
@@ -218,5 +233,33 @@ __all__ = [
     "LogItemResult",
     "evaluate_log",
     "DEFAULT_LOG_THRESHOLD",
+    # v0.15 — audit, significance, rubric versioning
+    "AuditLog",
+    "AuditRecord",
+    "hash_inputs",
+    "open_default_audit",
+    "SignificanceResult",
+    "paired_t_test",
+    "per_criterion_diffs",
+    "BENCHMARKS",
+    "BenchmarkStats",
+    "percentile_rank",
+    "RUBRIC_REGISTRY",
+    "RUBRIC_VERSION",
+    "get_rubric_version",
+    "list_rubric_versions",
+    "register_rubric",
+    # v0.17 — constitutional evals + agentic trajectory
+    "ClauseScore",
+    "ConstitutionalClause",
+    "ConstitutionalEvaluation",
+    "GeneratedRubric",
+    "extract_clauses",
+    "generate_rubric",
+    "score_constitutional",
+    "StepScore",
+    "TrajectoryStep",
+    "TrajectoryEvaluation",
+    "evaluate_trajectory",
     "__version__",
 ]

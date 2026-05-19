@@ -34,17 +34,14 @@ from kairu.benchmarks import BENCHMARKS, percentile_rank
 from kairu.evaluation import (
     CRITERIA,
     RUBRICS,
-    RUBRIC_REGISTRY,
     compare,
     evaluate,
     evaluate_batch,
-    get_rubric_version,
     list_rubric_versions,
     register_rubric,
     to_csv,
 )
 from kairu.ci_regression import (
-    BaselineSnapshot,
     BaselineStore,
     DEFAULT_REGRESSION_THRESHOLD,
     check_against_baseline,
@@ -57,8 +54,10 @@ from kairu.ensemble import (
     ensemble_compare,
     ensemble_evaluate,
 )
+from kairu.constitutional import GeneratedRubric, generate_rubric
 from kairu.log_eval import DEFAULT_LOG_THRESHOLD, evaluate_log
 from kairu.rubrics import RUBRIC_DEFS
+from kairu.trajectory import TrajectoryStep, evaluate_trajectory
 from kairu.significance import paired_t_test, per_criterion_diffs
 
 JUDGE_MODEL_ID: str = os.environ.get("KAIRU_JUDGE_MODEL", "kairu-heuristic-v1")
@@ -206,6 +205,40 @@ class RegisterRubricRequest(BaseModel):
     weights: Dict[str, float]
     version: Optional[str] = Field(None, pattern=r"^\d+\.\d+\.\d+$")
     base_version: Optional[str] = Field(None, pattern=r"^\d+\.\d+\.\d+$")
+
+
+class GenerateRubricRequest(BaseModel):
+    """Body for ``POST /rubrics/generate`` — extract rubric from policy text."""
+
+    text: str = Field(..., min_length=10)
+    name: str = Field(..., min_length=1, max_length=64)
+    max_clauses: int = Field(20, ge=1, le=50)
+
+
+class TrajectoryStepRequest(BaseModel):
+    """Wire shape for one step in an agentic trajectory."""
+
+    step: int = Field(..., ge=0)
+    tool_call: Optional[str] = None
+    observation: Optional[str] = None
+    response: str = Field(..., min_length=1)
+
+    def to_step(self) -> TrajectoryStep:
+        """Convert to the library dataclass."""
+        return TrajectoryStep(
+            step=self.step,
+            tool_call=self.tool_call,
+            observation=self.observation,
+            response=self.response,
+        )
+
+
+class TrajectoryRequest(BaseModel):
+    """Body for ``POST /eval/trajectory``."""
+
+    goal: str = Field(..., min_length=1)
+    steps: List[TrajectoryStepRequest] = Field(..., min_length=1, max_length=100)
+    optimal_steps: Optional[int] = Field(None, ge=1)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -668,6 +701,76 @@ def create_app(
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return report.to_dict()
+
+    # ── v0.17 constitutional rubric generation ────────────────────────
+
+    @app.post("/rubrics/generate")
+    def rubrics_generate(req: GenerateRubricRequest) -> Dict[str, object]:
+        _check_text("text", req.text)
+        try:
+            result: GeneratedRubric = generate_rubric(
+                req.text, req.name, max_clauses=req.max_clauses
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "name": result.name,
+            "n_clauses": result.n_clauses,
+            "n_positive": result.n_positive,
+            "n_negative": result.n_negative,
+            "criteria": list(result.criteria),
+            "weights": dict(result.weights),
+            "clauses": [
+                {
+                    "text": c.text,
+                    "polarity": c.polarity,
+                    "trigger": c.trigger,
+                    "criterion_name": c.criterion_name,
+                    "weight": c.weight,
+                }
+                for c in result.clauses
+            ],
+        }
+
+    # ── v0.17 agentic trajectory scoring ─────────────────────────────
+
+    @app.post("/eval/trajectory")
+    def eval_trajectory(req: TrajectoryRequest) -> Dict[str, object]:
+        _check_text("goal", req.goal)
+        for i, s in enumerate(req.steps):
+            if s.tool_call is not None:
+                _check_text(f"steps[{i}].tool_call", s.tool_call)
+            if s.observation is not None:
+                _check_text(f"steps[{i}].observation", s.observation)
+            _check_text(f"steps[{i}].response", s.response)
+        try:
+            result = evaluate_trajectory(
+                req.goal,
+                [s.to_step() for s in req.steps],
+                optimal_steps=req.optimal_steps,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "goal": result.goal,
+            "n_steps": result.n_steps,
+            "tool_selection": result.tool_selection,
+            "error_recovery": result.error_recovery,
+            "goal_completion": result.goal_completion,
+            "efficiency": result.efficiency,
+            "aggregate": result.aggregate,
+            "steps": [
+                {
+                    "step": ss.step,
+                    "tool_selection": ss.tool_selection,
+                    "error_recovery": ss.error_recovery,
+                    "goal_progress": ss.goal_progress,
+                    "efficiency": ss.efficiency,
+                    "score": ss.score,
+                }
+                for ss in result.steps
+            ],
+        }
 
     return app
 

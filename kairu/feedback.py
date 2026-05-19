@@ -70,7 +70,6 @@ class FeedbackLoop:
         recommendation = "No adjustment — insufficient acceptance-rate data."
 
         if valid:
-            current_gamma = self._scheduler.gamma
             if mean_ar > self.HIGH_ACCEPTANCE_THRESHOLD:
                 # Positive signal: drive gamma up via high-acceptance updates
                 # update() needs accepted & attempted integers; use gamma as attempted

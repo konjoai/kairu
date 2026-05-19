@@ -25,7 +25,7 @@ from __future__ import annotations
 import hashlib
 import statistics
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from kairu.evaluation import Evaluation, evaluate

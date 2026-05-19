@@ -248,8 +248,11 @@ def test_to_csv_empty_returns_empty_string() -> None:
 
 
 def test_all_default_rubric_criteria_exist_in_registry() -> None:
-    for rubric in RUBRICS.values():
-        for c in rubric.criteria:
+    # Only check rubrics whose criteria are drawn from the standard evaluation
+    # scorers — constitutional/generated rubrics have custom criteria.
+    builtin = {name for name in RUBRICS if all(c in CRITERIA for c in RUBRICS[name].criteria)}
+    for name in builtin:
+        for c in RUBRICS[name].criteria:
             assert c in CRITERIA
 
 
