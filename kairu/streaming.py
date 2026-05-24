@@ -1,4 +1,5 @@
 """Streaming generation: yields tokens one by one via an iterator."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator

@@ -1,4 +1,5 @@
 """Tests for kairu.auto_profile — strategy recommendation."""
+
 from __future__ import annotations
 
 from kairu.auto_profile import AutoProfile, DecoderProfile
@@ -30,6 +31,7 @@ def test_speculative_when_draft_supplied_and_large_vocab():
         @property
         def vocab_size(self) -> int:
             return 50_000
+
     p = AutoProfile.recommend(Big(), name_hint="llama-3-8b", has_draft=True)
     assert p.strategy == "speculative"
     assert p.gamma >= 4
@@ -40,6 +42,7 @@ def test_speculative_huge_vocab_bumps_gamma():
         @property
         def vocab_size(self) -> int:
             return 150_000
+
     p = AutoProfile.recommend(Huge(), name_hint="qwen-2-72b", has_draft=True)
     assert p.gamma == 6
 
@@ -52,16 +55,19 @@ def test_mid_size_model_picks_early_exit():
         @property
         def vocab_size(self) -> int:
             return 32_000
+
     p2 = AutoProfile.recommend(Mid())
     assert p2.strategy == "early_exit"
 
 
 def test_draft_hint_overrides_size():
     """A small name override should win even if vocab is large + has_draft."""
+
     class Big(MockModel):
         @property
         def vocab_size(self) -> int:
             return 100_000
+
     p = AutoProfile.recommend(Big(), name_hint="opt-125m-draft", has_draft=True)
     assert p.strategy == "vanilla"
 

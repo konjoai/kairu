@@ -23,6 +23,7 @@ Items are matched by SHA-256 of the input string. Re-ordering between
 runs is fine; missing or new items surface in ``unmatched_baseline`` /
 ``unmatched_current`` so CI can diff the corpus too.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -59,8 +60,11 @@ class BaselineItem:
     scores: Dict[str, float]
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"input_hash": self.input_hash, "aggregate": self.aggregate,
-                "scores": dict(self.scores)}
+        return {
+            "input_hash": self.input_hash,
+            "aggregate": self.aggregate,
+            "scores": dict(self.scores),
+        }
 
 
 @dataclass(frozen=True)
@@ -141,8 +145,10 @@ class RegressionReport:
     mean_baseline_aggregate: float
     mean_current_aggregate: float
     mean_delta: float
-    unmatched_baseline: Tuple[str, ...]   # input_hash present in baseline but not current
-    unmatched_current: Tuple[str, ...]    # input_hash present in current but not baseline
+    unmatched_baseline: Tuple[
+        str, ...
+    ]  # input_hash present in baseline but not current
+    unmatched_current: Tuple[str, ...]  # input_hash present in current but not baseline
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -182,9 +188,13 @@ def _score_items(
         out_resp = item.get("output")
         if not isinstance(ipt, str) or not isinstance(out_resp, str):
             raise TypeError("each item must have string 'input' and 'output' fields")
-        ev = evaluate(ipt, out_resp, rubric=rubric,
-                      criteria=list(criteria) if criteria else None,
-                      weights=weights)
+        ev = evaluate(
+            ipt,
+            out_resp,
+            rubric=rubric,
+            criteria=list(criteria) if criteria else None,
+            weights=weights,
+        )
         out.append((_hash_input(ipt), ev))
     return out
 
@@ -204,11 +214,13 @@ def snapshot_baseline(
     scored = _score_items(items, rubric=rubric, criteria=criteria, weights=weights)
     baseline_items: List[BaselineItem] = []
     for h, ev in scored:
-        baseline_items.append(BaselineItem(
-            input_hash=h,
-            aggregate=ev.aggregate,
-            scores={cs.name: cs.score for cs in ev.scores},
-        ))
+        baseline_items.append(
+            BaselineItem(
+                input_hash=h,
+                aggregate=ev.aggregate,
+                scores={cs.name: cs.score for cs in ev.scores},
+            )
+        )
     mean_agg = sum(i.aggregate for i in baseline_items) / len(baseline_items)
     # Resolve the rubric name + version from the first evaluation (all share one).
     first_ev = scored[0][1]
@@ -216,6 +228,7 @@ def snapshot_baseline(
     # Look up version from the registry; fall back gracefully if not registered.
     try:
         from kairu.evaluation import RUBRICS
+
         rubric_version = getattr(RUBRICS.get(rubric_name), "version", "1.0.0")
     except Exception:  # noqa: BLE001 — defensive
         rubric_version = "1.0.0"
@@ -280,18 +293,20 @@ def check_against_baseline(
             c_score = cur_scores[crit]
             delta = c_score - b_score
             if -delta > threshold:  # i.e. baseline - current > threshold
-                regressions.append(CriterionRegression(
-                    item_idx=hash_to_current_idx[h],
-                    input_hash=h,
-                    criterion=crit,
-                    baseline_score=b_score,
-                    current_score=c_score,
-                    delta=delta,
-                ))
+                regressions.append(
+                    CriterionRegression(
+                        item_idx=hash_to_current_idx[h],
+                        input_hash=h,
+                        criterion=crit,
+                        baseline_score=b_score,
+                        current_score=c_score,
+                        delta=delta,
+                    )
+                )
 
     n_matched = len(matched_hashes)
     mean_base = sum(base_aggs) / n_matched if n_matched else 0.0
-    mean_cur  = sum(cur_aggs)  / n_matched if n_matched else 0.0
+    mean_cur = sum(cur_aggs) / n_matched if n_matched else 0.0
     mean_delta = mean_cur - mean_base
 
     return RegressionReport(
@@ -332,9 +347,11 @@ class BaselineStore:
 
     def list(self) -> List[str]:
         # Newest first.
-        return sorted(self._snapshots.keys(),
-                      key=lambda s: self._snapshots[s].created_utc,
-                      reverse=True)
+        return sorted(
+            self._snapshots.keys(),
+            key=lambda s: self._snapshots[s].created_utc,
+            reverse=True,
+        )
 
     def __len__(self) -> int:
         return len(self._snapshots)
@@ -362,8 +379,10 @@ class FileBaselineStore(BaselineStore):
         sid = super().save(snapshot)
         path = self._root / f"{sid}.json"
         tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(snapshot.to_dict(), ensure_ascii=False, indent=2),
-                       encoding="utf-8")
+        tmp.write_text(
+            json.dumps(snapshot.to_dict(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         os.replace(tmp, path)
         return sid
 

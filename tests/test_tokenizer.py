@@ -1,4 +1,5 @@
 """Tests for kairu.tokenizer — 8 tests. No model loading required."""
+
 from __future__ import annotations
 
 import pytest

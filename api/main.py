@@ -18,6 +18,7 @@ Boundary contracts (CLAUDE.md):
   * unknown rubric / criterion → 422 with the offending name in the message.
   * non-string fields → 422 (FastAPI / pydantic surface this for free).
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,9 +51,19 @@ from kairu.ci_regression import (
 )
 from kairu.ensemble import (
     DEFAULT_DISAGREEMENT_THRESHOLD,
+    EnsembleResult,
     JudgeConfig,
     ensemble_compare,
     ensemble_evaluate,
+)
+from kairu.calibration import (
+    BiasProfile,
+    BiasProfileStore,
+    CalibrationPair,
+    CalibratedEnsembleResult,
+    build_bias_profile,
+    compute_uncalibrated_bias_bound,
+    correct_ensemble_scores,
 )
 from kairu.constitutional import GeneratedRubric, generate_rubric
 from kairu.log_eval import DEFAULT_LOG_THRESHOLD, evaluate_log
@@ -83,6 +94,7 @@ class EvaluateRequest(BaseModel):
 
 class NamedRubricRequest(BaseModel):
     """Body for ``POST /evaluate/rubric/{name}`` — rubric is in the path."""
+
     prompt: str = Field(..., min_length=1)
     response: str = Field(..., min_length=1)
     weights: Optional[Dict[str, float]] = None
@@ -199,6 +211,7 @@ class RegisterRubricRequest(BaseModel):
     optional; when omitted the patch level of ``base_version`` (or the
     latest known version) is auto-incremented.
     """
+
     name: str = Field(..., min_length=1, max_length=64)
     description: str = Field("", max_length=512)
     criteria: List[str] = Field(..., min_length=1)
@@ -241,6 +254,49 @@ class TrajectoryRequest(BaseModel):
     optimal_steps: Optional[int] = Field(None, ge=1)
 
 
+# ── v0.18 calibration request models ─────────────────────────────────────
+
+
+class CalibrationPairRequest(BaseModel):
+    """Wire shape for one human-annotated calibration example."""
+
+    prompt: str = Field(..., min_length=1)
+    response: str = Field(..., min_length=1)
+    human_scores: Dict[str, float] = Field(..., min_length=1)
+
+    def to_pair(self) -> CalibrationPair:
+        return CalibrationPair(
+            prompt=self.prompt,
+            response=self.response,
+            human_scores=self.human_scores,
+        )
+
+
+class BuildBiasProfileRequest(BaseModel):
+    """Body for ``POST /calibration`` — build and store a bias profile."""
+
+    judges: List[JudgeConfigRequest] = Field(..., min_length=1, max_length=16)
+    calibration_pairs: List[CalibrationPairRequest] = Field(
+        ..., min_length=1, max_length=256
+    )
+    rubric: str = Field("default", min_length=1, max_length=64)
+    disagreement_threshold: float = Field(
+        DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0
+    )
+
+
+class CalibratedEnsembleRequest(BaseModel):
+    """Body for ``POST /evaluate/ensemble/calibrated``."""
+
+    prompt: str = Field(..., min_length=1)
+    response: str = Field(..., min_length=1)
+    judges: List[JudgeConfigRequest] = Field(..., min_length=1, max_length=16)
+    disagreement_threshold: float = Field(
+        DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0
+    )
+    rubric: str = Field("default", min_length=1, max_length=64)
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Validation helpers
 # ─────────────────────────────────────────────────────────────────────────
@@ -277,6 +333,7 @@ def _to_eval_kwargs(
 def create_app(
     audit: Optional[AuditLog] = None,
     baseline_store: Optional[BaselineStore] = None,
+    bias_profile_store: Optional[BiasProfileStore] = None,
 ) -> FastAPI:
     app = FastAPI(
         title="kairu evaluation API",
@@ -284,7 +341,12 @@ def create_app(
         description="Rubric-based response evaluation and A/B comparison over HTTP.",
     )
     app.state.audit = audit if audit is not None else open_default_audit()
-    app.state.baselines = baseline_store if baseline_store is not None else open_default_store()
+    app.state.baselines = (
+        baseline_store if baseline_store is not None else open_default_store()
+    )
+    app.state.bias_profiles = (
+        bias_profile_store if bias_profile_store is not None else BiasProfileStore()
+    )
 
     @app.get("/health")
     def health() -> Dict[str, str]:
@@ -301,7 +363,9 @@ def create_app(
                     "weights": dict(r.weights),
                     "version": r.version,
                     "versions": list(list_rubric_versions(r.name)),
-                    "color": RUBRIC_DEFS[r.name]["color"] if r.name in RUBRIC_DEFS else None,
+                    "color": RUBRIC_DEFS[r.name]["color"]
+                    if r.name in RUBRIC_DEFS
+                    else None,
                 }
                 for r in RUBRICS.values()
             ],
@@ -359,7 +423,8 @@ def create_app(
         _check_text("response", req.response)
         try:
             ev = evaluate(
-                req.prompt, req.response,
+                req.prompt,
+                req.response,
                 **_to_eval_kwargs(req.rubric, req.criteria, req.weights),
             )
         except (ValueError, TypeError) as exc:
@@ -371,7 +436,9 @@ def create_app(
         out["benchmarks"] = {
             s.name: {
                 "you": s.score,
-                "rank": percentile_rank(s.name, s.score) if s.name in BENCHMARKS else None,
+                "rank": percentile_rank(s.name, s.score)
+                if s.name in BENCHMARKS
+                else None,
                 "p25": BENCHMARKS[s.name].p25 if s.name in BENCHMARKS else None,
                 "p50": BENCHMARKS[s.name].p50 if s.name in BENCHMARKS else None,
                 "p75": BENCHMARKS[s.name].p75 if s.name in BENCHMARKS else None,
@@ -411,8 +478,11 @@ def create_app(
         _check_text("response_b", req.response_b)
         try:
             cmp = compare(
-                req.prompt, req.response_a, req.response_b,
-                label_a=req.label_a, label_b=req.label_b,
+                req.prompt,
+                req.response_a,
+                req.response_b,
+                label_a=req.label_a,
+                label_b=req.label_b,
                 **_to_eval_kwargs(req.rubric, req.criteria, req.weights),
             )
         except (ValueError, TypeError) as exc:
@@ -507,22 +577,27 @@ def create_app(
     @app.get("/audit")
     def audit_query(
         start: Optional[str] = Query(None, description="ISO 8601 lower bound"),
-        end:   Optional[str] = Query(None, description="ISO 8601 upper bound"),
-        rubric_name:    Optional[str] = None,
+        end: Optional[str] = Query(None, description="ISO 8601 upper bound"),
+        rubric_name: Optional[str] = None,
         rubric_version: Optional[str] = None,
-        limit:  int = Query(100, ge=1, le=1000),
+        limit: int = Query(100, ge=1, le=1000),
         offset: int = Query(0, ge=0),
     ) -> Dict[str, object]:
         log: AuditLog = app.state.audit
         try:
             rows = log.query(
-                start=start, end=end,
-                rubric_name=rubric_name, rubric_version=rubric_version,
-                limit=limit, offset=offset,
+                start=start,
+                end=end,
+                rubric_name=rubric_name,
+                rubric_version=rubric_version,
+                limit=limit,
+                offset=offset,
             )
             total = log.count(
-                start=start, end=end,
-                rubric_name=rubric_name, rubric_version=rubric_version,
+                start=start,
+                end=end,
+                rubric_name=rubric_name,
+                rubric_version=rubric_version,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -536,14 +611,16 @@ def create_app(
     @app.get("/audit.csv")
     def audit_export_csv(
         start: Optional[str] = None,
-        end:   Optional[str] = None,
-        rubric_name:    Optional[str] = None,
+        end: Optional[str] = None,
+        rubric_name: Optional[str] = None,
         rubric_version: Optional[str] = None,
     ):
         log: AuditLog = app.state.audit
         body = log.export_csv(
-            start=start, end=end,
-            rubric_name=rubric_name, rubric_version=rubric_version,
+            start=start,
+            end=end,
+            rubric_name=rubric_name,
+            rubric_version=rubric_version,
         )
         return PlainTextResponse(content=body, media_type="text/csv")
 
@@ -568,7 +645,9 @@ def create_app(
         judges = _validate_judges(req.judges)
         try:
             result = ensemble_evaluate(
-                req.prompt, req.response, judges,
+                req.prompt,
+                req.response,
+                judges,
                 disagreement_threshold=req.disagreement_threshold,
             )
         except (ValueError, TypeError) as exc:
@@ -583,7 +662,10 @@ def create_app(
         judges = _validate_judges(req.judges)
         try:
             result = ensemble_compare(
-                req.prompt, req.response_a, req.response_b, judges,
+                req.prompt,
+                req.response_a,
+                req.response_b,
+                judges,
                 disagreement_threshold=req.disagreement_threshold,
             )
         except (ValueError, TypeError) as exc:
@@ -608,8 +690,12 @@ def create_app(
         items = _validate_ci_items(req.items)
         try:
             snap = snapshot_baseline(
-                items, rubric=req.rubric, criteria=req.criteria,
-                weights=req.weights, judge_model=JUDGE_MODEL_ID, label=req.label,
+                items,
+                rubric=req.rubric,
+                criteria=req.criteria,
+                weights=req.weights,
+                judge_model=JUDGE_MODEL_ID,
+                label=req.label,
             )
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -662,8 +748,12 @@ def create_app(
             ) from exc
         try:
             report = check_against_baseline(
-                baseline, items, threshold=req.threshold,
-                rubric=req.rubric, criteria=req.criteria, weights=req.weights,
+                baseline,
+                items,
+                threshold=req.threshold,
+                rubric=req.rubric,
+                criteria=req.criteria,
+                weights=req.weights,
             )
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -695,8 +785,11 @@ def create_app(
         try:
             report = evaluate_log(
                 items_dicts,
-                rubric=req.rubric, criteria=req.criteria, weights=req.weights,
-                threshold=req.threshold, judge_model=JUDGE_MODEL_ID,
+                rubric=req.rubric,
+                criteria=req.criteria,
+                weights=req.weights,
+                threshold=req.threshold,
+                judge_model=JUDGE_MODEL_ID,
             )
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -771,6 +864,90 @@ def create_app(
                 for ss in result.steps
             ],
         }
+
+    # ── v0.18 judge bias calibration ──────────────────────────────────
+
+    @app.post("/calibration")
+    def build_calibration_endpoint(req: BuildBiasProfileRequest) -> Dict[str, object]:
+        """Build a ``BiasProfile`` from human-labeled pairs and store it."""
+        judges = _validate_judges(req.judges)
+        pairs = []
+        for i, p in enumerate(req.calibration_pairs):
+            _check_text(f"calibration_pairs[{i}].prompt", p.prompt)
+            _check_text(f"calibration_pairs[{i}].response", p.response)
+            try:
+                pairs.append(p.to_pair())
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        try:
+            profile: BiasProfile = build_bias_profile(
+                judges,
+                pairs,
+                rubric=req.rubric,
+                disagreement_threshold=req.disagreement_threshold,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        store: BiasProfileStore = app.state.bias_profiles
+        store.save(profile)
+        return profile.to_dict()
+
+    @app.get("/calibration/{rubric}")
+    def get_calibration_endpoint(rubric: str) -> Dict[str, object]:
+        """Retrieve the stored ``BiasProfile`` for a rubric."""
+        store: BiasProfileStore = app.state.bias_profiles
+        profile = store.load(rubric)
+        if profile is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"no calibration profile found for rubric '{rubric}'",
+            )
+        return profile.to_dict()
+
+    @app.get("/calibration")
+    def list_calibration_endpoint() -> Dict[str, object]:
+        """List rubrics that have stored bias profiles."""
+        store: BiasProfileStore = app.state.bias_profiles
+        return {"rubrics": store.list(), "count": len(store.list())}
+
+    @app.post("/evaluate/ensemble/calibrated")
+    def evaluate_ensemble_calibrated_endpoint(
+        req: CalibratedEnsembleRequest,
+    ) -> Dict[str, object]:
+        """Run ensemble evaluation with stored bias-profile correction.
+
+        Loads the ``BiasProfile`` for ``req.rubric``.  If no profile is
+        stored, returns the raw ensemble result plus an
+        ``uncalibrated_bias_bound`` derived from inter-judge stdev alone.
+        """
+        _check_text("prompt", req.prompt)
+        _check_text("response", req.response)
+        judges = _validate_judges(req.judges)
+        try:
+            raw: EnsembleResult = ensemble_evaluate(
+                req.prompt,
+                req.response,
+                judges,
+                disagreement_threshold=req.disagreement_threshold,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        store: BiasProfileStore = app.state.bias_profiles
+        profile = store.load(req.rubric)
+
+        if profile is None:
+            out = raw.to_dict()
+            out["calibrated"] = False
+            out["uncalibrated_bias_bound"] = compute_uncalibrated_bias_bound(
+                raw.stdev_scores
+            )
+            return out
+
+        calibrated: CalibratedEnsembleResult = correct_ensemble_scores(raw, profile)
+        out = calibrated.to_dict()
+        out["calibrated"] = True
+        return out
 
     return app
 

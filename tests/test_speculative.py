@@ -1,4 +1,5 @@
 """Tests for kairu.speculative.SpeculativeDecoder — 8 tests."""
+
 import pytest
 from kairu.mock_model import MockModel
 from kairu.speculative import SpeculativeDecoder
@@ -33,7 +34,12 @@ def test_output_length_respects_max_new_tokens():
 def test_stats_has_all_required_keys():
     dec = _make_decoder()
     _, stats = dec.generate(PROMPT, max_new_tokens=10)
-    for key in ("total_tokens", "accepted_tokens", "rejected_tokens", "acceptance_rate"):
+    for key in (
+        "total_tokens",
+        "accepted_tokens",
+        "rejected_tokens",
+        "acceptance_rate",
+    ):
         assert key in stats, f"Missing key: {key}"
 
 

@@ -28,6 +28,7 @@ Rows
 - ``scores_json``      JSON-encoded ``{criterion: score, ...}``
 - ``reasoning_json``   JSON-encoded reasoning trace (may be empty ``"{}"``)
 """
+
 from __future__ import annotations
 
 import csv
@@ -81,7 +82,11 @@ END;
 
 
 def _now_iso_utc() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    return (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def hash_inputs(prompt: str, response: str, response_b: Optional[str] = None) -> str:
@@ -141,7 +146,7 @@ class AuditLog:
             path,
             check_same_thread=False,
             detect_types=sqlite3.PARSE_DECLTYPES,
-            isolation_level=None,           # autocommit; we manage txns explicitly
+            isolation_level=None,  # autocommit; we manage txns explicitly
         )
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
@@ -265,24 +270,42 @@ class AuditLog:
         serialised as JSON strings inside their columns — the CSV stays
         flat, no nested arrays."""
         rows = self.query(
-            start=start, end=end,
-            rubric_name=rubric_name, rubric_version=rubric_version,
-            limit=10_000, offset=0,
+            start=start,
+            end=end,
+            rubric_name=rubric_name,
+            rubric_version=rubric_version,
+            limit=10_000,
+            offset=0,
         )
         buf = io.StringIO()
         writer = csv.writer(buf, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow([
-            "id", "timestamp_utc", "input_hash", "rubric_name",
-            "rubric_version", "judge_model", "endpoint",
-            "scores_json", "reasoning_json",
-        ])
+        writer.writerow(
+            [
+                "id",
+                "timestamp_utc",
+                "input_hash",
+                "rubric_name",
+                "rubric_version",
+                "judge_model",
+                "endpoint",
+                "scores_json",
+                "reasoning_json",
+            ]
+        )
         for r in rows:
-            writer.writerow([
-                r.id, r.timestamp_utc, r.input_hash, r.rubric_name,
-                r.rubric_version, r.judge_model, r.endpoint,
-                json.dumps(r.scores, sort_keys=True, ensure_ascii=False),
-                json.dumps(r.reasoning, sort_keys=True, ensure_ascii=False),
-            ])
+            writer.writerow(
+                [
+                    r.id,
+                    r.timestamp_utc,
+                    r.input_hash,
+                    r.rubric_name,
+                    r.rubric_version,
+                    r.judge_model,
+                    r.endpoint,
+                    json.dumps(r.scores, sort_keys=True, ensure_ascii=False),
+                    json.dumps(r.reasoning, sort_keys=True, ensure_ascii=False),
+                ]
+            )
         return buf.getvalue()
 
     def close(self) -> None:

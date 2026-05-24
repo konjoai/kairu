@@ -1,4 +1,5 @@
 """Tests for kairu.gamma_scheduler — AIMD adaptive γ for speculative decoding."""
+
 from __future__ import annotations
 
 import pytest
@@ -31,7 +32,9 @@ def test_gamma_clamped_at_max():
 
 
 def test_low_acceptance_shrinks_gamma():
-    s = DynamicGammaScheduler(initial=8, min_gamma=1, low_threshold=0.4, decrease_factor=0.5, window=1)
+    s = DynamicGammaScheduler(
+        initial=8, min_gamma=1, low_threshold=0.4, decrease_factor=0.5, window=1
+    )
     s.update(0, 4)  # rate 0.0 ≤ 0.4 → 8 * 0.5 = 4
     assert s.gamma == 4
     s.update(0, 4)
@@ -43,7 +46,9 @@ def test_low_acceptance_shrinks_gamma():
 
 
 def test_mid_acceptance_does_not_change():
-    s = DynamicGammaScheduler(initial=4, high_threshold=0.8, low_threshold=0.4, window=1)
+    s = DynamicGammaScheduler(
+        initial=4, high_threshold=0.8, low_threshold=0.4, window=1
+    )
     s.update(2, 4)  # rate 0.5 — between thresholds
     assert s.gamma == 4
     assert s.stats()["adjustments"] == 0
@@ -51,7 +56,9 @@ def test_mid_acceptance_does_not_change():
 
 def test_rolling_window_smooths():
     """A burst of high acceptance must not move γ if the rolling mean stays mid-band."""
-    s = DynamicGammaScheduler(initial=4, high_threshold=0.8, low_threshold=0.4, window=4)
+    s = DynamicGammaScheduler(
+        initial=4, high_threshold=0.8, low_threshold=0.4, window=4
+    )
     s.update(2, 4)  # 0.5
     s.update(2, 4)  # 0.5
     s.update(4, 4)  # rolling mean (0.5+0.5+1.0)/3 ≈ 0.67 — between thresholds

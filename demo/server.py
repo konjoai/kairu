@@ -23,6 +23,7 @@ Endpoints
 All three POST endpoints return JSON. CORS is open (this is a local demo).
 Pure stdlib HTTP — no FastAPI / uvicorn / aiohttp dependency.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,7 +47,7 @@ from kairu import (  # noqa: E402 — sys.path manipulation must precede
     MockLayeredModel,
     __version__ as KAIRU_VERSION,
 )
-from kairu.evaluation import compare as eval_compare, evaluate as eval_one  # noqa: E402
+from kairu.evaluation import evaluate as eval_one  # noqa: E402
 from kairu.mock_model import MockModel  # noqa: E402
 from kairu.rubrics import RUBRIC_DEFS, rubric_names  # noqa: E402
 
@@ -79,6 +80,7 @@ INDEX_PATH = Path(__file__).resolve().parent / "index.html"
 #     E[tokens/round](ρ, γ) = (1 - ρ^(γ+1)) / (1 - ρ)
 # ════════════════════════════════════════════════════════════════════════════
 
+
 def expected_speedup(rho: float, gamma: int) -> float:
     if not (0.0 <= rho <= 1.0):
         raise ValueError("rho must be in [0, 1]")
@@ -102,6 +104,7 @@ def expected_tokens_per_step(rho: float, gamma: int) -> float:
 # matches the request, then call the actual library function.
 # ════════════════════════════════════════════════════════════════════════════
 
+
 def _build_model(name: str, vocab_size: int, layered: bool):
     """Construct a model instance whose surface AutoProfile inspects."""
     if layered:
@@ -111,12 +114,15 @@ def _build_model(name: str, vocab_size: int, layered: bool):
             @property
             def vocab_size(self_inner) -> int:  # noqa: N805
                 return int(vocab_size)
+
         return _Layered(num_layers=24)
     if vocab_size != MockModel.VOCAB_SIZE:
+
         class _Mock(MockModel):
             @property
             def vocab_size(self_inner) -> int:  # noqa: N805
                 return int(vocab_size)
+
         return _Mock()
     return MockModel()
 
@@ -158,6 +164,7 @@ def real_recommend(name: str, vocab_size: int, has_draft: bool, layered: bool) -
 # We count rounds (= target verification batches) as the kairu_steps measure.
 # Standard steps = n_tokens. Speedup = standard_steps / kairu_steps.
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def real_simulate_race(rho: float, gamma: int, n_tokens: int, seed: int = 42) -> dict:
     if not (0.0 <= rho <= 1.0):
@@ -206,16 +213,18 @@ def real_simulate_race(rho: float, gamma: int, n_tokens: int, seed: int = 42) ->
 
         scheduler.update(min(accepted_count, g), g)
 
-        rounds.append({
-            "round": kairu_rounds,
-            "gamma_used": g,
-            "draft_tokens_proposed": g,
-            "accepted_mask": accept_mask,
-            "accepted_count": accepted_count,
-            "tokens_emitted_this_round": round_tokens,
-            "running_total_tokens": tokens_emitted,
-            "scheduler_gamma_after": scheduler.gamma,
-        })
+        rounds.append(
+            {
+                "round": kairu_rounds,
+                "gamma_used": g,
+                "draft_tokens_proposed": g,
+                "accepted_mask": accept_mask,
+                "accepted_count": accepted_count,
+                "tokens_emitted_this_round": round_tokens,
+                "running_total_tokens": tokens_emitted,
+                "scheduler_gamma_after": scheduler.gamma,
+            }
+        )
 
     standard_steps = n_tokens
     actual_speedup = standard_steps / kairu_rounds if kairu_rounds else float("inf")
@@ -245,23 +254,27 @@ def real_simulate_race(rho: float, gamma: int, n_tokens: int, seed: int = 42) ->
 # per-criterion sub-scores so hover tooltips can explain the result.
 # ════════════════════════════════════════════════════════════════════════════
 
+
 def _prism_beams(prompt: str, response: str) -> list:
     out = []
     for name in rubric_names():
         ev = eval_one(prompt, response, rubric=name)
-        out.append({
-            "rubric": name,
-            "color": RUBRIC_DEFS[name]["color"],
-            "score": round(ev.aggregate, 4),
-            "description": RUBRIC_DEFS[name]["description"],
-            "components": {s.name: round(s.score, 4) for s in ev.scores},
-        })
+        out.append(
+            {
+                "rubric": name,
+                "color": RUBRIC_DEFS[name]["color"],
+                "score": round(ev.aggregate, 4),
+                "description": RUBRIC_DEFS[name]["description"],
+                "components": {s.name: round(s.score, 4) for s in ev.scores},
+            }
+        )
     return out
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # HTTP plumbing — stdlib only.
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class DemoHandler(BaseHTTPRequestHandler):
     server_version = f"kairu-demo/{KAIRU_VERSION}"
@@ -303,17 +316,20 @@ class DemoHandler(BaseHTTPRequestHandler):
         if self.path == "/api/health":
             return self._json(200, {"ok": True, "version": KAIRU_VERSION})
         if self.path == "/api/rubrics":
-            return self._json(200, {
-                "rubrics": [
-                    {
-                        "name": n,
-                        "description": RUBRIC_DEFS[n]["description"],
-                        "color": RUBRIC_DEFS[n]["color"],
-                        "weights": dict(RUBRIC_DEFS[n]["weights"]),
-                    }
-                    for n in rubric_names()
-                ],
-            })
+            return self._json(
+                200,
+                {
+                    "rubrics": [
+                        {
+                            "name": n,
+                            "description": RUBRIC_DEFS[n]["description"],
+                            "color": RUBRIC_DEFS[n]["color"],
+                            "weights": dict(RUBRIC_DEFS[n]["weights"]),
+                        }
+                        for n in rubric_names()
+                    ],
+                },
+            )
         return self._json(404, {"error": "not found", "path": self.path})
 
     def do_POST(self) -> None:  # noqa: N802
@@ -364,21 +380,26 @@ class DemoHandler(BaseHTTPRequestHandler):
             f" | denom2 = 1 + γ·(1-ρ) = {1 + gamma * (1 - rho):.6f}"
             f" | speedup = {s:.4f}"
         )
-        return self._json(200, {
-            "speedup": round(s, 6),
-            "expected_tokens_per_step": round(tps, 6),
-            "formula_used": formula,
-            "derivation": derivation,
-            "inputs": {"rho": rho, "gamma": gamma},
-            "source": "kairu.gamma_scheduler.DynamicGammaScheduler (Leviathan et al. 2023)",
-        })
+        return self._json(
+            200,
+            {
+                "speedup": round(s, 6),
+                "expected_tokens_per_step": round(tps, 6),
+                "formula_used": formula,
+                "derivation": derivation,
+                "inputs": {"rho": rho, "gamma": gamma},
+                "source": "kairu.gamma_scheduler.DynamicGammaScheduler (Leviathan et al. 2023)",
+            },
+        )
 
     def _handle_recommend(self, body: dict) -> None:
         name = str(body.get("model_name", body.get("name", "")))
         vocab_size = int(body.get("vocab_size", body.get("context_len", 32_000)))
         has_draft = bool(body.get("has_draft", False))
         layered = bool(body.get("layered", False))
-        result = real_recommend(name=name, vocab_size=vocab_size, has_draft=has_draft, layered=layered)
+        result = real_recommend(
+            name=name, vocab_size=vocab_size, has_draft=has_draft, layered=layered
+        )
         result["source"] = "kairu.auto_profile.AutoProfile.recommend (live call)"
         return self._json(200, result)
 
@@ -405,7 +426,11 @@ class DemoHandler(BaseHTTPRequestHandler):
             agg_a = sum(b["score"] for b in beams_a) / len(beams_a)
             agg_b = sum(b["score"] for b in beams_b) / len(beams_b)
             margin = abs(agg_a - agg_b)
-            winner = "a" if agg_a - agg_b > 0.005 else ("b" if agg_b - agg_a > 0.005 else "tie")
+            winner = (
+                "a"
+                if agg_a - agg_b > 0.005
+                else ("b" if agg_b - agg_a > 0.005 else "tie")
+            )
             out["aggregate_a"] = round(agg_a, 4)
             out["aggregate_b"] = round(agg_b, 4)
             out["margin"] = round(margin, 4)
@@ -431,12 +456,15 @@ class DemoHandler(BaseHTTPRequestHandler):
 # Cache demo — exercise LogitsCache during startup so the banner has real data
 # ════════════════════════════════════════════════════════════════════════════
 
+
 def _selftest_cache() -> dict:
     cache = LogitsCache(capacity=4)
     rng = np.random.default_rng(0)
     for k in range(6):
         cache.put((k,), rng.standard_normal(8).astype(np.float32))
-    cache.get((4,)); cache.get((5,)); cache.get((0,))  # 2 hits, 1 miss
+    cache.get((4,))
+    cache.get((5,))
+    cache.get((0,))  # 2 hits, 1 miss
     return cache.stats()
 
 
@@ -446,7 +474,9 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=7777)
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
 
     cache_stats = _selftest_cache()
     server = ThreadingHTTPServer((args.host, args.port), DemoHandler)
@@ -465,7 +495,7 @@ def main() -> None:
     print("    POST  /api/prism         → all 8 rubric scores for a (prompt, response)")
     print()
     print(f"  startup self-test  LogitsCache(4)  →  {cache_stats}")
-    print(f"  Ctrl-C to stop")
+    print("  Ctrl-C to stop")
     print()
     try:
         server.serve_forever()

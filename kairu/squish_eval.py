@@ -34,6 +34,7 @@ Public API
 ``quality_degradation_report(...)`` — module-level convenience wrapper
 ``recommended_quant_tier(...)``     — pick the lowest-bit tier within tolerance
 """
+
 from __future__ import annotations
 
 import re
@@ -53,10 +54,12 @@ _TIER_BITS: dict[str, int] = {
 # Default banned tokens — surface-form check only, deliberately small.
 # Callers with real safety needs should pass their own list or, better,
 # a real safety classifier from outside this module.
-_DEFAULT_BANNED: frozenset[str] = frozenset({
-    "<|endoftext|>",  # leaked control token
-    "[REDACTED]",     # accidental redaction marker
-})
+_DEFAULT_BANNED: frozenset[str] = frozenset(
+    {
+        "<|endoftext|>",  # leaked control token
+        "[REDACTED]",  # accidental redaction marker
+    }
+)
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
@@ -294,7 +297,16 @@ def _aggregate_mean(scores: Sequence[RubricScore]) -> float:
 
 def _per_criterion_mean(scores: Sequence[RubricScore]) -> dict[str, float]:
     if not scores:
-        return {k: 0.0 for k in ("correctness", "fluency", "faithfulness", "completeness", "safety")}
+        return {
+            k: 0.0
+            for k in (
+                "correctness",
+                "fluency",
+                "faithfulness",
+                "completeness",
+                "safety",
+            )
+        }
     n = len(scores)
     return {
         "correctness": sum(s.correctness for s in scores) / n,
@@ -344,9 +356,7 @@ def quality_degradation_report(
                 f"tier {tier_name!r} has {len(outs)} outputs; expected {n}"
             )
     if references is not None and len(references) != n:
-        raise ValueError(
-            f"references length {len(references)} != baseline length {n}"
-        )
+        raise ValueError(f"references length {len(references)} != baseline length {n}")
 
     ev = evaluator or SquishEvaluator()
     refs_for_baseline = references  # may be None — neutral scoring

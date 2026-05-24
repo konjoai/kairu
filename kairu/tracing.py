@@ -46,6 +46,7 @@ Wire into server::
         for i, tok_id in enumerate(token_stream):
             tracer.record_token(span, i, tok_id, latency_ms)
 """
+
 from __future__ import annotations
 
 import time
@@ -59,6 +60,7 @@ if TYPE_CHECKING:
 # W3C TraceContext propagation
 # ---------------------------------------------------------------------------
 
+
 def extract_trace_context(headers: Dict[str, str]) -> Optional[Any]:
     """Extract an OpenTelemetry ``Context`` from incoming HTTP headers.
 
@@ -70,6 +72,7 @@ def extract_trace_context(headers: Dict[str, str]) -> Optional[Any]:
         return None
     try:
         from opentelemetry.propagators.textmap import DefaultTextMapPropagator  # type: ignore
+
         ctx = DefaultTextMapPropagator().extract(carrier=dict(headers))
         return ctx
     except Exception:  # noqa: BLE001 — OTel absent or extraction failure
@@ -79,6 +82,7 @@ def extract_trace_context(headers: Dict[str, str]) -> Optional[Any]:
 # ---------------------------------------------------------------------------
 # NoOp stubs (used when opentelemetry-sdk is not installed)
 # ---------------------------------------------------------------------------
+
 
 class _NoOpSpan:
     """Span that silently drops every operation."""
@@ -216,6 +220,7 @@ class KairuTracer:
         if self._otel_available:
             try:
                 from opentelemetry.trace import StatusCode  # type: ignore
+
                 span.set_status(StatusCode.ERROR, str(exc))
             except Exception:  # noqa: BLE001
                 pass
@@ -232,6 +237,7 @@ class KairuTracer:
     def _build_tracer(self) -> Any:
         try:
             from opentelemetry import trace  # type: ignore
+
             return trace.get_tracer(
                 INSTRUMENTATION_NAME,
                 INSTRUMENTATION_VERSION,
@@ -243,6 +249,7 @@ class KairuTracer:
 # ---------------------------------------------------------------------------
 # Context propagation helper for use in server.py
 # ---------------------------------------------------------------------------
+
 
 def headers_from_request(request_headers) -> Dict[str, str]:
     """Normalise ASGI/Starlette MutableHeaders → plain dict for propagation.

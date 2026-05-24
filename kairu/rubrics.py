@@ -34,6 +34,7 @@ and ``color`` (hex string).  ``kairu.evaluation`` consumes this dict and
 materialises ``Rubric`` dataclass instances at import time, so you can
 edit weights here without touching the evaluation engine.
 """
+
 from __future__ import annotations
 
 from typing import Dict, Mapping, Tuple, TypedDict
@@ -51,12 +52,22 @@ class RubricDef(TypedDict):
 RUBRIC_DEFS: Dict[str, RubricDef] = {
     "helpfulness": {
         "description": "Does the response address the prompt? Heavy weight on relevance and completeness.",
-        "weights": {"relevance": 2.0, "completeness": 2.0, "specificity": 1.0, "fluency": 1.0},
+        "weights": {
+            "relevance": 2.0,
+            "completeness": 2.0,
+            "specificity": 1.0,
+            "fluency": 1.0,
+        },
         "color": "#6BFF8E",
     },
     "accuracy": {
         "description": "Concrete, on-topic, and specific. A heuristic proxy — there is no ground-truth check.",
-        "weights": {"specificity": 2.0, "relevance": 2.0, "completeness": 1.0, "coherence": 1.0},
+        "weights": {
+            "specificity": 2.0,
+            "relevance": 2.0,
+            "completeness": 1.0,
+            "coherence": 1.0,
+        },
         "color": "#9D6BFF",
     },
     "safety": {
@@ -76,7 +87,12 @@ RUBRIC_DEFS: Dict[str, RubricDef] = {
     },
     "creativity": {
         "description": "Diverse, rich language. Tolerates divergence from prompt vocabulary.",
-        "weights": {"fluency": 2.0, "coherence": 2.0, "specificity": 2.0, "relevance": 0.5},
+        "weights": {
+            "fluency": 2.0,
+            "coherence": 2.0,
+            "specificity": 2.0,
+            "relevance": 0.5,
+        },
         "color": "#FF6BD0",
     },
     "groundedness": {
@@ -111,4 +127,10 @@ def rubric_criteria(name: str) -> Tuple[str, ...]:
     return tuple(RUBRIC_DEFS[name]["weights"].keys())
 
 
-__all__ = ["RUBRIC_DEFS", "RubricDef", "rubric_names", "rubric_color", "rubric_criteria"]
+__all__ = [
+    "RUBRIC_DEFS",
+    "RubricDef",
+    "rubric_names",
+    "rubric_color",
+    "rubric_criteria",
+]

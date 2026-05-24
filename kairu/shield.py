@@ -5,6 +5,7 @@ tokenization. Zero new runtime dependencies (stdlib only). Fail-open design:
 shield errors log a warning and default to ALLOWED to avoid blocking
 legitimate users on bugs.
 """
+
 from __future__ import annotations
 
 import logging
@@ -88,7 +89,10 @@ def _default_rules() -> list[ShieldRule]:
         ShieldRule(
             name="injection_disregard_all",
             verdict=ShieldVerdict.BLOCKED,
-            pattern=re.compile(r"disregard\s+all\s+(?:previous\s+)?(?:instructions?|rules?|constraints?)", re.I),
+            pattern=re.compile(
+                r"disregard\s+all\s+(?:previous\s+)?(?:instructions?|rules?|constraints?)",
+                re.I,
+            ),
             confidence=0.95,
             reason_template="injection pattern detected: {match}",
             priority=10,
@@ -96,7 +100,10 @@ def _default_rules() -> list[ShieldRule]:
         ShieldRule(
             name="injection_forget_system_prompt",
             verdict=ShieldVerdict.BLOCKED,
-            pattern=re.compile(r"forget\s+(?:your\s+)?(?:system\s+prompt|instructions?|context|training)", re.I),
+            pattern=re.compile(
+                r"forget\s+(?:your\s+)?(?:system\s+prompt|instructions?|context|training)",
+                re.I,
+            ),
             confidence=0.90,
             reason_template="injection pattern detected: {match}",
             priority=10,
@@ -104,7 +111,9 @@ def _default_rules() -> list[ShieldRule]:
         ShieldRule(
             name="injection_no_restrictions",
             verdict=ShieldVerdict.BLOCKED,
-            pattern=re.compile(r"act\s+as\s+if\s+you\s+have\s+no\s+restrictions?", re.I),
+            pattern=re.compile(
+                r"act\s+as\s+if\s+you\s+have\s+no\s+restrictions?", re.I
+            ),
             confidence=0.92,
             reason_template="injection pattern detected: {match}",
             priority=9,
@@ -128,7 +137,10 @@ def _default_rules() -> list[ShieldRule]:
         ShieldRule(
             name="jailbreak_you_are_now",
             verdict=ShieldVerdict.FLAGGED,
-            pattern=re.compile(r"you\s+are\s+now\s+(?:an?\s+)?(?:AI\s+)?(?:without|that\s+can|able\s+to)", re.I),
+            pattern=re.compile(
+                r"you\s+are\s+now\s+(?:an?\s+)?(?:AI\s+)?(?:without|that\s+can|able\s+to)",
+                re.I,
+            ),
             confidence=0.75,
             reason_template="jailbreak pattern detected: {match}",
             priority=7,
@@ -136,7 +148,10 @@ def _default_rules() -> list[ShieldRule]:
         ShieldRule(
             name="jailbreak_pretend_no_ai_restrictions",
             verdict=ShieldVerdict.BLOCKED,
-            pattern=re.compile(r"pretend\s+you\s+are\s+an?\s+AI\s+without(?:\s+any)?\s+restrictions?", re.I),
+            pattern=re.compile(
+                r"pretend\s+you\s+are\s+an?\s+AI\s+without(?:\s+any)?\s+restrictions?",
+                re.I,
+            ),
             confidence=0.93,
             reason_template="jailbreak pattern detected: {match}",
             priority=9,
@@ -152,7 +167,9 @@ def _default_rules() -> list[ShieldRule]:
         ShieldRule(
             name="roleplay_act_as_trained",
             verdict=ShieldVerdict.FLAGGED,
-            pattern=re.compile(r"act\s+as\s+if\s+you\s+were\s+(?:not\s+)?trained", re.I),
+            pattern=re.compile(
+                r"act\s+as\s+if\s+you\s+were\s+(?:not\s+)?trained", re.I
+            ),
             confidence=0.80,
             reason_template="roleplay bypass detected: {match}",
             priority=7,
@@ -160,7 +177,10 @@ def _default_rules() -> list[ShieldRule]:
         ShieldRule(
             name="injection_override_instructions",
             verdict=ShieldVerdict.BLOCKED,
-            pattern=re.compile(r"override\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|safety)", re.I),
+            pattern=re.compile(
+                r"override\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|safety)",
+                re.I,
+            ),
             confidence=0.90,
             reason_template="injection pattern detected: {match}",
             priority=9,
@@ -168,7 +188,9 @@ def _default_rules() -> list[ShieldRule]:
         ShieldRule(
             name="jailbreak_token_manipulation",
             verdict=ShieldVerdict.FLAGGED,
-            pattern=re.compile(r"(?:system\s+)?prompt\s+(?:injection|override|leak|extraction)", re.I),
+            pattern=re.compile(
+                r"(?:system\s+)?prompt\s+(?:injection|override|leak|extraction)", re.I
+            ),
             confidence=0.85,
             reason_template="prompt manipulation attempt detected: {match}",
             priority=8,
@@ -217,7 +239,9 @@ def _scan_pii(
     block_on_pii: bool,
 ) -> Optional[ShieldResult]:
     """Scan PII patterns; return first match as FLAGGED or BLOCKED."""
-    for pattern, name in zip(patterns, _PII_PATTERN_NAMES + ["pii_custom"] * len(patterns)):
+    for pattern, name in zip(
+        patterns, _PII_PATTERN_NAMES + ["pii_custom"] * len(patterns)
+    ):
         m = pattern.search(prompt)
         if m:
             verdict = ShieldVerdict.BLOCKED if block_on_pii else ShieldVerdict.FLAGGED
@@ -277,7 +301,10 @@ class PromptShield:
         try:
             return self._check_inner(prompt)
         except Exception:  # noqa: BLE001 — fail-open, never crash the caller
-            logger.warning("PromptShield.check raised unexpectedly; defaulting to ALLOWED", exc_info=True)
+            logger.warning(
+                "PromptShield.check raised unexpectedly; defaulting to ALLOWED",
+                exc_info=True,
+            )
             return _ALLOWED_RESULT
 
     def _check_inner(self, prompt: str) -> ShieldResult:

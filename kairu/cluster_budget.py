@@ -34,6 +34,7 @@ Usage::
     remaining      = await budget.remaining()
     usage_fraction = await budget.utilization()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,6 +45,7 @@ from typing import Optional, Protocol
 # ---------------------------------------------------------------------------
 # Shared interface
 # ---------------------------------------------------------------------------
+
 
 class ClusterBudgetBackend(Protocol):
     """Storage contract for cluster-scoped token budgets."""
@@ -69,6 +71,7 @@ class ClusterBudgetBackend(Protocol):
 # ---------------------------------------------------------------------------
 # Redis-backed implementation
 # ---------------------------------------------------------------------------
+
 
 class ClusterTokenBudget:
     """Cluster-scoped token budget backed by a Redis counter.
@@ -156,6 +159,7 @@ class ClusterTokenBudget:
 # In-process stub — for tests and single-process deployments
 # ---------------------------------------------------------------------------
 
+
 class LocalClusterBudget:
     """In-process token budget — same interface, no Redis required.
 
@@ -198,7 +202,10 @@ class LocalClusterBudget:
         async with self._lock:
             now = time.monotonic()
             # Reset if the window has expired.
-            if self._window_start is not None and (now - self._window_start) >= self._window_s:
+            if (
+                self._window_start is not None
+                and (now - self._window_start) >= self._window_s
+            ):
                 self._used = 0
                 self._window_start = None
 

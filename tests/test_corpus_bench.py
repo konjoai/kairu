@@ -2,6 +2,7 @@
 
 All tests run fully offline using MockModel. No HF models required.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,18 +16,18 @@ _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from benchmarks.run_corpus import (
+from benchmarks.run_corpus import (  # noqa: E402
     CORPUS,
     CorpusBenchmarkRunner,
-    build_parser,
     main,
 )
-from kairu.mock_model import MockModel
+from kairu.mock_model import MockModel  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
 # Test 1 — CORPUS has exactly 100 prompts
 # ---------------------------------------------------------------------------
+
 
 def test_corpus_length() -> None:
     assert len(CORPUS) == 100, f"Expected 100 prompts, got {len(CORPUS)}"
@@ -35,6 +36,7 @@ def test_corpus_length() -> None:
 # ---------------------------------------------------------------------------
 # Test 2 — All corpus prompts are non-empty strings
 # ---------------------------------------------------------------------------
+
 
 def test_corpus_prompts_are_nonempty_strings() -> None:
     for i, p in enumerate(CORPUS):
@@ -45,6 +47,7 @@ def test_corpus_prompts_are_nonempty_strings() -> None:
 # ---------------------------------------------------------------------------
 # Test 3 — CorpusBenchmarkRunner produces correct shape
 # ---------------------------------------------------------------------------
+
 
 def test_corpus_runner_shape() -> None:
     runner = CorpusBenchmarkRunner(MockModel(), name="test-corpus")
@@ -63,6 +66,7 @@ def test_corpus_runner_shape() -> None:
 # Test 4 — p50 <= p95 <= p99 ordering
 # ---------------------------------------------------------------------------
 
+
 def test_percentile_ordering() -> None:
     runner = CorpusBenchmarkRunner(MockModel(), name="ordering")
     result = runner.run(num_tokens=10, warmup=1, prompts=CORPUS[:10])
@@ -73,6 +77,7 @@ def test_percentile_ordering() -> None:
 # ---------------------------------------------------------------------------
 # Test 5 — tokens_per_s_mean is positive
 # ---------------------------------------------------------------------------
+
 
 def test_tokens_per_s_positive() -> None:
     runner = CorpusBenchmarkRunner(MockModel(), name="tps")
@@ -85,9 +90,20 @@ def test_tokens_per_s_positive() -> None:
 # ---------------------------------------------------------------------------
 
 REQUIRED_KEYS = {
-    "name", "model_name", "num_tokens", "num_runs", "warmup",
-    "latencies_s", "p50", "p95", "p99", "mean", "stddev",
-    "tokens_per_s_mean", "hardware", "timestamp",
+    "name",
+    "model_name",
+    "num_tokens",
+    "num_runs",
+    "warmup",
+    "latencies_s",
+    "p50",
+    "p95",
+    "p99",
+    "mean",
+    "stddev",
+    "tokens_per_s_mean",
+    "hardware",
+    "timestamp",
 }
 
 
@@ -102,6 +118,7 @@ def test_to_json_round_trip() -> None:
 # ---------------------------------------------------------------------------
 # Test 7 — save() writes valid JSON and never overwrites
 # ---------------------------------------------------------------------------
+
 
 def test_save_no_overwrite(tmp_path) -> None:
     runner = CorpusBenchmarkRunner(MockModel(), name="save-test")
@@ -121,15 +138,24 @@ def test_save_no_overwrite(tmp_path) -> None:
 # Test 8 — CLI main() exits 0 with mock model and tiny corpus
 # ---------------------------------------------------------------------------
 
+
 def test_cli_main_exits_0(tmp_path) -> None:
-    exit_code = main([
-        "--model", "mock",
-        "--tokens", "5",
-        "--warmup", "1",
-        "--runs", "5",
-        "--name", "ci-corpus",
-        "--output", str(tmp_path),
-    ])
+    exit_code = main(
+        [
+            "--model",
+            "mock",
+            "--tokens",
+            "5",
+            "--warmup",
+            "1",
+            "--runs",
+            "5",
+            "--name",
+            "ci-corpus",
+            "--output",
+            str(tmp_path),
+        ]
+    )
     assert exit_code == 0
     files = list(tmp_path.glob("*.json"))
     assert len(files) == 1, "CLI must save exactly one result file"
@@ -138,6 +164,7 @@ def test_cli_main_exits_0(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 # Test 9 — CLI --help exits 0
 # ---------------------------------------------------------------------------
+
 
 def test_cli_help(capsys) -> None:
     with pytest.raises(SystemExit) as exc_info:
@@ -148,6 +175,7 @@ def test_cli_help(capsys) -> None:
 # ---------------------------------------------------------------------------
 # Test 10 — Hardware metadata is collected and non-empty
 # ---------------------------------------------------------------------------
+
 
 def test_hardware_metadata_present() -> None:
     runner = CorpusBenchmarkRunner(MockModel(), name="hw-test")

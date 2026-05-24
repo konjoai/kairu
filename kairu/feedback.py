@@ -1,4 +1,5 @@
 """Feedback loop: wire benchmark results into the gamma scheduler."""
+
 from __future__ import annotations
 
 import logging
@@ -32,9 +33,7 @@ class FeedbackLoop:
     HIGH_ACCEPTANCE_THRESHOLD = 0.75
     LOW_ACCEPTANCE_THRESHOLD = 0.40
 
-    def __init__(
-        self, scheduler: DynamicGammaScheduler, min_results: int = 5
-    ) -> None:
+    def __init__(self, scheduler: DynamicGammaScheduler, min_results: int = 5) -> None:
         if min_results < 1:
             raise ValueError("min_results must be >= 1")
         self._scheduler = scheduler

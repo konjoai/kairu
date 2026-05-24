@@ -77,6 +77,7 @@ OUTPUT FORMAT — respond ONLY with valid JSON:
 def _load_anthropic():
     try:
         import anthropic
+
         return anthropic
     except ImportError:
         print("ERROR: pip install anthropic", file=sys.stderr)
@@ -103,7 +104,13 @@ def _call_api(diff_text: str, anthropic_module) -> dict:
             response = client.messages.create(
                 model=CRITIC_MODEL,
                 max_tokens=MAX_TOKENS,
-                system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=[{"role": "user", "content": user_content}],
             )
             raw = response.content[0].text.strip()
@@ -113,7 +120,7 @@ def _call_api(diff_text: str, anthropic_module) -> dict:
                 file=sys.stderr,
             )
             return json.loads(raw)
-        except (anthropic_module.RateLimitError, anthropic_module.APIStatusError) as exc:
+        except (anthropic_module.RateLimitError, anthropic_module.APIStatusError):
             if attempt < MAX_RETRIES - 1:
                 delay = RETRY_BASE_DELAY * (2**attempt)
                 print(f"[konjo-review] retrying in {delay:.0f}s...", file=sys.stderr)
@@ -129,7 +136,9 @@ def _call_api(diff_text: str, anthropic_module) -> dict:
 def _render_human(result: dict) -> str:
     lines = ["# Konjo Adversarial Review Report\n"]
     verdict = result.get("verdict", "UNKNOWN")
-    emoji = {"APPROVED": "✅", "WARNING": "⚠️", "BLOCKER": "\U0001f6ab"}.get(verdict, "❓")
+    emoji = {"APPROVED": "✅", "WARNING": "⚠️", "BLOCKER": "\U0001f6ab"}.get(
+        verdict, "❓"
+    )
     lines.append(f"## Verdict: {emoji} {verdict}\n")
     lines.append(f"**Summary:** {result.get('summary', '')}\n")
     for b in result.get("blockers", []):
@@ -170,7 +179,10 @@ def main() -> int:
         return 0
 
     if args.dry_run:
-        print(f"[konjo-review] DRY RUN — model: {CRITIC_MODEL}, chars: {len(diff_text)}", file=sys.stderr)
+        print(
+            f"[konjo-review] DRY RUN — model: {CRITIC_MODEL}, chars: {len(diff_text)}",
+            file=sys.stderr,
+        )
         return 0
 
     try:

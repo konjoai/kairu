@@ -3,10 +3,9 @@
 All tests run fully offline. ClusterTokenBudget is tested via a mock Redis
 client that replays the INCRBY / DECRBY / EXPIRE / GET / DELETE semantics.
 """
+
 from __future__ import annotations
 
-import asyncio
-import time
 
 import pytest
 
@@ -19,6 +18,7 @@ from kairu.cluster_budget import (
 # ---------------------------------------------------------------------------
 # Mock Redis client for ClusterTokenBudget unit tests
 # ---------------------------------------------------------------------------
+
 
 class _MockRedis:
     """Minimal in-process Redis mock supporting the commands kairu uses."""
@@ -48,6 +48,7 @@ class _MockRedis:
 # ---------------------------------------------------------------------------
 # LocalClusterBudget tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_local_budget_allows_within_cap() -> None:
@@ -124,6 +125,7 @@ async def test_local_budget_invalid_window() -> None:
 # ---------------------------------------------------------------------------
 # ClusterTokenBudget (Redis-backed) unit tests via mock
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_redis_budget_allows_within_cap() -> None:

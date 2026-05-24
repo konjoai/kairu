@@ -18,6 +18,7 @@ optional flags. ``--model mock`` runs against :class:`kairu.MockModel` and
 needs zero ML dependencies — useful for smoke tests, Docker images, and
 anyone benchmarking the orchestration layer in isolation.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,36 +40,67 @@ def _build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8000)
     sv.add_argument(
-        "--model", default="mock",
+        "--model",
+        default="mock",
         help="Model spec. 'mock' uses MockModel (no ML deps). "
-             "Any other value is passed to wrap_model() — HuggingFace model id.",
+        "Any other value is passed to wrap_model() — HuggingFace model id.",
     )
-    sv.add_argument("--model-name", default=None,
-                    help="Logical name advertised in /generate responses.")
-    sv.add_argument("--cache-capacity", type=int, default=0,
-                    help="LogitsCache slots (0 disables caching). Wraps the model.")
-    sv.add_argument("--adaptive-gamma", action="store_true",
-                    help="Wire a DynamicGammaScheduler into speculative decoding.")
+    sv.add_argument(
+        "--model-name",
+        default=None,
+        help="Logical name advertised in /generate responses.",
+    )
+    sv.add_argument(
+        "--cache-capacity",
+        type=int,
+        default=0,
+        help="LogitsCache slots (0 disables caching). Wraps the model.",
+    )
+    sv.add_argument(
+        "--adaptive-gamma",
+        action="store_true",
+        help="Wire a DynamicGammaScheduler into speculative decoding.",
+    )
     sv.add_argument("--max-prompt-chars", type=int, default=8192)
     sv.add_argument("--max-tokens-cap", type=int, default=512)
     sv.add_argument("--request-timeout", type=float, default=30.0)
-    sv.add_argument("--rate-limit", type=int, default=10,
-                    help="Max requests per window (per client IP).")
-    sv.add_argument("--rate-window", type=float, default=10.0,
-                    help="Sliding-window length in seconds.")
-    sv.add_argument("--redis", default=None,
-                    help="redis:// URL — switch the rate-limiter backend "
-                         "to RedisBackend (requires the redis package).")
-    sv.add_argument("--log-level", default="info",
-                    choices=["critical", "error", "warning", "info", "debug"])
+    sv.add_argument(
+        "--rate-limit",
+        type=int,
+        default=10,
+        help="Max requests per window (per client IP).",
+    )
+    sv.add_argument(
+        "--rate-window",
+        type=float,
+        default=10.0,
+        help="Sliding-window length in seconds.",
+    )
+    sv.add_argument(
+        "--redis",
+        default=None,
+        help="redis:// URL — switch the rate-limiter backend "
+        "to RedisBackend (requires the redis package).",
+    )
+    sv.add_argument(
+        "--log-level",
+        default="info",
+        choices=["critical", "error", "warning", "info", "debug"],
+    )
 
     sub.add_parser("bench", help="Run the BenchmarkRunner CLI (see kairu.bench).")
     sub.add_parser("version", help="Print version and exit.")
 
-    sh = sub.add_parser("shield", help="Screen a prompt through the default PromptShield.")
+    sh = sub.add_parser(
+        "shield", help="Screen a prompt through the default PromptShield."
+    )
     sh.add_argument("prompt", help="Prompt text to screen.")
-    sh.add_argument("--json", dest="as_json", action="store_true",
-                    help="Output raw JSON instead of human-readable text.")
+    sh.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="Output raw JSON instead of human-readable text.",
+    )
     return p
 
 
@@ -76,9 +108,11 @@ def _build_model(spec: str):
     """Resolve a model spec to a ModelInterface instance."""
     if spec == "mock":
         from kairu.mock_model import MockModel
+
         return MockModel()
     # Anything else: try HuggingFace, fall back to mock for resilience.
     from kairu.wrapper import wrap_model
+
     return wrap_model(spec).model
 
 
@@ -92,6 +126,7 @@ async def _build_redis_backend(url: str):
             "Install with: pip install 'redis>=5.0'"
         ) from e
     from kairu.rate_limit import RedisBackend
+
     client = aioredis.from_url(url, decode_responses=True)
     return RedisBackend(client)
 
@@ -118,6 +153,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
     backend = None
     if args.redis:
         import asyncio
+
         backend = asyncio.get_event_loop().run_until_complete(
             _build_redis_backend(args.redis)
         )
@@ -125,6 +161,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
     base_model = _build_model(args.model)
     if args.cache_capacity > 0:
         from kairu.kv_cache import CachedModel
+
         base_model = CachedModel(base_model, cache_capacity=args.cache_capacity)
 
     app = create_app(model=base_model, config=cfg, rate_limit_backend=backend)
@@ -145,6 +182,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 def cmd_bench(_args: argparse.Namespace) -> int:
     from kairu.bench import main as bench_main
+
     bench_main()
     return 0
 

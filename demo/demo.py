@@ -13,6 +13,7 @@ Sections
 4. SpeculativeDecoder driven by mock draft + target — accepted tokens & speedup
 5. LayerwiseEarlyExitDecoder — per-token exit layer and compute saved
 """
+
 from __future__ import annotations
 
 import time
@@ -52,8 +53,11 @@ DIM = "dim"
 def banner() -> None:
     title = Text("流  K A I R U  —  D E M O   D A Y", justify="center")
     title.stylize("bold magenta")
-    sub = Text("Adaptive inference optimization · live mock models · zero weights",
-               justify="center", style="cyan")
+    sub = Text(
+        "Adaptive inference optimization · live mock models · zero weights",
+        justify="center",
+        style="cyan",
+    )
     console.print(Panel(Group(title, sub), border_style="magenta", padding=(1, 2)))
 
 
@@ -63,6 +67,7 @@ def section(title: str, n: int) -> None:
 
 
 # ────────────────────────────────────────────────────────────── 1. AutoProfile
+
 
 def demo_auto_profile() -> None:
     section("AutoProfile — strategy recommendation", 1)
@@ -101,6 +106,7 @@ def demo_auto_profile() -> None:
 
 # ────────────────────────────────────────────────────────────── 2. LogitsCache
 
+
 def demo_logits_cache() -> None:
     section("LogitsCache — LRU eviction trace", 2)
     cap = 6
@@ -117,8 +123,13 @@ def demo_logits_cache() -> None:
 
     rng = np.random.default_rng(7)
     plan = [("put", k) for k in range(10)] + [
-        ("get", 0), ("get", 1), ("get", 8), ("get", 9), ("get", 99),
-        ("put", 10), ("put", 11),
+        ("get", 0),
+        ("get", 1),
+        ("get", 8),
+        ("get", 9),
+        ("get", 99),
+        ("put", 10),
+        ("put", 11),
     ]
     for i, (op, k) in enumerate(plan, 1):
         if op == "put":
@@ -127,31 +138,45 @@ def demo_logits_cache() -> None:
             cache.get((k,))
         s = cache.stats()
         log.add_row(
-            str(i), op, f"({k},)", f"{s['size']}/{cap}",
-            str(s["hits"]), str(s["misses"]), str(s["evictions"]),
+            str(i),
+            op,
+            f"({k},)",
+            f"{s['size']}/{cap}",
+            str(s["hits"]),
+            str(s["misses"]),
+            str(s["evictions"]),
         )
 
     console.print(log)
     s = cache.stats()
-    console.print(Panel(
-        f"[bold]hit_rate[/] = [green]{s['hit_rate']:.1%}[/]   "
-        f"[bold]evictions[/] = [yellow]{s['evictions']}[/]   "
-        f"[bold]final size[/] = [cyan]{s['size']}/{cap}[/]\n"
-        f"[dim]Insert 10 keys into a 6-slot cache → 4 evictions. "
-        f"Touching key 0 right after insertion 9 promotes it to MRU; "
-        f"subsequent puts evict the next-LRU instead.[/]",
-        title="Cache summary", border_style="cyan",
-    ))
+    console.print(
+        Panel(
+            f"[bold]hit_rate[/] = [green]{s['hit_rate']:.1%}[/]   "
+            f"[bold]evictions[/] = [yellow]{s['evictions']}[/]   "
+            f"[bold]final size[/] = [cyan]{s['size']}/{cap}[/]\n"
+            f"[dim]Insert 10 keys into a 6-slot cache → 4 evictions. "
+            f"Touching key 0 right after insertion 9 promotes it to MRU; "
+            f"subsequent puts evict the next-LRU instead.[/]",
+            title="Cache summary",
+            border_style="cyan",
+        )
+    )
 
 
 # ────────────────────────────────────────────────────────────── 3. DynamicGammaScheduler
 
+
 def demo_gamma_scheduler() -> None:
     section("DynamicGammaScheduler — AIMD over γ", 3)
     sched = DynamicGammaScheduler(
-        initial=2, min_gamma=1, max_gamma=8,
-        high_threshold=0.7, low_threshold=0.3,
-        increase=1, decrease_factor=0.5, window=4,
+        initial=2,
+        min_gamma=1,
+        max_gamma=8,
+        high_threshold=0.7,
+        low_threshold=0.3,
+        increase=1,
+        decrease_factor=0.5,
+        window=4,
     )
 
     # 20-step trace: 7 high, 7 low, 6 mid — exercise grow/shrink/hold
@@ -180,7 +205,9 @@ def demo_gamma_scheduler() -> None:
         rolling = sched.rolling_rate()
         regime_color = {"HIGH": GREEN, "LOW": RED, "MID": "yellow"}[regime]
         bar = "█" * gamma_used + "░" * (sched._max - gamma_used)
-        arrow = "↑" if new_gamma > gamma_used else ("↓" if new_gamma < gamma_used else "·")
+        arrow = (
+            "↑" if new_gamma > gamma_used else ("↓" if new_gamma < gamma_used else "·")
+        )
         table.add_row(
             str(i),
             f"[{regime_color}]{regime}[/]",
@@ -194,17 +221,21 @@ def demo_gamma_scheduler() -> None:
 
     console.print(table)
     s = sched.stats()
-    console.print(Panel(
-        f"[bold]final γ[/] = [green]{s['gamma']}[/]   "
-        f"[bold]adjustments[/] = [yellow]{s['adjustments']}[/]   "
-        f"[bold]rolling acceptance[/] = [cyan]{s['rolling_acceptance']:.2f}[/]\n"
-        f"[dim]Pattern: γ grows from 2 → 8 (clamped) under HIGH, then halves "
-        f"each LOW round, then holds in the MID band. Same control law as TCP.[/]",
-        title="Scheduler summary", border_style="cyan",
-    ))
+    console.print(
+        Panel(
+            f"[bold]final γ[/] = [green]{s['gamma']}[/]   "
+            f"[bold]adjustments[/] = [yellow]{s['adjustments']}[/]   "
+            f"[bold]rolling acceptance[/] = [cyan]{s['rolling_acceptance']:.2f}[/]\n"
+            f"[dim]Pattern: γ grows from 2 → 8 (clamped) under HIGH, then halves "
+            f"each LOW round, then holds in the MID band. Same control law as TCP.[/]",
+            title="Scheduler summary",
+            border_style="cyan",
+        )
+    )
 
 
 # ────────────────────────────────────────────────────────────── 4. SpeculativeDecoder
+
 
 def demo_speculative() -> None:
     section("SpeculativeDecoder — accepted tokens + speedup", 4)
@@ -227,15 +258,17 @@ def demo_speculative() -> None:
     for call in range(1, 6):
         t0 = time.perf_counter()
         toks, stats = decoder.generate(prompt, max_new_tokens=8)
-        dt = (time.perf_counter() - t0) * 1000
         rho = stats["acceptance_rate"]
+        _ = (time.perf_counter() - t0) * 1000
         # Theoretical speedup from Leviathan et al. 2023
         speedup = (1 - rho ** (gamma + 1)) / (1 - rho) if rho < 1 else float(gamma + 1)
         total_accepted += stats["accepted_tokens"]
         total_attempted += stats["accepted_tokens"] + stats["rejected_tokens"]
         preview = " ".join(str(t) for t in toks[:6]) + (" …" if len(toks) > 6 else "")
         table.add_row(
-            str(call), "8", preview,
+            str(call),
+            "8",
+            preview,
             str(stats["accepted_tokens"]),
             str(stats["rejected_tokens"]),
             f"{rho:.2f}",
@@ -246,23 +279,30 @@ def demo_speculative() -> None:
     overall_rho = total_accepted / total_attempted if total_attempted else 0.0
     overall_speedup = (
         (1 - overall_rho ** (gamma + 1)) / (1 - overall_rho)
-        if overall_rho < 1 else float(gamma + 1)
+        if overall_rho < 1
+        else float(gamma + 1)
     )
-    console.print(Panel(
-        f"[bold]overall acceptance[/] = [yellow]{overall_rho:.2f}[/]   "
-        f"[bold]theoretical speedup[/] = [magenta]{overall_speedup:.2f}×[/] "
-        f"[dim](γ={gamma}, formula: E[T] = (1-ρ^(γ+1))/(1-ρ))[/]",
-        title="Speculative summary", border_style="cyan",
-    ))
+    console.print(
+        Panel(
+            f"[bold]overall acceptance[/] = [yellow]{overall_rho:.2f}[/]   "
+            f"[bold]theoretical speedup[/] = [magenta]{overall_speedup:.2f}×[/] "
+            f"[dim](γ={gamma}, formula: E[T] = (1-ρ^(γ+1))/(1-ρ))[/]",
+            title="Speculative summary",
+            border_style="cyan",
+        )
+    )
 
 
 # ────────────────────────────────────────────────────────────── 5. LayerwiseEarlyExitDecoder
+
 
 def demo_layerwise_exit() -> None:
     section("LayerwiseEarlyExitDecoder — per-token exit layer", 5)
     L = 12
     model = MockLayeredModel(num_layers=L)
-    decoder = LayerwiseEarlyExitDecoder(model, confidence_threshold=0.4, min_layer=1, temperature=0.1)
+    decoder = LayerwiseEarlyExitDecoder(
+        model, confidence_threshold=0.4, min_layer=1, temperature=0.1
+    )
     _, stats = decoder.generate([1, 2, 3], max_new_tokens=10)
 
     table = Table(box=box.SIMPLE, header_style="bold cyan")
@@ -280,16 +320,20 @@ def demo_layerwise_exit() -> None:
 
     console.print(table)
     saved = stats["compute_saved"]
-    console.print(Panel(
-        f"[bold]mean exit layer[/] = [cyan]{stats['mean_exit_layer']:.2f}[/] / {L}   "
-        f"[bold]compute saved[/] = [green]{saved:.1%}[/]\n"
-        f"[dim]compute_saved = 1 − mean_exit_layer / num_layers   "
-        f"(uniform per-layer cost assumption holds for transformer decoder stacks)[/]",
-        title="Layerwise summary", border_style="cyan",
-    ))
+    console.print(
+        Panel(
+            f"[bold]mean exit layer[/] = [cyan]{stats['mean_exit_layer']:.2f}[/] / {L}   "
+            f"[bold]compute saved[/] = [green]{saved:.1%}[/]\n"
+            f"[dim]compute_saved = 1 − mean_exit_layer / num_layers   "
+            f"(uniform per-layer cost assumption holds for transformer decoder stacks)[/]",
+            title="Layerwise summary",
+            border_style="cyan",
+        )
+    )
 
 
 # ────────────────────────────────────────────────────────────── main
+
 
 def main() -> None:
     banner()
@@ -299,13 +343,16 @@ def main() -> None:
     demo_speculative()
     demo_layerwise_exit()
     console.print()
-    console.print(Align.center(
-        Panel(
-            "[bold magenta]ቆንጆ · 根性 · 康宙 · कोहजो · ᨀᨚᨐᨚ · конйо · 건조 · কুঞ্জ[/]\n"
-            "[cyan]Build, ship, repeat.[/]",
-            border_style="magenta", padding=(1, 4),
+    console.print(
+        Align.center(
+            Panel(
+                "[bold magenta]ቆንጆ · 根性 · 康宙 · कोहजो · ᨀᨚᨐᨚ · конйо · 건조 · কুঞ্জ[/]\n"
+                "[cyan]Build, ship, repeat.[/]",
+                border_style="magenta",
+                padding=(1, 4),
+            )
         )
-    ))
+    )
 
 
 if __name__ == "__main__":

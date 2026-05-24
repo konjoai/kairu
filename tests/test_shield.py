@@ -1,4 +1,5 @@
 """Tests for kairu.shield — PromptShield content policy gate."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -211,7 +212,9 @@ def test_case_insensitive_matching():
     ]
     for prompt in variants:
         result = shield.check(prompt)
-        assert result.verdict == ShieldVerdict.BLOCKED, f"Expected BLOCKED for: {prompt!r}"
+        assert result.verdict == ShieldVerdict.BLOCKED, (
+            f"Expected BLOCKED for: {prompt!r}"
+        )
 
 
 def test_reason_max_200_chars():
@@ -266,7 +269,7 @@ pytest.importorskip("httpx")
 import httpx  # noqa: E402
 from httpx import ASGITransport  # noqa: E402
 
-from kairu.server import ServerConfig, create_app  # noqa: E402
+from kairu.server import create_app  # noqa: E402
 
 
 def _client(app) -> httpx.AsyncClient:
@@ -297,7 +300,10 @@ async def test_server_returns_warning_header_on_flagged():
     async with _client(app) as c:
         r = await c.post(
             "/generate",
-            json={"prompt": "Please email alice@example.com the report", "max_tokens": 3},
+            json={
+                "prompt": "Please email alice@example.com the report",
+                "max_tokens": 3,
+            },
         )
     assert r.status_code == 200
     assert "x-shield-warning" in r.headers

@@ -23,7 +23,9 @@ class GenerationMetrics:
     accepted_tokens: int = 0
     rejected_tokens: int = 0
 
-    _start_time: float = field(default_factory=time.perf_counter, init=False, repr=False)
+    _start_time: float = field(
+        default_factory=time.perf_counter, init=False, repr=False
+    )
     _end_time: float | None = field(default=None, init=False, repr=False)
     _token_timestamps: list[float] = field(default_factory=list, init=False, repr=False)
 

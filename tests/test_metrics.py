@@ -1,4 +1,5 @@
 """Tests for kairu.metrics.GenerationMetrics — 7 tests."""
+
 import time
 import pytest
 from kairu.metrics import GenerationMetrics

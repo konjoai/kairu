@@ -1,7 +1,7 @@
 """Tests for kairu.server — FastAPI SSE endpoint, rate limit, validation, timeout."""
+
 from __future__ import annotations
 
-import asyncio
 import json
 
 import pytest
@@ -26,7 +26,7 @@ def _parse_sse(body: str) -> list[dict | str]:
         chunk = chunk.strip()
         if not chunk.startswith("data:"):
             continue
-        data = chunk[len("data:"):].strip()
+        data = chunk[len("data:") :].strip()
         if data == "[DONE]":
             out.append("[DONE]")
         else:
@@ -115,7 +115,9 @@ async def test_validation_caps_max_tokens():
 async def test_validation_rejects_temperature_out_of_range():
     app = create_app()
     async with _client(app) as c:
-        r = await c.post("/generate", json={"prompt": "hi", "max_tokens": 1, "temperature": 5.0})
+        r = await c.post(
+            "/generate", json={"prompt": "hi", "max_tokens": 1, "temperature": 5.0}
+        )
     assert r.status_code == 422
 
 
@@ -179,6 +181,7 @@ async def test_rate_limiter_unit_sliding_window():
 @pytest.mark.asyncio
 async def test_rate_limiter_rejects_bad_config():
     import pytest as _pytest
+
     with _pytest.raises(ValueError):
         RateLimiter(max_requests=0, window_s=1.0)
     with _pytest.raises(ValueError):
@@ -262,7 +265,9 @@ async def test_kairu_metrics_total_s_monotonic():
     async with _client(app) as c:
         r = await c.post("/generate", json={"prompt": "hi", "max_tokens": 4})
     events = _parse_sse(r.text)
-    per_token = [e for e in events if isinstance(e, dict) and "index" in e.get("kairu", {})]
+    per_token = [
+        e for e in events if isinstance(e, dict) and "index" in e.get("kairu", {})
+    ]
     final = events[-2]
     sum_latency_s = sum(e["kairu"]["latency_ms"] for e in per_token) / 1000.0
     assert final["kairu"]["total_s"] >= sum_latency_s - 1e-6

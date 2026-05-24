@@ -1,4 +1,5 @@
 """Tests for kairu.ci_regression — baseline snapshots + regression checks."""
+
 from __future__ import annotations
 
 import json
@@ -9,8 +10,6 @@ import pytest
 from kairu.ci_regression import (
     BaselineSnapshot,
     BaselineStore,
-    CriterionRegression,
-    DEFAULT_REGRESSION_THRESHOLD,
     FileBaselineStore,
     RegressionReport,
     check_against_baseline,
@@ -21,14 +20,24 @@ from kairu.ci_regression import (
 # Three golden datapoints — different prompt difficulties so the rubric
 # yields a non-trivial spread of scores per criterion.
 GOLDEN = [
-    {"input": "What is the capital of France?",
-     "output": "The capital of France is Paris."},
-    {"input": "Summarize Hamlet briefly.",
-     "output": ("Hamlet is a tragedy by Shakespeare in which the Danish prince Hamlet "
-                "investigates and avenges his father's murder by his uncle Claudius.")},
-    {"input": "Explain TCP congestion control to a software engineer in two sentences.",
-     "output": ("TCP probes network capacity by additively growing its congestion window "
-                "and multiplicatively halving it on packet loss; this is AIMD.")},
+    {
+        "input": "What is the capital of France?",
+        "output": "The capital of France is Paris.",
+    },
+    {
+        "input": "Summarize Hamlet briefly.",
+        "output": (
+            "Hamlet is a tragedy by Shakespeare in which the Danish prince Hamlet "
+            "investigates and avenges his father's murder by his uncle Claudius."
+        ),
+    },
+    {
+        "input": "Explain TCP congestion control to a software engineer in two sentences.",
+        "output": (
+            "TCP probes network capacity by additively growing its congestion window "
+            "and multiplicatively halving it on packet loss; this is AIMD."
+        ),
+    },
 ]
 
 DEGRADED = [
@@ -115,8 +124,8 @@ def test_check_reports_unmatched_inputs():
     # Drop the first item, add a brand new one.
     drift = GOLDEN[1:] + [{"input": "Brand new question", "output": "Brand new answer"}]
     report = check_against_baseline(snap, drift)
-    assert len(report.unmatched_baseline) == 1   # GOLDEN[0] missing from current
-    assert len(report.unmatched_current) == 1    # the new item not in baseline
+    assert len(report.unmatched_baseline) == 1  # GOLDEN[0] missing from current
+    assert len(report.unmatched_current) == 1  # the new item not in baseline
     assert report.passed is False  # unmatched baseline counts as a failure
 
 

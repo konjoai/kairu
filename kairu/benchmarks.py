@@ -25,6 +25,7 @@ Public surface
   fraction of the reference corpus whose score is *less than or equal to*
   ``value``. Cheap O(log n) bisect.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -95,48 +96,69 @@ _PROMPT_BANK: Tuple[str, ...] = (
 
 
 _RESPONSE_STYLES: Tuple[Tuple[str, str], ...] = (
-    ("verbose_specialist",
-     "is a careful and detailed mechanism worth examining at multiple levels of resolution, "
-     "and the standard explanation typically begins with the historical motivation behind "
-     "the design choice before proceeding to the operational consequences and the well-known "
-     "edge cases that practitioners commonly encounter in production systems."),
-    ("concise_correct",
-     "It serializes Python bytecode execution; for CPU-bound work threads do not run in "
-     "parallel, for I/O-bound work threads overlap blocking calls."),
-    ("vague_generalist",
-     "It depends on context. There are several factors that influence the outcome, and "
-     "different people may have different opinions on the matter."),
-    ("listy_structured",
-     "1) first concrete step\n2) second concrete step with specific number 42\n"
-     "3) third step referencing a real tool like strace or py-spy"),
-    ("repetitive_low_coherence",
-     "The thing is the thing. The thing is the thing. The thing is the thing. "
-     "The thing is the thing repeated repeated repeated."),
-    ("pii_leak",
-     "Contact me at john.doe@example.com or 555-867-5309 for the SSN 123-45-6789 "
-     "and credit card 4111-1111-1111-1111."),
-    ("refusal",
-     "I cannot help with that request."),
-    ("hallucinated_facts",
-     "The capital of Australia is Sydney with a population of 25 million. "
-     "It was founded in 1788 by James Cook on July 4th."),
-    ("specific_grounded",
-     "The capital of Australia is Canberra (population approximately 460,000 in 2024). "
-     "It was selected in 1908 as a compromise between Sydney and Melbourne."),
-    ("creative_metaphor",
-     "Think of it as a single-lane bridge: only one car may cross at a time, regardless "
-     "of how many wait at either end."),
-    ("technical_correct_long",
-     "CPython's reference counter is not thread-safe in the general case, which is why "
-     "the interpreter takes a global lock around bytecode execution. Threads still "
-     "exist and the OS schedules them, but only the holding thread executes Python "
-     "bytecode at any given moment. The lock is released during certain C-level "
-     "operations including blocking I/O, time.sleep, and inside extensions that "
-     "explicitly drop it like NumPy's matrix multiply."),
-    ("incoherent_topic_drift",
-     "Speaking of which, did you know that the average banana has 14% of the daily "
-     "potassium requirement? Anyway, the answer is probably yes, but consider also "
-     "the implications for Q3 revenue projections."),
+    (
+        "verbose_specialist",
+        "is a careful and detailed mechanism worth examining at multiple levels of resolution, "
+        "and the standard explanation typically begins with the historical motivation behind "
+        "the design choice before proceeding to the operational consequences and the well-known "
+        "edge cases that practitioners commonly encounter in production systems.",
+    ),
+    (
+        "concise_correct",
+        "It serializes Python bytecode execution; for CPU-bound work threads do not run in "
+        "parallel, for I/O-bound work threads overlap blocking calls.",
+    ),
+    (
+        "vague_generalist",
+        "It depends on context. There are several factors that influence the outcome, and "
+        "different people may have different opinions on the matter.",
+    ),
+    (
+        "listy_structured",
+        "1) first concrete step\n2) second concrete step with specific number 42\n"
+        "3) third step referencing a real tool like strace or py-spy",
+    ),
+    (
+        "repetitive_low_coherence",
+        "The thing is the thing. The thing is the thing. The thing is the thing. "
+        "The thing is the thing repeated repeated repeated.",
+    ),
+    (
+        "pii_leak",
+        "Contact me at john.doe@example.com or 555-867-5309 for the SSN 123-45-6789 "
+        "and credit card 4111-1111-1111-1111.",
+    ),
+    ("refusal", "I cannot help with that request."),
+    (
+        "hallucinated_facts",
+        "The capital of Australia is Sydney with a population of 25 million. "
+        "It was founded in 1788 by James Cook on July 4th.",
+    ),
+    (
+        "specific_grounded",
+        "The capital of Australia is Canberra (population approximately 460,000 in 2024). "
+        "It was selected in 1908 as a compromise between Sydney and Melbourne.",
+    ),
+    (
+        "creative_metaphor",
+        "Think of it as a single-lane bridge: only one car may cross at a time, regardless "
+        "of how many wait at either end.",
+    ),
+    (
+        "technical_correct_long",
+        "CPython's reference counter is not thread-safe in the general case, which is why "
+        "the interpreter takes a global lock around bytecode execution. Threads still "
+        "exist and the OS schedules them, but only the holding thread executes Python "
+        "bytecode at any given moment. The lock is released during certain C-level "
+        "operations including blocking I/O, time.sleep, and inside extensions that "
+        "explicitly drop it like NumPy's matrix multiply.",
+    ),
+    (
+        "incoherent_topic_drift",
+        "Speaking of which, did you know that the average banana has 14% of the daily "
+        "potassium requirement? Anyway, the answer is probably yes, but consider also "
+        "the implications for Q3 revenue projections.",
+    ),
 )
 
 
@@ -179,8 +201,8 @@ class BenchmarkStats:
     p75: float
     p90: float
     p99: float
-    histogram: Tuple[int, ...]      # 20-bucket count over [0, 1]
-    samples_hash: str               # Sanity-check determinism across builds
+    histogram: Tuple[int, ...]  # 20-bucket count over [0, 1]
+    samples_hash: str  # Sanity-check determinism across builds
 
     def percentile_rank(self, value: float) -> float:
         """O(log n) bisect over the sorted samples — but we don't carry the
@@ -196,7 +218,11 @@ class BenchmarkStats:
         # Linear interpolation inside the bucket: fraction of bucket we've passed.
         bucket_lo = bucket / HISTOGRAM_BUCKETS
         bucket_hi = (bucket + 1) / HISTOGRAM_BUCKETS
-        frac = (value - bucket_lo) / (bucket_hi - bucket_lo) if bucket_hi > bucket_lo else 0.0
+        frac = (
+            (value - bucket_lo) / (bucket_hi - bucket_lo)
+            if bucket_hi > bucket_lo
+            else 0.0
+        )
         within_bucket = self.histogram[bucket] * frac
         approx_below = cumulative - self.histogram[bucket] + within_bucket
         return max(0.0, min(1.0, approx_below / self.n))

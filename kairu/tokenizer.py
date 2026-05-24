@@ -1,4 +1,5 @@
 """Tokenizer abstraction — wraps any HF tokenizer or works standalone as a mock."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

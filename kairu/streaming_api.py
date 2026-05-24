@@ -9,6 +9,7 @@ Produces OpenAI-compatible SSE chunks:
 The endpoint accepts a prompt and streams synthetic tokens (MockModel) or
 real tokens (HFModel if configured). Shield runs before streaming begins.
 """
+
 from __future__ import annotations
 
 import json
@@ -108,7 +109,9 @@ class TokenStreamer:
         try:
             yield from self._generate(prompt, tok, request_id)
         except Exception:  # noqa: BLE001 — stream errors are reported in-band
-            logger.warning("TokenStreamer.stream raised; emitting error chunk", exc_info=True)
+            logger.warning(
+                "TokenStreamer.stream raised; emitting error chunk", exc_info=True
+            )
             yield StreamChunk(id=request_id, content=None, finish_reason="error")
 
     def _generate(

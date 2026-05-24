@@ -14,6 +14,7 @@ expose intermediate hidden states via ``output_hidden_states=True``; the
 implementation that progressively sharpens its logits as layer index grows
 — the asymptotic behavior of a well-trained transformer.
 """
+
 from __future__ import annotations
 
 from abc import abstractmethod

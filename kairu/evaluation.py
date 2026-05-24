@@ -13,6 +13,7 @@ LLM judge can be plugged in later as another `Scorer` callable.
 References:  Zheng et al. 2023 (arXiv:2306.05685) — "Judging LLM-as-Judge";
 Lin 2004 — ROUGE; Papineni 2002 — BLEU.
 """
+
 from __future__ import annotations
 
 import math
@@ -115,18 +116,30 @@ def score_conciseness(prompt: str, response: str) -> ScorerResult:
     log_ratio = math.log(r_len / p_len)
     z = (log_ratio - _IDEAL_LOG_RATIO) / _LOG_SIGMA
     score = math.exp(-0.5 * z * z)
-    return score, {"prompt_tokens": float(p_len), "response_tokens": float(r_len), "log_ratio": log_ratio}
+    return score, {
+        "prompt_tokens": float(p_len),
+        "response_tokens": float(r_len),
+        "log_ratio": log_ratio,
+    }
 
 
 # Pre-compiled patterns for safety scoring.  Keep these tight and explicit —
 # false positives on safe prose are worse than missing one obscure variant.
 _SAFETY_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (
-    ("ssn",        re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
+    ("ssn", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
     ("credit_card", re.compile(r"\b(?:\d[ -]?){13,19}\b")),
-    ("email",       re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
-    ("phone_us",    re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b")),
-    ("api_key",     re.compile(r"\b(?:sk|pk|api|key|token)[-_][A-Za-z0-9]{16,}\b", re.IGNORECASE)),
-    ("ip_address",  re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\b")),
+    ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
+    ("phone_us", re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b")),
+    (
+        "api_key",
+        re.compile(r"\b(?:sk|pk|api|key|token)[-_][A-Za-z0-9]{16,}\b", re.IGNORECASE),
+    ),
+    (
+        "ip_address",
+        re.compile(
+            r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\b"
+        ),
+    ),
 )
 
 
@@ -163,7 +176,11 @@ def score_fluency(prompt: str, response: str) -> ScorerResult:
         length_score = max(0.0, 1.0 - abs(mean_len - 15.0) / 30.0)
     ttr = len(set(toks)) / len(toks)  # type-token ratio
     score = 0.6 * length_score + 0.4 * ttr
-    return score, {"sentences": float(len(sents)), "mean_sentence_len": mean_len, "ttr": ttr}
+    return score, {
+        "sentences": float(len(sents)),
+        "mean_sentence_len": mean_len,
+        "ttr": ttr,
+    }
 
 
 def score_specificity(prompt: str, response: str) -> ScorerResult:
@@ -186,7 +203,11 @@ def score_specificity(prompt: str, response: str) -> ScorerResult:
     density = specifics / len(toks)
     # 5 % density saturates to 1.0 — beyond that more is not better.
     score = min(1.0, density / 0.05)
-    return score, {"tokens": float(len(toks)), "specifics": float(specifics), "density": density}
+    return score, {
+        "tokens": float(len(toks)),
+        "specifics": float(specifics),
+        "density": density,
+    }
 
 
 def score_completeness(prompt: str, response: str) -> ScorerResult:
@@ -209,13 +230,28 @@ Scorer = Callable[[str, str], ScorerResult]
 
 
 CRITERIA: Dict[str, Tuple[Scorer, str]] = {
-    "relevance":    (score_relevance,    "Token overlap between prompt and response (Jaccard)."),
-    "coherence":    (score_coherence,    "1 minus the fraction of repeated trigrams."),
-    "conciseness":  (score_conciseness,  "Length appropriateness — Gaussian around 4× prompt length."),
-    "safety":       (score_safety,       "Penalises matched PII / secret patterns (SSN, email, key, etc.)."),
-    "fluency":      (score_fluency,      "Sentence-length sanity + type-token ratio."),
-    "specificity":  (score_specificity,  "Density of named entities, numerics, and proper nouns."),
-    "completeness": (score_completeness, "Fraction of prompt content tokens addressed in response."),
+    "relevance": (
+        score_relevance,
+        "Token overlap between prompt and response (Jaccard).",
+    ),
+    "coherence": (score_coherence, "1 minus the fraction of repeated trigrams."),
+    "conciseness": (
+        score_conciseness,
+        "Length appropriateness — Gaussian around 4× prompt length.",
+    ),
+    "safety": (
+        score_safety,
+        "Penalises matched PII / secret patterns (SSN, email, key, etc.).",
+    ),
+    "fluency": (score_fluency, "Sentence-length sanity + type-token ratio."),
+    "specificity": (
+        score_specificity,
+        "Density of named entities, numerics, and proper nouns.",
+    ),
+    "completeness": (
+        score_completeness,
+        "Fraction of prompt content tokens addressed in response.",
+    ),
 }
 
 
@@ -237,9 +273,20 @@ class Rubric:
         return self.weights.get(criterion, 1.0)
 
 
-def _rb(name: str, desc: str, criteria: Tuple[str, ...], weights: Optional[Mapping[str, float]] = None,
-        version: str = RUBRIC_VERSION) -> Rubric:
-    return Rubric(name=name, description=desc, criteria=criteria, weights=weights or {}, version=version)
+def _rb(
+    name: str,
+    desc: str,
+    criteria: Tuple[str, ...],
+    weights: Optional[Mapping[str, float]] = None,
+    version: str = RUBRIC_VERSION,
+) -> Rubric:
+    return Rubric(
+        name=name,
+        description=desc,
+        criteria=criteria,
+        weights=weights or {},
+        version=version,
+    )
 
 
 # The eight named rubrics from `kairu.rubrics` are the prism's beams.
@@ -253,9 +300,12 @@ def _from_def(name: str, spec: Mapping[str, object]) -> Rubric:
     return _rb(name, str(spec["description"]), tuple(weights.keys()), weights)
 
 
-RUBRICS: Dict[str, Rubric] = {name: _from_def(name, spec) for name, spec in _PRISM_DEFS.items()}
+RUBRICS: Dict[str, Rubric] = {
+    name: _from_def(name, spec) for name, spec in _PRISM_DEFS.items()
+}
 RUBRICS["default"] = _rb(
-    "default", "Balanced — relevance, coherence, fluency, completeness, conciseness, safety.",
+    "default",
+    "Balanced — relevance, coherence, fluency, completeness, conciseness, safety.",
     ("relevance", "coherence", "fluency", "completeness", "conciseness", "safety"),
 )
 
@@ -311,13 +361,15 @@ def register_rubric(
             raise ValueError(f"unknown criterion '{c}'")
     versions = RUBRIC_REGISTRY.setdefault(name, {})
     if version is None:
-        prev = base_version or (next(reversed(versions)) if versions else RUBRIC_VERSION)
+        prev = base_version or (
+            next(reversed(versions)) if versions else RUBRIC_VERSION
+        )
         version = _bump_patch(prev)
     if version in versions:
         raise ValueError(f"rubric '{name}' already has version {version}")
     rubric = _rb(name, description, tuple(criteria), dict(weights), version=version)
     versions[version] = rubric
-    RUBRICS[name] = rubric                  # newest version is active
+    RUBRICS[name] = rubric  # newest version is active
     return rubric
 
 
@@ -344,6 +396,7 @@ def list_rubric_versions(name: str) -> Tuple[str, ...]:
 # ─────────────────────────────────────────────────────────────────────────
 # Evaluation results
 # ─────────────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class CriterionScore:
@@ -420,13 +473,14 @@ def evaluate(
 # A/B comparison
 # ─────────────────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class CriterionComparison:
     name: str
     score_a: float
     score_b: float
-    delta: float       # score_a - score_b
-    winner: str        # "a" | "b" | "tie"
+    delta: float  # score_a - score_b
+    winner: str  # "a" | "b" | "tie"
 
 
 @dataclass(frozen=True)
@@ -442,14 +496,24 @@ class Comparison:
 
     def to_dict(self) -> Dict[str, object]:
         per = [
-            {"name": c.name, "score_a": c.score_a, "score_b": c.score_b,
-             "delta": c.delta, "winner": c.winner}
+            {
+                "name": c.name,
+                "score_a": c.score_a,
+                "score_b": c.score_b,
+                "delta": c.delta,
+                "winner": c.winner,
+            }
             for c in self.per_criterion
         ]
         return {
-            "label_a": self.label_a, "label_b": self.label_b, "rubric": self.rubric,
-            "aggregate_a": self.aggregate_a, "aggregate_b": self.aggregate_b,
-            "margin": self.margin, "winner": self.winner, "per_criterion": per,
+            "label_a": self.label_a,
+            "label_b": self.label_b,
+            "rubric": self.rubric,
+            "aggregate_a": self.aggregate_a,
+            "aggregate_b": self.aggregate_b,
+            "margin": self.margin,
+            "winner": self.winner,
+            "per_criterion": per,
         }
 
 
@@ -480,8 +544,12 @@ def compare(
     tie_epsilon: float = TIE_EPSILON,
 ) -> Comparison:
     """A/B-compare two responses to the same prompt under one rubric."""
-    eval_a = evaluate(prompt, response_a, rubric=rubric, criteria=criteria, weights=weights)
-    eval_b = evaluate(prompt, response_b, rubric=rubric, criteria=criteria, weights=weights)
+    eval_a = evaluate(
+        prompt, response_a, rubric=rubric, criteria=criteria, weights=weights
+    )
+    eval_b = evaluate(
+        prompt, response_b, rubric=rubric, criteria=criteria, weights=weights
+    )
     by_name_b = {s.name: s for s in eval_b.scores}
     per: List[CriterionComparison] = []
     for sa in eval_a.scores:
@@ -514,6 +582,7 @@ def compare(
 # Batch + CSV
 # ─────────────────────────────────────────────────────────────────────────
 
+
 def evaluate_batch(
     items: Iterable[Mapping[str, str]],
     *,
@@ -531,8 +600,11 @@ def evaluate_batch(
         if "prompt" not in item or "response" not in item:
             raise ValueError(f"item[{idx}] missing 'prompt' or 'response'")
         ev = evaluate(
-            item["prompt"], item["response"],
-            rubric=rubric, criteria=criteria, weights=weights,
+            item["prompt"],
+            item["response"],
+            rubric=rubric,
+            criteria=criteria,
+            weights=weights,
         )
         row: Dict[str, object] = {
             "id": item.get("id", str(idx)),
@@ -569,9 +641,23 @@ def _csv_quote(s: str) -> str:
 
 
 __all__ = [
-    "CRITERIA", "RUBRICS", "Rubric", "CriterionScore", "Evaluation",
-    "CriterionComparison", "Comparison", "TIE_EPSILON",
-    "evaluate", "compare", "evaluate_batch", "to_csv",
-    "score_relevance", "score_coherence", "score_conciseness",
-    "score_safety", "score_fluency", "score_specificity", "score_completeness",
+    "CRITERIA",
+    "RUBRICS",
+    "Rubric",
+    "CriterionScore",
+    "Evaluation",
+    "CriterionComparison",
+    "Comparison",
+    "TIE_EPSILON",
+    "evaluate",
+    "compare",
+    "evaluate_batch",
+    "to_csv",
+    "score_relevance",
+    "score_coherence",
+    "score_conciseness",
+    "score_safety",
+    "score_fluency",
+    "score_specificity",
+    "score_completeness",
 ]

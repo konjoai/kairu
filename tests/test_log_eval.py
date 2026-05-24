@@ -1,4 +1,5 @@
 """Tests for kairu.log_eval — production log → evaluation pipeline."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,15 +13,22 @@ from kairu.log_eval import (
 
 
 LOG_GOOD = [
-    {"input": "Define recursion",
-     "output": "Recursion is when a function calls itself with a smaller input until it hits a base case.",
-     "request_id": "req-1", "region": "us-east-1"},
-    {"input": "What is the speed of light?",
-     "output": "Light travels at approximately 299,792 kilometres per second in a vacuum.",
-     "request_id": "req-2"},
-    {"input": "Summarize the water cycle",
-     "output": "Water evaporates from oceans, condenses into clouds, and falls as precipitation, then flows back to the oceans.",
-     "request_id": "req-3"},
+    {
+        "input": "Define recursion",
+        "output": "Recursion is when a function calls itself with a smaller input until it hits a base case.",
+        "request_id": "req-1",
+        "region": "us-east-1",
+    },
+    {
+        "input": "What is the speed of light?",
+        "output": "Light travels at approximately 299,792 kilometres per second in a vacuum.",
+        "request_id": "req-2",
+    },
+    {
+        "input": "Summarize the water cycle",
+        "output": "Water evaporates from oceans, condenses into clouds, and falls as precipitation, then flows back to the oceans.",
+        "request_id": "req-3",
+    },
 ]
 
 LOG_BAD = [
@@ -93,6 +101,7 @@ def test_evaluate_log_per_criterion_means_match_columns():
 
 def test_evaluate_log_to_dict_is_json_serializable():
     import json
+
     report = evaluate_log(LOG_GOOD)
     json.dumps(report.to_dict())  # must not raise
     d = report.to_dict()

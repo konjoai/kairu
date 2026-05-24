@@ -4,6 +4,7 @@ When the client sends ``Accept: application/x-ndjson`` the server must
 emit newline-delimited JSON instead of SSE frames. All tests run fully
 offline with MockModel.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,6 +38,7 @@ def _parse_ndjson(body: str) -> list[dict]:
 # Test 1 — JSONL response has correct Content-Type
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_jsonl_content_type() -> None:
     app = create_app()
@@ -54,6 +56,7 @@ async def test_jsonl_content_type() -> None:
 # Test 2 — JSONL response has no SSE "data:" prefix
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_jsonl_no_sse_prefix() -> None:
     app = create_app()
@@ -65,12 +68,15 @@ async def test_jsonl_no_sse_prefix() -> None:
         )
     for line in r.text.splitlines():
         if line.strip():
-            assert not line.startswith("data:"), f"SSE prefix found in JSONL line: {line!r}"
+            assert not line.startswith("data:"), (
+                f"SSE prefix found in JSONL line: {line!r}"
+            )
 
 
 # ---------------------------------------------------------------------------
 # Test 3 — JSONL has no [DONE] sentinel
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_jsonl_no_done_sentinel() -> None:
@@ -87,6 +93,7 @@ async def test_jsonl_no_done_sentinel() -> None:
 # ---------------------------------------------------------------------------
 # Test 4 — each JSONL line is valid JSON
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_jsonl_each_line_is_valid_json() -> None:
@@ -105,6 +112,7 @@ async def test_jsonl_each_line_is_valid_json() -> None:
 # Test 5 — JSONL frames carry OpenAI-compatible chunk shape
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_jsonl_chunk_shape() -> None:
     app = create_app()
@@ -116,7 +124,9 @@ async def test_jsonl_chunk_shape() -> None:
         )
     frames = _parse_ndjson(r.text)
     # All but the final frame should be token chunks.
-    token_frames = [f for f in frames if f.get("choices", [{}])[0].get("finish_reason") is None]
+    token_frames = [
+        f for f in frames if f.get("choices", [{}])[0].get("finish_reason") is None
+    ]
     for frame in token_frames:
         assert frame["object"] == "chat.completion.chunk"
         assert "choices" in frame
@@ -128,6 +138,7 @@ async def test_jsonl_chunk_shape() -> None:
 # ---------------------------------------------------------------------------
 # Test 6 — JSONL final frame has finish_reason
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_jsonl_final_frame_has_finish_reason() -> None:
@@ -148,6 +159,7 @@ async def test_jsonl_final_frame_has_finish_reason() -> None:
 # Test 7 — SSE still works when Accept is not application/x-ndjson
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_sse_default_when_accept_is_not_ndjson() -> None:
     app = create_app()
@@ -167,6 +179,7 @@ async def test_sse_default_when_accept_is_not_ndjson() -> None:
 # Test 8 — JSONL tokens_generated matches max_tokens
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_jsonl_tokens_generated_matches_max_tokens() -> None:
     app = create_app()
@@ -185,6 +198,7 @@ async def test_jsonl_tokens_generated_matches_max_tokens() -> None:
 # Test 9 — JSONL validation still rejects bad inputs
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_jsonl_validation_rejects_empty_prompt() -> None:
     app = create_app()
@@ -200,6 +214,7 @@ async def test_jsonl_validation_rejects_empty_prompt() -> None:
 # ---------------------------------------------------------------------------
 # Test 10 — JSONL rate limit still returns 429
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_jsonl_rate_limit_still_enforced() -> None:

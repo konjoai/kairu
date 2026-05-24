@@ -1,7 +1,7 @@
 """Tests for FeedbackLoop."""
+
 from __future__ import annotations
 
-import time
 
 import pytest
 
@@ -92,7 +92,6 @@ def test_low_acceptance_decreases_gamma(scheduler, loop):
 
 
 def test_normal_acceptance_no_gamma_change(scheduler, loop):
-    initial_gamma = scheduler.gamma
     for _ in range(3):
         loop.ingest(_make_result(acceptance_rate=0.6))
     # Gamma may not change for mid-range acceptance
@@ -103,7 +102,9 @@ def test_normal_acceptance_no_gamma_change(scheduler, loop):
         loop2.ingest(_make_result(0.6))
     summary = loop2.ingest(_make_result(0.6))
     assert summary is not None
-    assert "normal range" in summary.recommendation.lower() or not summary.gamma_adjusted
+    assert (
+        "normal range" in summary.recommendation.lower() or not summary.gamma_adjusted
+    )
 
 
 def test_summary_fields(loop):

@@ -2,6 +2,7 @@
 Live Rich dashboard for monitoring inference metrics in real time.
 Uses Rich tables and Live display so metrics refresh while tokens stream.
 """
+
 from __future__ import annotations
 
 from rich.console import Console

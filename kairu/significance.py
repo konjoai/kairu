@@ -19,6 +19,7 @@ Pure-stdlib implementation. The Student's t CDF is computed via Simpson's
 rule numerical integration of the PDF — accurate to ~5 decimal places for
 ``n`` in the relevant range (2 … several hundred), no scipy required.
 """
+
 from __future__ import annotations
 
 import math
@@ -27,13 +28,14 @@ from dataclasses import dataclass
 from typing import Dict, List, Mapping, Sequence, Tuple
 
 DEFAULT_ALPHA: float = 0.05
-SMALL_EFFECT_THRESHOLD: float = 0.20    # |Cohen's d| below this → no winner
-SIMPSON_STEPS: int = 2000               # even number; one-sided tail integration
+SMALL_EFFECT_THRESHOLD: float = 0.20  # |Cohen's d| below this → no winner
+SIMPSON_STEPS: int = 2000  # even number; one-sided tail integration
 
 
 # ─────────────────────────────────────────────────────────────────────────
 # Student's t distribution — PDF and CDF without scipy
 # ─────────────────────────────────────────────────────────────────────────
+
 
 def _lgamma(x: float) -> float:
     """Wrapper for math.lgamma — kept named so the formula reads cleanly."""
@@ -43,7 +45,7 @@ def _lgamma(x: float) -> float:
 def _student_t_pdf(t: float, df: float) -> float:
     """Student's t PDF at ``t`` with ``df`` degrees of freedom.
 
-        f(t; df) = Γ((df+1)/2) / (√(π·df) · Γ(df/2)) · (1 + t²/df)^(-(df+1)/2)
+    f(t; df) = Γ((df+1)/2) / (√(π·df) · Γ(df/2)) · (1 + t²/df)^(-(df+1)/2)
     """
     log_coeff = _lgamma((df + 1) / 2) - _lgamma(df / 2) - 0.5 * math.log(df * math.pi)
     log_kernel = -((df + 1) / 2) * math.log1p(t * t / df)
@@ -63,7 +65,7 @@ def _student_t_cdf(t: float, df: float) -> float:
         return 0.5
     a = 0.0
     b = abs(t)
-    n = SIMPSON_STEPS                              # already even
+    n = SIMPSON_STEPS  # already even
     h = (b - a) / n
     s = _student_t_pdf(a, df) + _student_t_pdf(b, df)
     # Simpson's 1/3 — coefficients 4 on odd indices, 2 on even.
@@ -192,7 +194,7 @@ def paired_t_test(
     n = len(diffs)
     df = n - 1
     mean_diff = statistics.fmean(diffs)
-    stdev_diff = statistics.stdev(diffs)               # ddof = 1
+    stdev_diff = statistics.stdev(diffs)  # ddof = 1
 
     # Floating-point tolerance: when every paired diff is identical the
     # sample stddev is mathematically 0 but `statistics.stdev` can return
@@ -203,11 +205,17 @@ def paired_t_test(
         stdev_diff = 0.0
     if stdev_diff == 0.0:
         # Degenerate case: every paired difference is identical (often 0).
-        t_stat = float("nan") if mean_diff == 0.0 else float("inf") * (1.0 if mean_diff > 0 else -1.0)
+        t_stat = (
+            float("nan")
+            if mean_diff == 0.0
+            else float("inf") * (1.0 if mean_diff > 0 else -1.0)
+        )
         p_value = 1.0 if mean_diff == 0.0 else 0.0
-        effect = 0.0 if mean_diff == 0.0 else float("inf") * (1.0 if mean_diff > 0 else -1.0)
+        effect = (
+            0.0 if mean_diff == 0.0 else float("inf") * (1.0 if mean_diff > 0 else -1.0)
+        )
         t_crit = _student_t_critical(df, alpha)
-        ci_half = t_crit * 0.0                          # SE = 0
+        ci_half = t_crit * 0.0  # SE = 0
         ci = (mean_diff - ci_half, mean_diff + ci_half)
     else:
         se = stdev_diff / math.sqrt(n)

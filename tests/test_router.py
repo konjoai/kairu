@@ -1,9 +1,10 @@
 """Tests for DecoderRouter and RouterDecision."""
+
 from __future__ import annotations
 
 import pytest
 
-from kairu.router import DecoderRouter, RouterDecision, RoutingStats
+from kairu.router import DecoderRouter, RouterDecision
 from kairu.mock_model import MockModel
 from kairu.metrics import GenerationMetrics
 
@@ -19,6 +20,7 @@ def draft():
 
 
 # --- RouterDecision ---
+
 
 def test_router_decision_fields():
     from kairu.auto_profile import DecoderProfile
@@ -40,6 +42,7 @@ def test_router_decision_fields():
 
 # --- DecoderRouter construction ---
 
+
 def test_router_short_prompt_threshold_default(model):
     r = DecoderRouter(model)
     assert r.stats.total_routed == 0
@@ -51,6 +54,7 @@ def test_router_bad_threshold(model):
 
 
 # --- Routing decisions ---
+
 
 def test_short_prompt_routes_streaming(model):
     r = DecoderRouter(model, short_prompt_threshold=20)
@@ -106,7 +110,7 @@ def test_stats_accumulate(model):
 
 def test_stats_across_strategies(model, draft):
     r = DecoderRouter(model, draft_model=draft, short_prompt_threshold=5)
-    r.route([1, 2])          # short → streaming
+    r.route([1, 2])  # short → streaming
     r.route(list(range(20)))  # long + draft → speculative
     assert r.stats.decisions["streaming"] == 1
     assert r.stats.decisions["speculative"] == 1
@@ -120,6 +124,7 @@ def test_profile_strategy_matches_decision(model):
 
 
 # --- record_outcome ---
+
 
 def test_record_outcome_updates_latency(model):
     r = DecoderRouter(model)
@@ -136,10 +141,10 @@ def test_record_outcome_ewma(model):
     m2 = GenerationMetrics(prompt_tokens=3, generated_tokens=10)
     # Finish m2 after a moment so total_time_ms differs
     import time
+
     time.sleep(0.001)
     m2.finish()
     r.record_outcome(d, m1)
-    first = r.stats.mean_latency_by_strategy["streaming"]
     r.record_outcome(d, m2)
     second = r.stats.mean_latency_by_strategy["streaming"]
     # EWMA should update even when latencies are slightly different

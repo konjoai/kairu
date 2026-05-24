@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
 import subprocess
 import sys
@@ -86,7 +85,16 @@ def _similarity(a: list[str], b: list[str]) -> float:
 
 
 SUPPORTED_EXTENSIONS = {".rs", ".py", ".mojo", ".ts", ".tsx", ".js", ".jsx"}
-SKIP_DIRS = {"target", ".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build"}
+SKIP_DIRS = {
+    "target",
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+}
 
 
 def _iter_sources(root: Path, extensions: set[str]) -> Iterator[Path]:
@@ -100,7 +108,10 @@ def _iter_sources(root: Path, extensions: set[str]) -> Iterator[Path]:
 def _staged_files(root: Path, extensions: set[str]) -> list[Path]:
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only"],
-        cwd=root, capture_output=True, text=True, check=False
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     paths = []
     for line in result.stdout.splitlines():
@@ -113,7 +124,10 @@ def _staged_files(root: Path, extensions: set[str]) -> list[Path]:
 def _changed_files(root: Path, extensions: set[str]) -> list[Path]:
     result = subprocess.run(
         ["git", "diff", "--name-only", "origin/main...HEAD"],
-        cwd=root, capture_output=True, text=True, check=False
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     paths = []
     for line in result.stdout.splitlines():
@@ -155,25 +169,30 @@ def find_duplicates(
             for other_path, other_start, other_lines in matches:
                 if other_path == target_path and other_start == start:
                     continue
-                pair_key = frozenset([
-                    f"{target_path}:{start}",
-                    f"{other_path}:{other_start}",
-                ])
+                pair_key = frozenset(
+                    [
+                        f"{target_path}:{start}",
+                        f"{other_path}:{other_start}",
+                    ]
+                )
                 if pair_key in seen_pairs:
                     continue
                 seen_pairs.add(pair_key)
                 other_block = other_lines[other_start : other_start + min_lines]
                 sim = _similarity(target_block, other_block)
                 if sim >= threshold:
-                    violations.append({
-                        "file_a": str(target_path),
-                        "line_a": start + 1,
-                        "file_b": str(other_path),
-                        "line_b": other_start + 1,
-                        "similarity": round(sim, 3),
-                        "lines": min_lines,
-                        "sample": "\n".join(target_block[:5]) + ("..." if len(target_block) > 5 else ""),
-                    })
+                    violations.append(
+                        {
+                            "file_a": str(target_path),
+                            "line_a": start + 1,
+                            "file_b": str(other_path),
+                            "line_b": other_start + 1,
+                            "similarity": round(sim, 3),
+                            "lines": min_lines,
+                            "sample": "\n".join(target_block[:5])
+                            + ("..." if len(target_block) > 5 else ""),
+                        }
+                    )
 
     return violations
 
@@ -197,7 +216,9 @@ def main() -> int:
     else:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, check=False
+            capture_output=True,
+            text=True,
+            check=False,
         )
         root = Path(result.stdout.strip()) if result.returncode == 0 else Path(".")
 
@@ -219,7 +240,9 @@ def main() -> int:
     else:
         scan_targets = all_files
 
-    violations = find_duplicates(all_files, scan_targets, args.threshold, args.min_lines)
+    violations = find_duplicates(
+        all_files, scan_targets, args.threshold, args.min_lines
+    )
 
     report = {
         "duplicates": violations,
@@ -241,12 +264,14 @@ def main() -> int:
                 print(
                     f"  {v['file_a']}:{v['line_a']} ↔ "
                     f"{v['file_b']}:{v['line_b']} "
-                    f"({v['similarity']*100:.0f}% similar, {v['lines']}+ lines)"
+                    f"({v['similarity'] * 100:.0f}% similar, {v['lines']}+ lines)"
                 )
                 print(f"    Sample: {v['sample'][:80]}")
             print("\nAbstract duplicate logic into a shared function or module.")
         else:
-            print(f"[dry-check] ✅ No DRY violations ({len(scan_targets)} files scanned).")
+            print(
+                f"[dry-check] ✅ No DRY violations ({len(scan_targets)} files scanned)."
+            )
 
     if violations and not args.warn_only:
         return 1

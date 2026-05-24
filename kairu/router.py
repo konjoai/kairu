@@ -1,4 +1,5 @@
 """Automatic decoder strategy router based on prompt analysis and runtime signals."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -70,9 +71,7 @@ class DecoderRouter:
         """Select the best decoding strategy for the given prompt token ids."""
         n_tokens = len(prompt_token_ids)
         has_draft = self._draft is not None
-        budget_tight = (
-            self._budget_ms is not None and self._budget_ms < 200.0
-        )
+        budget_tight = self._budget_ms is not None and self._budget_ms < 200.0
 
         # Budget-first override: tight latency budget → streaming
         if budget_tight:

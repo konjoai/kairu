@@ -1,14 +1,13 @@
 """Tests for kairu.significance — paired t-test + Cohen's d."""
+
 from __future__ import annotations
 
-import math
 
 import pytest
 
 from kairu.significance import (
     DEFAULT_ALPHA,
     SMALL_EFFECT_THRESHOLD,
-    SignificanceResult,
     paired_t_test,
     per_criterion_diffs,
 )
@@ -81,9 +80,6 @@ def test_paired_t_specific_p_value():
 
 
 def test_cohens_d_buckets():
-    cases = [
-        ([.55, .55, .55, .55], [.5, .5, .5, .5], "small"),   # 0.05/<sigma> — tiny but stdev=0; use spread
-    ]
     # Real-data driven: build samples with controlled effect size.
     # We exercise the labels by constructing diffs with known d.
     def _samples_for_d(d_target: float):
@@ -91,7 +87,13 @@ def test_cohens_d_buckets():
         a = [0.5 + x for x in diffs]
         b = [0.5] * len(diffs)
         return a, b
-    for d_target, label in [(0.1, "negligible"), (0.3, "small"), (0.6, "medium"), (1.2, "large")]:
+
+    for d_target, label in [
+        (0.1, "negligible"),
+        (0.3, "small"),
+        (0.6, "medium"),
+        (1.2, "large"),
+    ]:
         a, b = _samples_for_d(d_target * 6)  # scale up so labels match
         r = paired_t_test(a, b)
         assert r.effect_label in ("negligible", "small", "medium", "large")
@@ -123,7 +125,9 @@ def test_confidence_interval_contains_mean():
 
 
 def test_per_criterion_diffs_aligns_shared_keys():
-    a, b, names = per_criterion_diffs({"x": 0.8, "y": 0.6, "z": 0.4}, {"x": 0.5, "y": 0.7, "w": 0.3})
+    a, b, names = per_criterion_diffs(
+        {"x": 0.8, "y": 0.6, "z": 0.4}, {"x": 0.5, "y": 0.7, "w": 0.3}
+    )
     assert set(names) == {"x", "y"}
     assert len(a) == len(b) == 2
 
@@ -136,6 +140,16 @@ def test_per_criterion_diffs_no_overlap_raises():
 def test_result_dict_shape():
     r = paired_t_test([0.5, 0.6, 0.7], [0.4, 0.5, 0.6])
     d = r.to_dict()
-    for k in ("n", "mean_diff", "stdev_diff", "t_stat", "df", "p_value",
-              "effect_size", "effect_label", "confidence_interval", "winner"):
+    for k in (
+        "n",
+        "mean_diff",
+        "stdev_diff",
+        "t_stat",
+        "df",
+        "p_value",
+        "effect_size",
+        "effect_label",
+        "confidence_interval",
+        "winner",
+    ):
         assert k in d

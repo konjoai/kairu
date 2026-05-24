@@ -1,9 +1,8 @@
 """Tests for kairu.wrapper.ModelWrapper and wrap_model — 8 tests."""
-import pytest
+
 from kairu.mock_model import MockModel
 from kairu.metrics import GenerationMetrics
 from kairu.speculative import SpeculativeDecoder
-from kairu.early_exit import EarlyExitDecoder
 from kairu.wrapper import ModelWrapper, wrap_model
 
 PROMPT = [10, 20, 30]

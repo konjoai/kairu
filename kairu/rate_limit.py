@@ -14,6 +14,7 @@ The :class:`RateLimiter` glue layer is what the server holds; it picks
 the backend at construction time. Public API is unchanged from v0.4.0
 (``await limiter.check(key)``) — existing tests still pass.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -30,7 +31,9 @@ class RateLimiterBackend(Protocol):
     without changing the call sites.
     """
 
-    async def allow(self, key: str, now: float, max_requests: int, window_s: float) -> bool:
+    async def allow(
+        self, key: str, now: float, max_requests: int, window_s: float
+    ) -> bool:
         """Return True iff the request should be permitted; record it on True."""
         ...
 
@@ -57,7 +60,9 @@ class InMemoryBackend:
         self._buckets: dict[str, _Bucket] = {}
         self._lock = asyncio.Lock()
 
-    async def allow(self, key: str, now: float, max_requests: int, window_s: float) -> bool:
+    async def allow(
+        self, key: str, now: float, max_requests: int, window_s: float
+    ) -> bool:
         async with self._lock:
             b = self._buckets.setdefault(key, _Bucket())
             cutoff = now - window_s
@@ -95,7 +100,9 @@ class RedisBackend:
     def __init__(self, redis_client) -> None:  # redis.asyncio.Redis
         self._r = redis_client
 
-    async def allow(self, key: str, now: float, max_requests: int, window_s: float) -> bool:
+    async def allow(
+        self, key: str, now: float, max_requests: int, window_s: float
+    ) -> bool:
         full_key = f"{self.KEY_PREFIX}{key}"
         cutoff = now - window_s
         member = f"{now:.9f}"
@@ -136,7 +143,9 @@ class RateLimiter:
         self._win = window_s
         # NB: explicit None check — InMemoryBackend defines __len__,
         # so an empty backend evaluates falsy under `or`.
-        self._backend: RateLimiterBackend = backend if backend is not None else InMemoryBackend()
+        self._backend: RateLimiterBackend = (
+            backend if backend is not None else InMemoryBackend()
+        )
 
     @property
     def backend(self) -> RateLimiterBackend:
