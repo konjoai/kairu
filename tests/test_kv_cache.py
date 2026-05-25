@@ -1,4 +1,5 @@
 """Tests for kairu.kv_cache — LRU logits cache + CachedModel wrapper."""
+
 from __future__ import annotations
 
 import numpy as np

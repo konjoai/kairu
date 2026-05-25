@@ -16,6 +16,7 @@ heuristic rather than a learned classifier:
 Every case enables the logits cache (``use_cache=True``) by default —
 memoization is a strict win whenever the workload has any prefix overlap.
 """
+
 from __future__ import annotations
 
 import re

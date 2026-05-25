@@ -1,4 +1,5 @@
 """Tests for kairu._hf_backend — 4 non-gated structural tests + 4 gated integration tests."""
+
 from __future__ import annotations
 
 import os

@@ -1,4 +1,5 @@
 """Tests for kairu.ensemble — multi-judge evaluation + median aggregation."""
+
 from __future__ import annotations
 
 import statistics
@@ -10,7 +11,6 @@ from kairu.ensemble import (
     EnsembleComparison,
     EnsembleResult,
     JudgeConfig,
-    JudgeScore,
     ensemble_compare,
     ensemble_evaluate,
     judge_evaluate,
@@ -101,9 +101,7 @@ def test_ensemble_evaluate_median_is_robust_to_outlier():
 
 def test_ensemble_evaluate_disagreement_flag_fires_when_judges_diverge():
     # Wide noise → criteria disagreements above the 0.2 threshold.
-    judges = [
-        JudgeConfig(name=f"j{i}", noise=0.35, seed=i) for i in range(5)
-    ]
+    judges = [JudgeConfig(name=f"j{i}", noise=0.35, seed=i) for i in range(5)]
     result = ensemble_evaluate(PROMPT, RESP_GOOD, judges)
     assert result.max_disagreement > 0.0
     # With noise=0.35 and 5 judges, at least one criterion should exceed 0.2.
@@ -122,6 +120,7 @@ def test_ensemble_evaluate_no_disagreement_when_judges_identical():
 
 def test_ensemble_evaluate_to_dict_is_json_serializable():
     import json
+
     judges = [JudgeConfig(name="j1"), JudgeConfig(name="j2", noise=0.05)]
     result = ensemble_evaluate(PROMPT, RESP_GOOD, judges)
     json.dumps(result.to_dict())  # must not raise
@@ -146,7 +145,9 @@ def test_ensemble_compare_returns_per_criterion_breakdown():
     cmp = ensemble_compare(PROMPT, RESP_GOOD, RESP_BAD, judges)
     assert set(cmp.per_criterion.keys()) <= set(cmp.a.median_scores.keys())
     for crit, body in cmp.per_criterion.items():
-        assert {"a_median", "b_median", "diff", "a_stdev", "b_stdev", "winner"} <= set(body)
+        assert {"a_median", "b_median", "diff", "a_stdev", "b_stdev", "winner"} <= set(
+            body
+        )
         assert body["winner"] in ("a", "b", "tie")
 
 
@@ -166,6 +167,7 @@ def test_ensemble_compare_propagates_disagreement_flag():
 
 def test_ensemble_compare_to_dict_is_json_serializable():
     import json
+
     judges = [JudgeConfig(name="j1"), JudgeConfig(name="j2")]
     cmp = ensemble_compare(PROMPT, RESP_GOOD, RESP_BAD, judges)
     json.dumps(cmp.to_dict())  # no raise

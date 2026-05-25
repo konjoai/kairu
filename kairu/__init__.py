@@ -25,9 +25,10 @@ Provides:
   - ShieldRule       : named regex rule with priority and verdict
   - get_default_shield : module-level singleton shield
 """
+
 from __future__ import annotations
 
-__version__ = "0.17.0"
+__version__ = "0.18.0"
 
 from kairu.audit import AuditLog, AuditRecord, hash_inputs, open_default_audit
 from kairu.significance import SignificanceResult, paired_t_test, per_criterion_diffs
@@ -58,7 +59,12 @@ from kairu.ensemble import (
     ensemble_evaluate,
     judge_evaluate,
 )
-from kairu.log_eval import DEFAULT_LOG_THRESHOLD, LogEvalReport, LogItemResult, evaluate_log
+from kairu.log_eval import (
+    DEFAULT_LOG_THRESHOLD,
+    LogEvalReport,
+    LogItemResult,
+    evaluate_log,
+)
 from kairu.evaluation import (
     CRITERIA,
     RUBRICS,
@@ -129,6 +135,15 @@ from kairu.rate_limit import (
     RateLimiter,
     RateLimiterBackend,
     RedisBackend,
+)
+from kairu.calibration import (
+    BiasProfile,
+    BiasProfileStore,
+    CalibrationPair,
+    CalibratedEnsembleResult,
+    build_bias_profile,
+    correct_ensemble_scores,
+    compute_uncalibrated_bias_bound,
 )
 from kairu.shield import (
     PromptShield,
@@ -261,5 +276,13 @@ __all__ = [
     "TrajectoryStep",
     "TrajectoryEvaluation",
     "evaluate_trajectory",
+    # v0.18 — judge bias calibration + A-BB bias bounds
+    "BiasProfile",
+    "BiasProfileStore",
+    "CalibrationPair",
+    "CalibratedEnsembleResult",
+    "build_bias_profile",
+    "correct_ensemble_scores",
+    "compute_uncalibrated_bias_bound",
     "__version__",
 ]

@@ -48,6 +48,7 @@ Observability
 * Per-token events are recorded on the span (not child spans — at 1 k tokens/s
   that would balloon the trace store).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -275,7 +276,11 @@ def create_app(
         request_id = f"kairu-{uuid.uuid4().hex[:16]}"
         logger.info(
             "generate id=%s client=%s prompt_sha=%s max_tokens=%d temp=%.3f",
-            request_id, key, prompt_hash, req.max_tokens, req.temperature,
+            request_id,
+            key,
+            prompt_hash,
+            req.max_tokens,
+            req.temperature,
         )
 
         # Determine output format: SSE (default) or JSONL fallback.
@@ -330,11 +335,13 @@ def create_app(
                         "object": "chat.completion.chunk",
                         "created": int(time.time()),
                         "model": cfg.model_name,
-                        "choices": [{
-                            "index": 0,
-                            "delta": {"content": piece},
-                            "finish_reason": None,
-                        }],
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {"content": piece},
+                                "finish_reason": None,
+                            }
+                        ],
                         "kairu": {
                             "token_id": tok_id,
                             "index": index,
@@ -356,11 +363,13 @@ def create_app(
                     "object": "chat.completion.chunk",
                     "created": int(time.time()),
                     "model": cfg.model_name,
-                    "choices": [{
-                        "index": 0,
-                        "delta": {},
-                        "finish_reason": finish_reason,
-                    }],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {},
+                            "finish_reason": finish_reason,
+                        }
+                    ],
                     "kairu": {
                         "tokens_generated": count,
                         "total_s": total_s,
@@ -396,14 +405,20 @@ def create_app(
                 return f"{json.dumps(payload, ensure_ascii=False)}\n".encode("utf-8")
 
             async def jsonl_stream() -> AsyncIterator[bytes]:
-                with otel.start_generate_span(request_id, prompt_hash, parent_ctx) as span:
+                with otel.start_generate_span(
+                    request_id, prompt_hash, parent_ctx
+                ) as span:
                     async for chunk in _token_loop(span, _jsonl_frame):
                         yield chunk
 
             return StreamingResponse(
                 jsonl_stream(),
                 media_type="application/x-ndjson",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", **extra_headers},
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                    **extra_headers,
+                },
             )
 
         # Default: SSE stream.

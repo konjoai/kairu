@@ -91,7 +91,9 @@ class SpeculativeDecoder:
             round_accepted = 0
             for dtok, dprob in zip(draft_tokens, draft_probs):
                 target_logits = self.target.next_token_logits(verify_ctx)
-                target_probs = self._softmax(target_logits / max(self.temperature, 1e-8))
+                target_probs = self._softmax(
+                    target_logits / max(self.temperature, 1e-8)
+                )
                 accept_ratio = min(1.0, float(target_probs[dtok]) / max(dprob, 1e-10))
 
                 if self._rng.random() < accept_ratio:
@@ -104,7 +106,8 @@ class SpeculativeDecoder:
                     all_accepted = False
                     # Sample from the adjusted (residual) distribution
                     adj = np.maximum(
-                        target_probs - self._softmax(target_logits / max(self.temperature, 1e-8)),
+                        target_probs
+                        - self._softmax(target_logits / max(self.temperature, 1e-8)),
                         0.0,
                     )
                     adj_sum = float(adj.sum())

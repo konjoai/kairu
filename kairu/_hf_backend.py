@@ -1,4 +1,5 @@
 """HuggingFace backend — requires kairu[hf]: pip install kairu[hf]."""
+
 from __future__ import annotations
 
 import numpy as np

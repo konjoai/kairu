@@ -1,4 +1,5 @@
 """Tests for kairu.rubrics — the eight named prism rubrics."""
+
 from __future__ import annotations
 
 import re
@@ -10,8 +11,14 @@ from kairu.rubrics import RUBRIC_DEFS, rubric_color, rubric_criteria, rubric_nam
 
 
 EXPECTED_NAMES = (
-    "helpfulness", "accuracy", "safety", "coherence",
-    "conciseness", "creativity", "groundedness", "tone",
+    "helpfulness",
+    "accuracy",
+    "safety",
+    "coherence",
+    "conciseness",
+    "creativity",
+    "groundedness",
+    "tone",
 )
 HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
@@ -44,7 +51,9 @@ def test_colors_unique_across_rubrics() -> None:
 def test_each_rubric_weights_reference_real_criteria() -> None:
     for name in EXPECTED_NAMES:
         for criterion in rubric_criteria(name):
-            assert criterion in CRITERIA, f"{name} references unknown criterion {criterion}"
+            assert criterion in CRITERIA, (
+                f"{name} references unknown criterion {criterion}"
+            )
 
 
 def test_each_rubric_weights_are_positive() -> None:

@@ -10,10 +10,10 @@
 7.  CLI --help prints usage without error.
 8.  Saved result path contains timestamp and name.
 """
+
 from __future__ import annotations
 
 import json
-import sys
 
 import pytest
 
@@ -30,6 +30,7 @@ from kairu.mock_model import MockModel
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def small_result(tmp_path) -> BenchmarkResult:
     """Run 3 measured runs (1 warmup) generating 10 tokens each."""
@@ -41,6 +42,7 @@ def small_result(tmp_path) -> BenchmarkResult:
 # ---------------------------------------------------------------------------
 # Test 1 — correct shape
 # ---------------------------------------------------------------------------
+
 
 def test_result_shape(small_result: BenchmarkResult) -> None:
     """BenchmarkResult has the right field values after a small run."""
@@ -62,6 +64,7 @@ def test_result_shape(small_result: BenchmarkResult) -> None:
 # ---------------------------------------------------------------------------
 # Test 2 — percentile ordering
 # ---------------------------------------------------------------------------
+
 
 def test_percentile_ordering(small_result: BenchmarkResult) -> None:
     """p50 <= p95 <= p99 must hold by definition."""
@@ -107,6 +110,7 @@ def test_to_json_round_trip(small_result: BenchmarkResult) -> None:
 # Test 4 — save() writes valid JSON with non-empty hardware section
 # ---------------------------------------------------------------------------
 
+
 def test_save_writes_valid_json(tmp_path, small_result: BenchmarkResult) -> None:
     """save() must create a JSON file; hardware section must be non-empty."""
     saved = small_result.save(base_dir=str(tmp_path))
@@ -122,6 +126,7 @@ def test_save_writes_valid_json(tmp_path, small_result: BenchmarkResult) -> None
 # Test 5 — _collect_hardware() has required keys
 # ---------------------------------------------------------------------------
 
+
 def test_collect_hardware_keys() -> None:
     """_collect_hardware() must return a dict with at least the required keys."""
     hw = _collect_hardware()
@@ -136,16 +141,23 @@ def test_collect_hardware_keys() -> None:
 # Test 6 — CLI exits 0
 # ---------------------------------------------------------------------------
 
+
 def test_cli_main_exits_0(tmp_path) -> None:
     """main() with --model mock must complete and return 0."""
     exit_code = main(
         [
-            "--model", "mock",
-            "--tokens", "10",
-            "--runs", "3",
-            "--warmup", "1",
-            "--name", "ci-smoke",
-            "--output", str(tmp_path),
+            "--model",
+            "mock",
+            "--tokens",
+            "10",
+            "--runs",
+            "3",
+            "--warmup",
+            "1",
+            "--name",
+            "ci-smoke",
+            "--output",
+            str(tmp_path),
         ]
     )
     assert exit_code == 0
@@ -154,6 +166,7 @@ def test_cli_main_exits_0(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 # Test 7 — CLI --help exits 0
 # ---------------------------------------------------------------------------
+
 
 def test_cli_help(capsys) -> None:
     """--help must print usage and exit 0 (argparse raises SystemExit(0))."""
@@ -167,6 +180,7 @@ def test_cli_help(capsys) -> None:
 # ---------------------------------------------------------------------------
 # Test 8 — saved filename contains timestamp and name
 # ---------------------------------------------------------------------------
+
 
 def test_saved_filename_contains_timestamp_and_name(tmp_path) -> None:
     """The saved JSON filename must embed the result timestamp and name."""

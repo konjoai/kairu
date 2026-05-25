@@ -1,4 +1,5 @@
 """Tests for kairu.rate_limit — pluggable backends + RedisBackend logic."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,6 +12,7 @@ from kairu.rate_limit import (
 
 
 # ─── public RateLimiter API (unchanged from v0.4.0) ───────────────────────
+
 
 @pytest.mark.asyncio
 async def test_in_memory_default_backend():
@@ -25,7 +27,7 @@ async def test_in_memory_sliding_window():
     assert await rl.check("a", now=1.0) is True
     assert await rl.check("a", now=2.0) is False
     assert await rl.check("a", now=11.0) is True  # first stamp expired
-    assert await rl.check("b", now=2.0) is True   # different key
+    assert await rl.check("b", now=2.0) is True  # different key
 
 
 @pytest.mark.asyncio
@@ -45,6 +47,7 @@ async def test_rate_limiter_rejects_bad_config():
 
 
 # ─── RedisBackend logic — unit-tested with a mock redis client ────────────
+
 
 class _MockPipe:
     """Just enough redis pipeline behavior for the backend's use case."""

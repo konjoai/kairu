@@ -1,4 +1,5 @@
 """Tests for kairu.layered — per-layer early exit."""
+
 from __future__ import annotations
 
 import numpy as np

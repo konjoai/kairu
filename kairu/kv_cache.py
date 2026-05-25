@@ -18,6 +18,7 @@ is fully deterministic by construction).
 
 The cache is bounded LRU (``OrderedDict.move_to_end``) — O(1) get, O(1) put.
 """
+
 from __future__ import annotations
 
 from collections import OrderedDict

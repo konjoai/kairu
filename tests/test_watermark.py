@@ -2,9 +2,9 @@
 
 All tests are fully offline (NumPy + stdlib only).  No HF / torch required.
 """
+
 from __future__ import annotations
 
-import math
 
 import numpy as np
 import pytest
@@ -27,6 +27,7 @@ VOCAB = 1000
 # ---------------------------------------------------------------------------
 # _seed helpers
 # ---------------------------------------------------------------------------
+
 
 def test_seed_from_token_deterministic():
     """Same token always yields the same seed."""
@@ -52,12 +53,15 @@ def test_seed_from_context_window_trims():
     long_ctx = [1, 2, 3] + tail
     short_ctx = tail
     # window=2 ⇒ only last 2 tokens hashed
-    assert _seed_from_context(long_ctx, window=2) == _seed_from_context(short_ctx, window=2)
+    assert _seed_from_context(long_ctx, window=2) == _seed_from_context(
+        short_ctx, window=2
+    )
 
 
 # ---------------------------------------------------------------------------
 # _make_green_list
 # ---------------------------------------------------------------------------
+
 
 def test_green_list_shape_and_dtype():
     mask = _make_green_list(VOCAB, seed=42, green_fraction=0.5)
@@ -89,6 +93,7 @@ def test_green_list_changes_with_seed():
 # WatermarkLogitsProcessor construction
 # ---------------------------------------------------------------------------
 
+
 def test_processor_bad_vocab():
     with pytest.raises(ValueError, match="vocab_size"):
         WatermarkLogitsProcessor(vocab_size=1)
@@ -107,6 +112,7 @@ def test_processor_bad_scheme():
 # ---------------------------------------------------------------------------
 # WatermarkLogitsProcessor.process
 # ---------------------------------------------------------------------------
+
 
 def test_process_green_tokens_biased_up():
     """Green tokens should have logits strictly higher than baseline."""
@@ -161,6 +167,7 @@ def test_context_scheme_differs_from_single():
 # WatermarkDetector construction
 # ---------------------------------------------------------------------------
 
+
 def test_detector_bad_threshold():
     with pytest.raises(ValueError, match="z_threshold"):
         WatermarkDetector(vocab_size=VOCAB, z_threshold=0.0)
@@ -169,6 +176,7 @@ def test_detector_bad_threshold():
 # ---------------------------------------------------------------------------
 # WatermarkDetector.detect
 # ---------------------------------------------------------------------------
+
 
 def test_detect_empty_raises():
     det = WatermarkDetector(vocab_size=VOCAB)
@@ -235,6 +243,7 @@ def test_detect_unwatermarked_sequence_low_z():
 # WatermarkResult is frozen (immutable)
 # ---------------------------------------------------------------------------
 
+
 def test_watermark_result_frozen():
     result = WatermarkResult(
         num_tokens=10,
@@ -252,6 +261,7 @@ def test_watermark_result_frozen():
 # ---------------------------------------------------------------------------
 # _norm_sf edge cases
 # ---------------------------------------------------------------------------
+
 
 def test_norm_sf_at_zero():
     """SF at z=0 should be 0.5."""

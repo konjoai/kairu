@@ -19,6 +19,7 @@ Usage (CLI)::
 
     python -m kairu.bench --model mock --tokens 100 --runs 50 --warmup 5
 """
+
 from __future__ import annotations
 
 import json
@@ -39,6 +40,7 @@ from kairu.streaming import StreamingDecoder
 # ---------------------------------------------------------------------------
 # Hardware metadata
 # ---------------------------------------------------------------------------
+
 
 def _collect_hardware() -> dict:
     """Collect host hardware metadata without requiring any ML libraries.
@@ -116,6 +118,7 @@ def _collect_hardware() -> dict:
 # Percentile helper (pure statistics / sorted-list — no scipy)
 # ---------------------------------------------------------------------------
 
+
 def _percentile(sorted_data: list[float], p: float) -> float:
     """Return the p-th percentile (0–100) using linear interpolation.
 
@@ -140,6 +143,7 @@ def _percentile(sorted_data: list[float], p: float) -> float:
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BenchmarkResult:
     """Immutable record of a completed benchmark run."""
@@ -163,7 +167,9 @@ class BenchmarkResult:
     tokens_per_s_mean: float
 
     hardware: dict = field(default_factory=dict)
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    )
 
     # Arbitrary key/value metadata (e.g. acceptance_rate from speculative runs)
     metadata: dict = field(default_factory=dict)
@@ -219,6 +225,7 @@ class BenchmarkResult:
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
+
 
 class BenchmarkRunner:
     """Drive N generation runs against a ``ModelInterface`` and collect latency stats.
@@ -314,8 +321,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m kairu.bench",
         description=(
-            "Kairu benchmarking suite — measure p50/p95/p99 "
-            "token-generation latency."
+            "Kairu benchmarking suite — measure p50/p95/p99 token-generation latency."
         ),
     )
     parser.add_argument(

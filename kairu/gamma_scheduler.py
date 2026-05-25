@@ -18,6 +18,7 @@ This is the same control law as TCP congestion control: additive increase on
 success, multiplicative decrease on failure. It converges quickly without
 oscillation when the underlying acceptance rate is stationary.
 """
+
 from __future__ import annotations
 
 from collections import deque

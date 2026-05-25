@@ -41,6 +41,7 @@ Real LLM judges plug in later behind the same ``JudgeConfig`` contract
 by adding a ``model_name`` field + a dispatch table in this module — no
 caller changes required.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -211,8 +212,10 @@ def judge_evaluate(prompt: str, response: str, judge: JudgeConfig) -> JudgeScore
     if judge.noise == 0.0:
         scores = {cs.name: cs.score for cs in ev.scores}
         return JudgeScore(
-            judge=judge.name, rubric=ev.rubric,
-            aggregate=ev.aggregate, scores=scores,
+            judge=judge.name,
+            rubric=ev.rubric,
+            aggregate=ev.aggregate,
+            scores=scores,
         )
 
     rng = random.Random(_seed_for(judge))
@@ -227,8 +230,10 @@ def judge_evaluate(prompt: str, response: str, judge: JudgeConfig) -> JudgeScore
     else:
         agg = sum(perturbed[k] * weights[k] for k in perturbed) / total_w
     return JudgeScore(
-        judge=judge.name, rubric=ev.rubric,
-        aggregate=agg, scores=perturbed,
+        judge=judge.name,
+        rubric=ev.rubric,
+        aggregate=agg,
+        scores=perturbed,
     )
 
 
@@ -292,8 +297,12 @@ def ensemble_compare(
     tie_epsilon: float = TIE_EPSILON,
 ) -> EnsembleComparison:
     """A/B comparison aggregated across N judges."""
-    a = ensemble_evaluate(prompt, response_a, judges, disagreement_threshold=disagreement_threshold)
-    b = ensemble_evaluate(prompt, response_b, judges, disagreement_threshold=disagreement_threshold)
+    a = ensemble_evaluate(
+        prompt, response_a, judges, disagreement_threshold=disagreement_threshold
+    )
+    b = ensemble_evaluate(
+        prompt, response_b, judges, disagreement_threshold=disagreement_threshold
+    )
     median_diff = a.median_aggregate - b.median_aggregate
     if abs(median_diff) <= tie_epsilon:
         winner = "tie"
@@ -322,7 +331,8 @@ def ensemble_compare(
             "winner": w,
         }
     return EnsembleComparison(
-        a=a, b=b,
+        a=a,
+        b=b,
         median_diff=median_diff,
         winner=winner,
         per_criterion=per_criterion,

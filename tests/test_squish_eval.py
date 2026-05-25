@@ -1,4 +1,5 @@
 """Tests for kairu.squish_eval — quantization-tier quality evaluation."""
+
 from __future__ import annotations
 
 import pytest
@@ -197,9 +198,27 @@ def test_recommend_respects_tolerance_threshold():
     report = DegradationReport(
         baseline_aggregate=1.0,
         tiers=(
-            TierDelta(tier="int8", bits=8, per_criterion={}, aggregate_delta=-0.02, retention_pct=98.0),
-            TierDelta(tier="int4", bits=4, per_criterion={}, aggregate_delta=-0.10, retention_pct=90.0),
-            TierDelta(tier="int2", bits=2, per_criterion={}, aggregate_delta=-0.30, retention_pct=70.0),
+            TierDelta(
+                tier="int8",
+                bits=8,
+                per_criterion={},
+                aggregate_delta=-0.02,
+                retention_pct=98.0,
+            ),
+            TierDelta(
+                tier="int4",
+                bits=4,
+                per_criterion={},
+                aggregate_delta=-0.10,
+                retention_pct=90.0,
+            ),
+            TierDelta(
+                tier="int2",
+                bits=2,
+                per_criterion={},
+                aggregate_delta=-0.30,
+                retention_pct=70.0,
+            ),
         ),
     )
     # 5% tolerance → require ≥ 95% retention. Only int8 qualifies.

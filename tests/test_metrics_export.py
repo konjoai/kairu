@@ -1,4 +1,5 @@
 """Tests for kairu.metrics_export — Prometheus exposition format."""
+
 from __future__ import annotations
 
 import re

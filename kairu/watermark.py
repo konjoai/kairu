@@ -27,6 +27,7 @@ Constraints (from CLAUDE.md)
 * Zero overhead when no watermark is requested (no object created).
 * No silent failures — every ValueError is surfaced immediately.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -41,6 +42,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Green-list seeding
 # ---------------------------------------------------------------------------
+
 
 def _seed_from_token(token_id: int) -> int:
     """Map a single previous token ID to a 64-bit integer seed.
@@ -93,6 +95,7 @@ def _make_green_list(vocab_size: int, seed: int, green_fraction: float) -> np.nd
 # ---------------------------------------------------------------------------
 # Processor
 # ---------------------------------------------------------------------------
+
 
 class WatermarkLogitsProcessor:
     """Bias logits toward hash-seeded green tokens at each decoding step.
@@ -205,6 +208,7 @@ class WatermarkLogitsProcessor:
 # ---------------------------------------------------------------------------
 # Detector
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class WatermarkResult:
@@ -333,6 +337,7 @@ class WatermarkDetector:
 # ---------------------------------------------------------------------------
 # Normal survival function (no scipy)
 # ---------------------------------------------------------------------------
+
 
 def _norm_sf(z: float) -> float:
     """Compute P(Z >= z) for Z ~ N(0,1) using the complementary error function.

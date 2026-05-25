@@ -17,6 +17,7 @@ Thread/asyncio safety: each primitive serializes mutations through a
 ``threading.Lock``. Reads under the lock too — exposition is rare and
 correctness > microseconds here.
 """
+
 from __future__ import annotations
 
 import bisect
@@ -26,7 +27,17 @@ from typing import Iterable
 
 
 _DEFAULT_BUCKETS: tuple[float, ...] = (
-    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
 )
 
 
@@ -37,7 +48,11 @@ def _esc_label(v: str) -> str:
 def _labels_str(labels: dict[str, str] | None) -> str:
     if not labels:
         return ""
-    return "{" + ",".join(f'{k}="{_esc_label(v)}"' for k, v in sorted(labels.items())) + "}"
+    return (
+        "{"
+        + ",".join(f'{k}="{_esc_label(v)}"' for k, v in sorted(labels.items()))
+        + "}"
+    )
 
 
 class _Series:
@@ -115,7 +130,9 @@ class Histogram(_Series):
             raise ValueError("buckets must be unique and ascending")
         self._buckets = tuple(buckets)
         # series-key → (counts_per_bucket+inf, sum, count)
-        self._series: dict[tuple[tuple[str, str], ...], tuple[list[int], float, int]] = {}
+        self._series: dict[
+            tuple[tuple[str, str], ...], tuple[list[int], float, int]
+        ] = {}
 
     def observe(self, value: float, **labels: str) -> None:
         key = tuple(sorted(labels.items()))
@@ -154,6 +171,7 @@ def _format_bound(b: float) -> str:
 
 
 # ─── registry ─────────────────────────────────────────────────────────────
+
 
 class MetricsCollector:
     """Holds all server-side metrics. One instance per process.
@@ -214,7 +232,9 @@ class MetricsCollector:
         # Process uptime as a built-in gauge series.
         lines.append("# HELP kairu_process_uptime_seconds Process uptime in seconds.")
         lines.append("# TYPE kairu_process_uptime_seconds gauge")
-        lines.append(f"kairu_process_uptime_seconds {time.time() - self.process_start_time}")
+        lines.append(
+            f"kairu_process_uptime_seconds {time.time() - self.process_start_time}"
+        )
         return "\n".join(lines) + "\n"
 
 

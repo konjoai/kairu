@@ -20,6 +20,7 @@ Items can carry arbitrary ``metadata`` (request id, region, model tag)
 which we pass through untouched in ``per_item`` — useful for slicing
 the report by deployment cohort downstream.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -74,8 +75,8 @@ class LogEvalReport:
     rubric_version: str
     judge_model: str
     threshold: float
-    passed: bool                # gate on mean_aggregate
-    n_failed: int               # count of items with aggregate < threshold
+    passed: bool  # gate on mean_aggregate
+    n_failed: int  # count of items with aggregate < threshold
     mean_aggregate: float
     median_aggregate: float
     min_aggregate: float
@@ -147,7 +148,9 @@ def evaluate_log(
             raise TypeError(f"item {idx}: 'input' and 'output' must be strings")
 
         ev: Evaluation = evaluate(
-            ipt, out, rubric=rubric,
+            ipt,
+            out,
+            rubric=rubric,
             criteria=list(criteria) if criteria else None,
             weights=weights,
         )
@@ -164,14 +167,16 @@ def evaluate_log(
 
         # Pull metadata off opaque keys (anything that isn't input/output).
         metadata = {k: v for k, v in raw.items() if k not in ("input", "output")}
-        results.append(LogItemResult(
-            idx=idx,
-            input_hash=_hash(ipt),
-            aggregate=ev.aggregate,
-            scores=scores,
-            passed=item_passed,
-            metadata=metadata,
-        ))
+        results.append(
+            LogItemResult(
+                idx=idx,
+                input_hash=_hash(ipt),
+                aggregate=ev.aggregate,
+                scores=scores,
+                passed=item_passed,
+                metadata=metadata,
+            )
+        )
 
     mean_agg = statistics.fmean(aggregates)
     median_agg = statistics.median(aggregates)
@@ -184,6 +189,7 @@ def evaluate_log(
     # Resolve rubric version from the registry (defensive fallback).
     try:
         from kairu.evaluation import RUBRICS
+
         rubric_version = getattr(RUBRICS.get(rubric_name), "version", "1.0.0")
     except Exception:  # noqa: BLE001
         rubric_version = "1.0.0"

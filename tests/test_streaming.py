@@ -1,10 +1,10 @@
 """Tests for kairu.streaming.StreamingDecoder — 8 tests. Uses MockModel only."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
 
 import numpy as np
-import pytest
 
 from kairu.mock_model import MockModel
 from kairu.streaming import StreamingDecoder

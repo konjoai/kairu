@@ -8,6 +8,7 @@ Wraps any ModelInterface with:
   - Token budget enforcement
   - GenerationMetrics collection
 """
+
 from __future__ import annotations
 
 from kairu.base import ModelInterface
@@ -144,4 +145,6 @@ def wrap_model(
     else:
         model = model_or_name
 
-    return ModelWrapper(model=model, draft_model=draft_model, max_budget=max_budget, **kwargs)
+    return ModelWrapper(
+        model=model, draft_model=draft_model, max_budget=max_budget, **kwargs
+    )

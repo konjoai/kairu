@@ -33,10 +33,10 @@ Usage::
     # Custom output directory
     python benchmarks/run_corpus.py --model mock --output /tmp/bench_results
 """
+
 from __future__ import annotations
 
 import argparse
-import json
 import statistics
 import sys
 import time
@@ -49,10 +49,10 @@ _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from kairu.bench import BenchmarkResult, BenchmarkRunner, _collect_hardware, _percentile
-from kairu.base import ModelInterface
-from kairu.mock_model import MockModel
-from kairu.streaming import StreamingDecoder
+from kairu.bench import BenchmarkResult, _collect_hardware, _percentile  # noqa: E402
+from kairu.base import ModelInterface  # noqa: E402
+from kairu.mock_model import MockModel  # noqa: E402
+from kairu.streaming import StreamingDecoder  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +174,7 @@ assert len(CORPUS) == 100, f"Corpus must have exactly 100 prompts, got {len(CORP
 # Per-prompt latency measurement
 # ---------------------------------------------------------------------------
 
+
 def _run_prompt(
     decoder: StreamingDecoder,
     prompt_token_ids: List[int],
@@ -189,6 +190,7 @@ def _run_prompt(
 # ---------------------------------------------------------------------------
 # Corpus harness
 # ---------------------------------------------------------------------------
+
 
 class CorpusBenchmarkRunner:
     """Run the full 100-prompt corpus and emit a :class:`BenchmarkResult`.
@@ -281,6 +283,7 @@ class CorpusBenchmarkRunner:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _load_model(model_arg: str) -> ModelInterface:
     if model_arg == "mock":
         return MockModel()
@@ -305,19 +308,39 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
-        "--model", default="mock",
+        "--model",
+        default="mock",
         help="'mock' (offline) or a HuggingFace model id e.g. 'gpt2' (requires kairu[hf]).",
     )
-    p.add_argument("--tokens", type=int, default=64, metavar="N",
-                   help="Tokens to generate per prompt (default: 64).")
-    p.add_argument("--warmup", type=int, default=5, metavar="N",
-                   help="Warmup prompts to discard (default: 5).")
-    p.add_argument("--runs", type=int, default=100, metavar="N",
-                   help="Number of corpus prompts to benchmark (default: 100, full corpus).")
-    p.add_argument("--name", default="corpus",
-                   help="Label embedded in result filename and JSON.")
-    p.add_argument("--output", default=None,
-                   help="Override save directory (default: benchmarks/results).")
+    p.add_argument(
+        "--tokens",
+        type=int,
+        default=64,
+        metavar="N",
+        help="Tokens to generate per prompt (default: 64).",
+    )
+    p.add_argument(
+        "--warmup",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Warmup prompts to discard (default: 5).",
+    )
+    p.add_argument(
+        "--runs",
+        type=int,
+        default=100,
+        metavar="N",
+        help="Number of corpus prompts to benchmark (default: 100, full corpus).",
+    )
+    p.add_argument(
+        "--name", default="corpus", help="Label embedded in result filename and JSON."
+    )
+    p.add_argument(
+        "--output",
+        default=None,
+        help="Override save directory (default: benchmarks/results).",
+    )
     return p
 
 

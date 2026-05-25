@@ -1,8 +1,7 @@
 """Tests for kairu.cli — argparse + dispatch + version."""
+
 from __future__ import annotations
 
-import io
-import sys
 
 import pytest
 
@@ -32,11 +31,26 @@ def test_parser_serve_defaults():
 
 def test_parser_serve_full_overrides():
     argv = [
-        "serve", "--host", "0.0.0.0", "--port", "9000",
-        "--model", "mock", "--cache-capacity", "128",
-        "--adaptive-gamma", "--max-prompt-chars", "2048",
-        "--max-tokens-cap", "256", "--request-timeout", "5",
-        "--rate-limit", "30", "--rate-window", "60",
+        "serve",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9000",
+        "--model",
+        "mock",
+        "--cache-capacity",
+        "128",
+        "--adaptive-gamma",
+        "--max-prompt-chars",
+        "2048",
+        "--max-tokens-cap",
+        "256",
+        "--request-timeout",
+        "5",
+        "--rate-limit",
+        "30",
+        "--rate-window",
+        "60",
     ]
     args = _build_parser().parse_args(argv)
     assert args.host == "0.0.0.0"

@@ -3,9 +3,9 @@
 All tests run fully offline (no OTel SDK required). The NoOp path is always
 exercised because opentelemetry-sdk is not in the project's dev extras.
 """
+
 from __future__ import annotations
 
-import pytest
 
 from kairu.tracing import (
     KairuTracer,
@@ -20,6 +20,7 @@ from kairu.tracing import (
 # Test 1 — KairuTracer constructs without error (NoOp path)
 # ---------------------------------------------------------------------------
 
+
 def test_kairu_tracer_constructs() -> None:
     tracer = KairuTracer()
     # OTel SDK is not installed in CI — must fall back to NoOp.
@@ -29,6 +30,7 @@ def test_kairu_tracer_constructs() -> None:
 # ---------------------------------------------------------------------------
 # Test 2 — is_noop reflects SDK availability
 # ---------------------------------------------------------------------------
+
 
 def test_kairu_tracer_is_noop_without_sdk() -> None:
     """Without opentelemetry-api installed, is_noop must be True."""
@@ -41,9 +43,12 @@ def test_kairu_tracer_is_noop_without_sdk() -> None:
 # Test 3 — start_generate_span is a context manager that yields a span
 # ---------------------------------------------------------------------------
 
+
 def test_start_generate_span_yields_span() -> None:
     tracer = KairuTracer()
-    with tracer.start_generate_span("kairu-abc", "sha256abc", parent_context=None) as span:
+    with tracer.start_generate_span(
+        "kairu-abc", "sha256abc", parent_context=None
+    ) as span:
         assert span is not None
         # NoOpSpan supports set_attribute without raising.
         result = span.set_attribute("test.key", "test.value")
@@ -55,6 +60,7 @@ def test_start_generate_span_yields_span() -> None:
 # Test 4 — record_token does not raise
 # ---------------------------------------------------------------------------
 
+
 def test_record_token_no_raise() -> None:
     tracer = KairuTracer()
     with tracer.start_generate_span("kairu-123", "hash123") as span:
@@ -65,6 +71,7 @@ def test_record_token_no_raise() -> None:
 # ---------------------------------------------------------------------------
 # Test 5 — record_generation_complete sets attributes
 # ---------------------------------------------------------------------------
+
 
 def test_record_generation_complete_no_raise() -> None:
     tracer = KairuTracer()
@@ -81,6 +88,7 @@ def test_record_generation_complete_no_raise() -> None:
 # Test 6 — record_error does not raise
 # ---------------------------------------------------------------------------
 
+
 def test_record_error_no_raise() -> None:
     tracer = KairuTracer()
     with tracer.start_generate_span("id-err", "hasherr") as span:
@@ -90,6 +98,7 @@ def test_record_error_no_raise() -> None:
 # ---------------------------------------------------------------------------
 # Test 7 — NoOpSpan.add_event is a no-op
 # ---------------------------------------------------------------------------
+
 
 def test_noop_span_add_event() -> None:
     span = _NoOpSpan()
@@ -101,6 +110,7 @@ def test_noop_span_add_event() -> None:
 # Test 8 — NoOpTracer context manager protocol
 # ---------------------------------------------------------------------------
 
+
 def test_noop_tracer_context_manager() -> None:
     tracer = _NoOpTracer()
     with tracer.start_as_current_span("test.span") as span:
@@ -111,6 +121,7 @@ def test_noop_tracer_context_manager() -> None:
 # Test 9 — extract_trace_context returns None when no traceparent header
 # ---------------------------------------------------------------------------
 
+
 def test_extract_trace_context_no_header() -> None:
     result = extract_trace_context({})
     assert result is None
@@ -119,6 +130,7 @@ def test_extract_trace_context_no_header() -> None:
 # ---------------------------------------------------------------------------
 # Test 10 — extract_trace_context returns None without OTel SDK
 # ---------------------------------------------------------------------------
+
 
 def test_extract_trace_context_without_sdk() -> None:
     """Without opentelemetry-api, extraction must return None, not raise."""
@@ -132,6 +144,7 @@ def test_extract_trace_context_without_sdk() -> None:
 # ---------------------------------------------------------------------------
 # Test 11 — headers_from_request normalises to lowercase
 # ---------------------------------------------------------------------------
+
 
 def test_headers_from_request_lowercase() -> None:
     class _MockHeaders:
@@ -153,6 +166,7 @@ def test_headers_from_request_lowercase() -> None:
 # Test 12 — headers_from_request handles plain dict
 # ---------------------------------------------------------------------------
 
+
 def test_headers_from_request_from_dict() -> None:
     class _DictHeaders:
         def items(self):
@@ -166,6 +180,7 @@ def test_headers_from_request_from_dict() -> None:
 # ---------------------------------------------------------------------------
 # Test 13 — KairuTracer is reentrant (nested spans)
 # ---------------------------------------------------------------------------
+
 
 def test_kairu_tracer_reentrant() -> None:
     tracer = KairuTracer()

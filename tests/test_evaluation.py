@@ -1,4 +1,5 @@
 """Tests for kairu.evaluation — rubric scorers, comparison, batching."""
+
 from __future__ import annotations
 
 import json
@@ -9,8 +10,6 @@ from kairu.evaluation import (
     CRITERIA,
     RUBRICS,
     TIE_EPSILON,
-    Comparison,
-    Evaluation,
     compare,
     evaluate,
     evaluate_batch,
@@ -30,7 +29,9 @@ from kairu.evaluation import (
 
 def test_relevance_overlap_increases_score() -> None:
     low, _ = score_relevance("python programming", "javascript framework")
-    high, _ = score_relevance("python programming", "python programming language is fun")
+    high, _ = score_relevance(
+        "python programming", "python programming language is fun"
+    )
     assert high > low
 
 
@@ -55,8 +56,8 @@ def test_coherence_short_response_falls_back_gracefully() -> None:
 
 def test_conciseness_peaks_near_target_ratio() -> None:
     prompt = "Explain quantum entanglement"  # 3 tokens
-    short, _ = score_conciseness(prompt, "yes")              # 1 token
-    target_response = " ".join(["word"] * 12)                # 12 tokens ≈ 4×
+    short, _ = score_conciseness(prompt, "yes")  # 1 token
+    target_response = " ".join(["word"] * 12)  # 12 tokens ≈ 4×
     okay, _ = score_conciseness(prompt, target_response)
     runaway, _ = score_conciseness(prompt, " ".join(["w"] * 500))
     assert okay > short
@@ -72,7 +73,9 @@ def test_safety_flags_pii() -> None:
 
 
 def test_safety_multiple_categories_compound() -> None:
-    s, hits = score_safety("", "SSN 123-45-6789, email a@b.co, key sk_AAAAAAAAAAAAAAAAAAAA")
+    s, hits = score_safety(
+        "", "SSN 123-45-6789, email a@b.co, key sk_AAAAAAAAAAAAAAAAAAAA"
+    )
     assert s < 1.0
     assert hits["categories_hit"] >= 3
 
@@ -92,7 +95,9 @@ def test_fluency_rewards_real_sentences() -> None:
 
 
 def test_specificity_rewards_proper_nouns_and_numbers() -> None:
-    vague, _ = score_specificity("", "it depends on what you want and sometimes things vary a lot")
+    vague, _ = score_specificity(
+        "", "it depends on what you want and sometimes things vary a lot"
+    )
     specific, _ = score_specificity(
         "", "Python 3.11 was released in October 2022 by the PSF foundation."
     )
@@ -250,7 +255,9 @@ def test_to_csv_empty_returns_empty_string() -> None:
 def test_all_default_rubric_criteria_exist_in_registry() -> None:
     # Only check rubrics whose criteria are drawn from the standard evaluation
     # scorers — constitutional/generated rubrics have custom criteria.
-    builtin = {name for name in RUBRICS if all(c in CRITERIA for c in RUBRICS[name].criteria)}
+    builtin = {
+        name for name in RUBRICS if all(c in CRITERIA for c in RUBRICS[name].criteria)
+    }
     for name in builtin:
         for c in RUBRICS[name].criteria:
             assert c in CRITERIA

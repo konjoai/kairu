@@ -1,4 +1,5 @@
 """Tests for kairu.budget.TokenBudget — 8 tests."""
+
 import pytest
 from kairu.budget import TokenBudget
 

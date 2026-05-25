@@ -1,4 +1,5 @@
 """Tests for kairu.benchmarks — reference percentile distributions."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,7 +8,6 @@ from kairu.benchmarks import (
     BENCHMARK_CORPUS_SIZE,
     BENCHMARKS,
     HISTOGRAM_BUCKETS,
-    BenchmarkStats,
     percentile_rank,
 )
 from kairu.evaluation import CRITERIA
@@ -24,7 +24,9 @@ def test_corpus_size_is_one_thousand():
 
 def test_quantiles_ordered():
     for name, stats in BENCHMARKS.items():
-        assert 0.0 <= stats.p25 <= stats.p50 <= stats.p75 <= stats.p90 <= stats.p99 <= 1.0, name
+        assert (
+            0.0 <= stats.p25 <= stats.p50 <= stats.p75 <= stats.p90 <= stats.p99 <= 1.0
+        ), name
 
 
 def test_histogram_buckets_sum_to_n():
@@ -36,8 +38,20 @@ def test_histogram_buckets_sum_to_n():
 def test_stats_dict_shape():
     name = next(iter(BENCHMARKS))
     out = BENCHMARKS[name].to_dict()
-    for k in ("criterion", "n", "mean", "stdev", "p25", "p50", "p75", "p90", "p99",
-              "histogram", "buckets", "samples_hash"):
+    for k in (
+        "criterion",
+        "n",
+        "mean",
+        "stdev",
+        "p25",
+        "p50",
+        "p75",
+        "p90",
+        "p99",
+        "histogram",
+        "buckets",
+        "samples_hash",
+    ):
         assert k in out
 
 
@@ -70,6 +84,7 @@ def test_deterministic_across_imports():
     first = {k: v.samples_hash for k, v in BENCHMARKS.items()}
     import importlib
     import kairu.benchmarks as m
+
     importlib.reload(m)
     second = {k: v.samples_hash for k, v in m.BENCHMARKS.items()}
     assert first == second
