@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.17.0**
+Current version: **v0.19.0**
 
 ---
 
@@ -80,6 +80,30 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### 🔵 v0.19.0 — Tooling that turns kairu into a service
+
+- **Evaluation templates** *(DONE — v0.19.0)*
+  `POST /templates` saves a named rubric+criteria+weights+judges bundle to
+  SQLite (`KAIRU_TEMPLATE_DB`). `GET /templates`, `GET /templates/{name}`,
+  `DELETE /templates/{name}` for CRUD. Apply via `POST /evaluate/template/{name}`
+  — single-mode when no judges are present, ensemble-mode when they are.
+  Eliminates copy-paste of repeated configurations across CI pipelines.
+- **Adversarial prompt + response detection** *(DONE — v0.19.0)*
+  `POST /evaluate/adversarial_check` returns `{is_adversarial, confidence,
+  risk_level, patterns_found, categories}`. 18 default heuristics across
+  five categories (prompt_injection, jailbreak, override, exfiltration,
+  compliance); each pattern has a calibrated weight and targets the prompt,
+  the response, or both. Detects classic DAN/developer-mode/ignore-previous
+  injection attempts, system-prompt leaks, raw secret / PII / private-key
+  exfiltration, and compliance markers (response openly states it dropped
+  its rules). Pure stdlib regex — no ML dependency.
+- **Multi-model tournament** *(DONE — v0.19.0)*
+  `POST /tournament` runs round-robin pairwise `ensemble_compare` across
+  every (model, prompt) cell of a pre-computed response grid. Returns
+  Elo-style ratings (start 1500, K=32, total Elo conserved), win matrix,
+  per-criterion dominance counts, and a ranked leaderboard. Tournaments
+  persist in memory; `GET /tournaments/{id}` and `GET /tournaments`.
 
 ### 🟡 P3 — Strategic
 
@@ -344,3 +368,21 @@ Deliverables:
 - [x] `app.state.baselines` wires a `BaselineStore` into `create_app` (resolvable via `KAIRU_CI_DIR` env)
 - [x] `kairu/__init__.py` exports: `JudgeConfig`, `JudgeScore`, `EnsembleResult`, `EnsembleComparison`, `ensemble_evaluate`, `ensemble_compare`, `judge_evaluate`, `DEFAULT_DISAGREEMENT_THRESHOLD`, `BaselineSnapshot`, `BaselineItem`, `BaselineStore`, `FileBaselineStore`, `CriterionRegression`, `RegressionReport`, `snapshot_baseline`, `check_against_baseline`, `open_default_store`, `DEFAULT_REGRESSION_THRESHOLD`, `LogEvalReport`, `LogItemResult`, `evaluate_log`, `DEFAULT_LOG_THRESHOLD`; version `0.15.0 → 0.16.0`.
 - [x] `pyproject.toml` version `0.15.0 → 0.16.0`; description extended.
+
+---
+
+## Phase 19 — Evaluation Templates + Adversarial Detection + Multi-Model Tournament (v0.19.0) ✅ COMPLETE
+
+**Ship Gate:** 544 Python tests passing, 4 HF-gated skipped (≥60 new test outcomes across `tests/test_templates.py` [11], `tests/test_adversarial.py` [17], `tests/test_tournament.py` [15], and 15 HTTP endpoint tests in `api/test_api.py`).
+
+Deliverables:
+- [x] `kairu/templates.py` — `EvaluationTemplate` frozen dataclass + `TemplateStore` (SQLite, INSERT OR REPLACE semantics, `created_utc` preserved across updates). Materialises judge configs from stored JSON for ensemble templates. `KAIRU_TEMPLATE_DB` env resolves the file path (defaults to `:memory:`).
+- [x] `kairu/adversarial.py` — `AdversarialPattern` (named regex + category + weight + target), 18 default patterns spanning prompt_injection, jailbreak, override, exfiltration, compliance. `check_adversarial(prompt, response)` returns `AdversarialReport(is_adversarial, confidence ∈ [0,1], risk_level, patterns_found, categories, n_prompt_matches, n_response_matches)`. Confidence is `min(1.0, Σ matched_weight / 2.0)`; risk-level bands at 0.3 / 0.6.
+- [x] `kairu/tournament.py` — `run_tournament(models, prompts, judges)` runs every pair × every prompt through `ensemble_compare`, tracks wins/losses/ties + per-criterion dominance, applies standard chess Elo (start 1500, K=32). `TournamentResult` carries the win matrix, Elo dict, sorted `ModelRanking` list. In-memory `TournamentStore` for retrieval.
+- [x] HTTP endpoints in `api/main.py`:
+  - `POST /templates`, `GET /templates`, `GET /templates/{name}`, `DELETE /templates/{name}`
+  - `POST /evaluate/template/{name}` — applies a saved template (single or ensemble)
+  - `POST /evaluate/adversarial_check`
+  - `POST /tournament`, `GET /tournaments`, `GET /tournaments/{tournament_id}`
+- [x] `kairu/__init__.py` exports: `EvaluationTemplate`, `TemplateStore`, `open_default_template_store`, `AdversarialPattern`, `AdversarialMatch`, `AdversarialReport`, `ADVERSARIAL_DEFAULT_PATTERNS`, `check_adversarial`, `TournamentMatch`, `ModelRanking`, `TournamentResult`, `TournamentStore`, `run_tournament`, `DEFAULT_ELO_K`, `DEFAULT_ELO_START`. Version `0.18.0 → 0.19.0`.
+- [x] `pyproject.toml` version `0.18.0 → 0.19.0`.

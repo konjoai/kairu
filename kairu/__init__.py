@@ -28,8 +28,15 @@ Provides:
 
 from __future__ import annotations
 
-__version__ = "0.18.0"
+__version__ = "0.19.0"
 
+from kairu.adversarial import (
+    AdversarialMatch,
+    AdversarialPattern,
+    AdversarialReport,
+    DEFAULT_PATTERNS as ADVERSARIAL_DEFAULT_PATTERNS,
+    check_adversarial,
+)
 from kairu.audit import AuditLog, AuditRecord, hash_inputs, open_default_audit
 from kairu.significance import SignificanceResult, paired_t_test, per_criterion_diffs
 from kairu.auto_profile import AutoProfile, DecoderProfile
@@ -103,6 +110,20 @@ from kairu.squish_eval import (
     recommended_quant_tier,
 )
 from kairu.streaming import StreamingDecoder
+from kairu.templates import (
+    EvaluationTemplate,
+    TemplateStore,
+    open_default_template_store,
+)
+from kairu.tournament import (
+    DEFAULT_ELO_K,
+    DEFAULT_ELO_START,
+    ModelRanking,
+    TournamentMatch,
+    TournamentResult,
+    TournamentStore,
+    run_tournament,
+)
 from kairu.streaming_api import StreamChunk, StreamingConfig, TokenStreamer
 from kairu.tokenizer import MockTokenizer, TokenizerBase
 from kairu.tracing import KairuTracer, extract_trace_context

@@ -4,6 +4,36 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.19.0] — 2026-05-19
+
+### Added — Evaluation Templates + Adversarial Detection + Multi-Model Tournament
+
+- `kairu/templates.py` — saved evaluation templates. `EvaluationTemplate` is a frozen dataclass; `TemplateStore` is a thread-safe SQLite wrapper (INSERT OR REPLACE — last-write-wins — with `created_utc` preserved across updates). Templates carry the full `(rubric, criteria, weights, judges?)` bundle so a single API call can replay any saved evaluation configuration. `open_default_template_store()` resolves the file from `KAIRU_TEMPLATE_DB` (defaults to `:memory:`).
+- `kairu/adversarial.py` — heuristic post-hoc adversarial scoring. `AdversarialPattern` carries (name, category, target ∈ {prompt, response, both}, weight, regex, description). `DEFAULT_PATTERNS` ships 18 detectors across five categories (`prompt_injection`, `jailbreak`, `override`, `exfiltration`, `compliance`) covering classic DAN / developer-mode / ignore-previous injection attempts, system-prompt-leak compliance markers, raw secret / PII / private-key exfiltration, and persona-swap jailbreaks. `check_adversarial(prompt, response)` returns an `AdversarialReport` with `confidence ∈ [0, 1]` (saturating weighted sum), discrete `risk_level ∈ {low, medium, high}`, full match list with deterministic excerpt snippets, unique category list, and per-target match counts. Pure stdlib regex — no ML dependency. Distinct from `kairu.shield` which gates *inputs*; this scores *responses* for audit/CI use.
+- `kairu/tournament.py` — round-robin multi-model tournaments. `run_tournament(models, prompts, judges)` runs every (model_a, model_b) pair across every prompt through `ensemble_compare`, tallies wins/losses/ties per model, accumulates per-criterion dominance, and applies standard chess Elo (start 1500, K=32 — total Elo conserved by construction). Returns `TournamentResult` with the win matrix, Elo dict, sorted `ModelRanking` list (rank → Elo desc → tie-break by total wins). `TournamentStore` is an in-memory retrieval store.
+- `api/main.py` endpoints:
+  - `POST /templates` (create/replace), `GET /templates`, `GET /templates/{name}`, `DELETE /templates/{name}`
+  - `POST /evaluate/template/{name}` — single-mode when the template has no judges, ensemble-mode when it does. Body-level rubric/criteria/weights are intentionally ignored — the template is the source of truth.
+  - `POST /evaluate/adversarial_check` — boundary-validated; returns the full report.
+  - `POST /tournament`, `GET /tournaments`, `GET /tournaments/{tournament_id}`
+- `app.state.templates` and `app.state.tournaments` are wired into `create_app`. `KAIRU_TEMPLATE_DB` env switches the template store from `:memory:` to a file.
+- 60 new test outcomes across `tests/test_templates.py` (11), `tests/test_adversarial.py` (17), `tests/test_tournament.py` (15), `api/test_api.py` (15 new HTTP endpoint tests, 2 new conformance tests on existing endpoints). Total suite: **544 passed**, 4 HF-gated skipped.
+
+### Changed
+
+- `kairu/__init__.py` — re-exports `EvaluationTemplate`, `TemplateStore`, `open_default_template_store`, `AdversarialPattern`, `AdversarialMatch`, `AdversarialReport`, `ADVERSARIAL_DEFAULT_PATTERNS`, `check_adversarial`, `TournamentMatch`, `ModelRanking`, `TournamentResult`, `TournamentStore`, `run_tournament`, `DEFAULT_ELO_K`, `DEFAULT_ELO_START`. Version `0.18.0 → 0.19.0`.
+- `pyproject.toml` — version `0.18.0 → 0.19.0`.
+- `PLAN.md` — new "v0.19.0 — Tooling that turns kairu into a service" section above P3; Phase 19 appended.
+
+### Architecture Decisions
+
+- **Templates as opaque JSON in SQLite, not a relational decomposition.** A template is one bundle of related fields that always travel together. Storing the body as a JSON column means new optional fields (e.g. `disagreement_threshold` later) need only a key — no migration. Indexed columns stay limited to what gets queried (name PK, updated_utc for ordering).
+- **Confidence normaliser fixed at 2.0 for adversarial scoring.** A single high-weight (1.0) pattern hit yields confidence 0.5 — the "medium" band — and reads as "real signal, not over-egged." Two reinforcing hits saturate to 1.0 → high risk. This is deliberately less alarmist than treating any single hit as conclusive (which would generate too many false positives at audit-dashboard scale).
+- **Tournament inputs are pre-computed response grids, not live LLM calls.** Keeping the endpoint pure-CPU means it's deterministic, fast, testable offline, and composes cleanly with whatever batch-inference job already produced the candidate responses. Live LLM invocation belongs above this layer, not inside it.
+- **Elo total conservation by construction.** Symmetric per-match updates (A gains exactly what B loses) keep `Σ Elo == N × start` modulo floating-point. Asserted in tests so a future refactor can't quietly break it.
+
+---
+
 ## [0.17.0] — 2026-05-19
 
 ### Added — Constitutional Rubric Generation + Agentic Trajectory Scoring

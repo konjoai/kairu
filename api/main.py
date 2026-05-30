@@ -65,9 +65,22 @@ from kairu.calibration import (
     compute_uncalibrated_bias_bound,
     correct_ensemble_scores,
 )
+from kairu.adversarial import check_adversarial
 from kairu.constitutional import GeneratedRubric, generate_rubric
 from kairu.log_eval import DEFAULT_LOG_THRESHOLD, evaluate_log
 from kairu.rubrics import RUBRIC_DEFS
+from kairu.templates import (
+    EvaluationTemplate,
+    TemplateStore,
+    open_default_template_store,
+)
+from kairu.tournament import (
+    DEFAULT_ELO_K,
+    DEFAULT_ELO_START,
+    TournamentResult,
+    TournamentStore,
+    run_tournament,
+)
 from kairu.trajectory import TrajectoryStep, evaluate_trajectory
 from kairu.significance import paired_t_test, per_criterion_diffs
 
@@ -204,6 +217,48 @@ class LogEvalRequest(BaseModel):
     threshold: float = Field(DEFAULT_LOG_THRESHOLD, ge=0.0, le=1.0)
 
 
+# ── v0.19 templates + adversarial + tournament request models ──────────
+
+
+class TemplateRequest(BaseModel):
+    """Body for ``POST /templates`` — create or replace a named template."""
+
+    name: str = Field(..., min_length=1, max_length=64)
+    description: str = Field("", max_length=512)
+    rubric: Optional[str] = None
+    criteria: Optional[List[str]] = None
+    weights: Optional[Dict[str, float]] = None
+    judges: Optional[List[JudgeConfigRequest]] = None
+
+
+class AdversarialCheckRequest(BaseModel):
+    """Body for ``POST /evaluate/adversarial_check``."""
+
+    prompt: str = Field(..., min_length=1)
+    response: str = Field(..., min_length=1)
+    threshold: float = Field(0.3, ge=0.0, le=1.0)
+
+
+class TournamentModel(BaseModel):
+    """One model competing in a tournament — name + responses per prompt."""
+
+    name: str = Field(..., min_length=1, max_length=64)
+    responses: List[str] = Field(..., min_length=1)
+
+
+class TournamentRequest(BaseModel):
+    """Body for ``POST /tournament``."""
+
+    prompts: List[str] = Field(..., min_length=1, max_length=64)
+    models: List[TournamentModel] = Field(..., min_length=2, max_length=12)
+    judges: List[JudgeConfigRequest] = Field(..., min_length=1, max_length=8)
+    elo_start: float = Field(DEFAULT_ELO_START, ge=0.0)
+    elo_k: float = Field(DEFAULT_ELO_K, gt=0.0)
+    disagreement_threshold: float = Field(
+        DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0,
+    )
+
+
 class RegisterRubricRequest(BaseModel):
     """Body for ``POST /rubrics`` — register a new rubric version.
 
@@ -334,6 +389,8 @@ def create_app(
     audit: Optional[AuditLog] = None,
     baseline_store: Optional[BaselineStore] = None,
     bias_profile_store: Optional[BiasProfileStore] = None,
+    template_store: Optional[TemplateStore] = None,
+    tournament_store: Optional[TournamentStore] = None,
 ) -> FastAPI:
     app = FastAPI(
         title="kairu evaluation API",
@@ -346,6 +403,12 @@ def create_app(
     )
     app.state.bias_profiles = (
         bias_profile_store if bias_profile_store is not None else BiasProfileStore()
+    )
+    app.state.templates = (
+        template_store if template_store is not None else open_default_template_store()
+    )
+    app.state.tournaments = (
+        tournament_store if tournament_store is not None else TournamentStore()
     )
 
     @app.get("/health")
@@ -948,6 +1011,197 @@ def create_app(
         out = calibrated.to_dict()
         out["calibrated"] = True
         return out
+
+    # ── v0.19 evaluation templates ────────────────────────────────────
+
+    def _template_to_dict(t: EvaluationTemplate) -> Dict[str, object]:
+        return t.to_dict()
+
+    @app.post("/templates")
+    def create_template(req: TemplateRequest):
+        store: TemplateStore = app.state.templates
+        judges_payload: Optional[List[Dict[str, object]]] = None
+        if req.judges:
+            names = [j.name for j in req.judges]
+            if len(set(names)) != len(names):
+                raise HTTPException(status_code=422, detail="judge names must be unique")
+            # Validate each judge can materialise into a real config
+            # (catches bad criteria, negative noise, etc.) before persisting.
+            for j in req.judges:
+                try:
+                    j.to_config()
+                except ValueError as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+            judges_payload = [j.model_dump(exclude_none=True) for j in req.judges]
+        try:
+            tpl = store.save(
+                req.name,
+                description=req.description,
+                rubric=req.rubric,
+                criteria=req.criteria,
+                weights=req.weights,
+                judges=judges_payload,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _template_to_dict(tpl)
+
+    @app.get("/templates")
+    def list_templates() -> Dict[str, object]:
+        store: TemplateStore = app.state.templates
+        items = store.list()
+        return {"templates": [_template_to_dict(t) for t in items], "count": len(items)}
+
+    @app.get("/templates/{name}")
+    def get_template(name: str):
+        store: TemplateStore = app.state.templates
+        try:
+            tpl = store.get(name)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404, detail=f"template '{name}' not found",
+            ) from exc
+        return _template_to_dict(tpl)
+
+    @app.delete("/templates/{name}")
+    def delete_template(name: str):
+        store: TemplateStore = app.state.templates
+        removed = store.delete(name)
+        if not removed:
+            raise HTTPException(
+                status_code=404, detail=f"template '{name}' not found",
+            )
+        return {"deleted": name}
+
+    @app.post("/evaluate/template/{name}")
+    def evaluate_with_template(name: str, req: EvaluateRequest):
+        """Apply a saved template to a (prompt, response) pair.
+
+        Body still carries ``prompt`` + ``response``. Everything else is
+        sourced from the template. Body-level rubric/criteria/weights are
+        IGNORED on this endpoint to keep the template the source of truth.
+        """
+        _check_text("prompt", req.prompt)
+        _check_text("response", req.response)
+        store: TemplateStore = app.state.templates
+        try:
+            tpl = store.get(name)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404, detail=f"template '{name}' not found",
+            ) from exc
+        judge_cfgs = tpl.judge_configs()
+        try:
+            if judge_cfgs:
+                result = ensemble_evaluate(req.prompt, req.response, judge_cfgs)
+                payload = result.to_dict()
+                payload["template"] = tpl.name
+                payload["mode"] = "ensemble"
+            else:
+                ev = evaluate(
+                    req.prompt, req.response,
+                    rubric=tpl.rubric,
+                    criteria=tpl.criteria,
+                    weights=tpl.weights,
+                )
+                payload = {
+                    "template": tpl.name,
+                    "mode": "single",
+                    "rubric": ev.rubric,
+                    "aggregate": ev.aggregate,
+                    "scores": [
+                        {"name": cs.name, "score": cs.score, "weight": cs.weight}
+                        for cs in ev.scores
+                    ],
+                }
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return payload
+
+    # ── v0.19 adversarial detection ───────────────────────────────────
+
+    @app.post("/evaluate/adversarial_check")
+    def adversarial_check_endpoint(req: AdversarialCheckRequest):
+        _check_text("prompt", req.prompt)
+        _check_text("response", req.response)
+        try:
+            report = check_adversarial(
+                req.prompt, req.response, threshold=req.threshold,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return report.to_dict()
+
+    # ── v0.19 multi-model tournament ──────────────────────────────────
+
+    @app.post("/tournament")
+    def tournament_endpoint(req: TournamentRequest):
+        for p in req.prompts:
+            _check_text("prompt", p)
+        for m in req.models:
+            if len(m.responses) != len(req.prompts):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(f"model '{m.name}': {len(m.responses)} responses "
+                            f"but {len(req.prompts)} prompts"),
+                )
+            for r in m.responses:
+                _check_text(f"model '{m.name}' response", r)
+        if len({m.name for m in req.models}) != len(req.models):
+            raise HTTPException(status_code=422, detail="model names must be unique")
+        if len({j.name for j in req.judges}) != len(req.judges):
+            raise HTTPException(status_code=422, detail="judge names must be unique")
+
+        judge_cfgs: List[JudgeConfig] = []
+        for j in req.judges:
+            try:
+                judge_cfgs.append(j.to_config())
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        try:
+            result = run_tournament(
+                [{"name": m.name, "responses": m.responses} for m in req.models],
+                list(req.prompts),
+                judge_cfgs,
+                elo_start=req.elo_start, elo_k=req.elo_k,
+                disagreement_threshold=req.disagreement_threshold,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        store: TournamentStore = app.state.tournaments
+        store.save(result)
+        return result.to_dict()
+
+    @app.get("/tournaments")
+    def list_tournaments() -> Dict[str, object]:
+        store: TournamentStore = app.state.tournaments
+        items = store.list()
+        return {
+            "tournaments": [
+                {
+                    "tournament_id": t.tournament_id,
+                    "created_utc": t.created_utc,
+                    "models": list(t.models),
+                    "n_prompts": t.n_prompts,
+                    "n_matches": t.n_matches,
+                }
+                for t in items
+            ],
+            "count": len(items),
+        }
+
+    @app.get("/tournaments/{tournament_id}")
+    def get_tournament(tournament_id: str):
+        store: TournamentStore = app.state.tournaments
+        try:
+            return store.get(tournament_id).to_dict()
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail=f"tournament '{tournament_id}' not found",
+            ) from exc
 
     return app
 
