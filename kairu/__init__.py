@@ -28,7 +28,7 @@ Provides:
 
 from __future__ import annotations
 
-__version__ = "0.19.0"
+__version__ = "0.20.0"
 
 from kairu.adversarial import (
     AdversarialMatch,
@@ -36,6 +36,25 @@ from kairu.adversarial import (
     AdversarialReport,
     DEFAULT_PATTERNS as ADVERSARIAL_DEFAULT_PATTERNS,
     check_adversarial,
+)
+from kairu.analytics import (
+    AnomalousRow,
+    DEFAULT_ANOMALY_THRESHOLD,
+    DEFAULT_N_BINS,
+    DistributionReport,
+    HistogramBucket,
+    compute_distribution,
+)
+from kairu.leaderboard import (
+    LeaderboardEntry,
+    LeaderboardRow,
+    LeaderboardStore,
+    open_default_leaderboard_store,
+)
+from kairu.prompts import (
+    Prompt,
+    PromptStore,
+    open_default_prompt_store,
 )
 from kairu.audit import AuditLog, AuditRecord, hash_inputs, open_default_audit
 from kairu.significance import SignificanceResult, paired_t_test, per_criterion_diffs

@@ -944,7 +944,7 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
      ════════════════════════════════════════════════════════════════════ -->
 <section class="tab-pane" data-pane="leaderboard">
   <div class="panel" style="margin-bottom: 18px">
-    <div class="panel-title">Leaderboard <span class="meta" id="lb-source-meta">derived from /audit + tournaments</span></div>
+    <div class="panel-title">Leaderboard <span class="meta" id="lb-source-meta">→ /leaderboard (v0.20 real endpoint)</span></div>
 
     <div class="row" style="margin-bottom: 14px">
       <select id="lb-period" style="width: auto; flex: 0 0 auto">
@@ -959,7 +959,7 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
         <option value="safety">criterion: safety</option>
         <option value="fluency">criterion: fluency</option>
       </select>
-      <span class="badge synth"><span class="dot"></span>synthesised view</span>
+      <span class="badge purple"><span class="dot"></span>live</span>
       <div class="spacer"></div>
       <button class="btn ghost sm" id="lb-refresh">↻ refresh</button>
     </div>
@@ -1141,7 +1141,7 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
      ════════════════════════════════════════════════════════════════════ -->
 <section class="tab-pane" data-pane="analytics">
   <div class="panel" style="margin-bottom: 18px">
-    <div class="panel-title">Score distribution analytics <span class="meta" id="an-source-meta">derived from /audit</span></div>
+    <div class="panel-title">Score distribution analytics <span class="meta" id="an-source-meta">→ /analytics/score_distribution (v0.20 real endpoint)</span></div>
     <div class="row" style="margin-bottom: 14px">
       <label class="field" style="margin: 0">Rubric</label>
       <select id="an-rubric" style="width: auto; flex: 0 0 auto"><option value="">all</option></select>
@@ -1152,7 +1152,7 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
         <option value="90">90</option>
         <option value="all">all</option>
       </select>
-      <span class="badge synth"><span class="dot"></span>derived</span>
+      <span class="badge purple"><span class="dot"></span>live</span>
       <div class="spacer"></div>
       <button class="btn ghost sm" id="an-refresh">↻ refresh</button>
     </div>
@@ -1715,12 +1715,18 @@ async function probeBackend(which, candidates) {
     els.winner.innerHTML = '';
     els.criteria.innerHTML = '<div class="empty">Running…</div>';
     try {
+      // v0.20 — pass `model` so the leaderboard fills up automatically.
+      const modelTag = (document.getElementById('gen-model')?.value || 'demo-default').trim();
       if (mode === 'single') {
-        const j = await Kairu.post('eval', '/evaluate', { prompt, response: respA, rubric: els.rubric.value });
+        const j = await Kairu.post('eval', '/evaluate', {
+          prompt, response: respA, rubric: els.rubric.value, model: modelTag,
+        });
         applySingle(j);
       } else if (mode === 'ensemble') {
         const judges = defaultJudges();
-        const j = await Kairu.post('eval', '/evaluate/ensemble', { prompt, response: respA, judges });
+        const j = await Kairu.post('eval', '/evaluate/ensemble', {
+          prompt, response: respA, judges, model: modelTag,
+        });
         applyEnsemble(j);
       } else if (mode === 'compare') {
         if (!respB) throw new Error('response B required in compare mode');
@@ -2124,7 +2130,7 @@ async function loadRubricsInto(selects) {
 })();
 
 // ════════════════════════════════════════════════════════════════════
-// TAB 4 — Leaderboard (synthesised from /audit + tournaments)
+// TAB 4 — Leaderboard (v0.20 — real /leaderboard endpoint, SQLite-backed)
 // ════════════════════════════════════════════════════════════════════
 (function initLeaderboard() {
   const els = {
@@ -2140,72 +2146,38 @@ async function loadRubricsInto(selects) {
 
   async function refresh() {
     if (!Kairu.endpoint.eval && Kairu.endpoint.eval !== '') {
-      els.list.innerHTML = '<div class="empty">eval API offline — leaderboard derives from /audit</div>';
+      els.list.innerHTML = '<div class="empty">eval API offline</div>';
       return;
     }
     els.list.innerHTML = '<div class="empty">Loading…</div>';
     try {
-      // Pull audit rows + recent tournament rankings → synth leaderboard.
-      const days = els.period.value;
-      const params = new URLSearchParams({ limit: '500' });
-      if (days !== 'all') {
-        const since = new Date(Date.now() - parseInt(days, 10) * 86400 * 1000).toISOString();
-        params.set('start', since);
-      }
-      const audit = await Kairu.get('eval', `/audit?${params.toString()}`);
-      const items = audit.items || [];
-
-      // Group by judge_model (audit captures the judge identity; treat as model).
-      const groups = new Map();
-      const metric = els.metric.value;
-      items.forEach(row => {
-        const key = row.judge_model || row.rubric_name || 'unknown';
-        if (!groups.has(key)) groups.set(key, { name: key, scores: [], history: [] });
-        const score = metric === 'aggregate'
-          ? (row.scores ? (Object.values(row.scores).reduce((s,v)=>s+v,0) / Math.max(1, Object.values(row.scores).length)) : 0)
-          : (row.scores?.[metric] ?? 0);
-        groups.get(key).scores.push(score);
-        groups.get(key).history.push(score);
+      const params = new URLSearchParams({
+        metric: els.metric.value,
+        days:   els.period.value,
+        limit:  '20',
       });
-
-      let ranking = [...groups.values()].map(g => {
-        const sorted = [...g.scores].sort((a,b) => a - b);
-        const mean = g.scores.reduce((s,v) => s+v, 0) / Math.max(1, g.scores.length);
-        const half = Math.floor(g.scores.length / 2);
-        const prevMean = g.scores.slice(0, half).length
-          ? g.scores.slice(0, half).reduce((s,v) => s+v, 0) / Math.max(1, half) : mean;
-        return { name: g.name, mean, n: g.scores.length, delta: mean - prevMean, history: g.history };
-      });
-      ranking.sort((a, b) => b.mean - a.mean);
-
-      // If audit was empty, also poll tournament results for a baseline.
+      const j = await Kairu.get('eval', `/leaderboard?${params.toString()}`);
+      const ranking = j.rankings || [];
       if (ranking.length === 0) {
-        try {
-          const t = await Kairu.get('eval', '/tournaments');
-          const elo = new Map();
-          (t.tournaments || []).forEach(tt => {});
-          // No per-model elo on the index endpoint — fall back to empty + warn.
-        } catch (_) {}
-        els.list.innerHTML = '<div class="empty">No data yet. Run some evaluations or tournaments.</div>';
+        els.list.innerHTML = '<div class="empty">No leaderboard entries yet — pass <code>model</code> when calling /evaluate to populate this view.</div>';
         return;
       }
-
       els.list.innerHTML = '';
-      ranking.slice(0, 20).forEach((r, i) => {
+      ranking.forEach((r, i) => {
         const row = document.createElement('div');
         row.className = 'lb-row row-anim';
         row.style.animationDelay = `${i * 50}ms`;
         const dCls = r.delta > 0.005 ? 'up' : r.delta < -0.005 ? 'down' : 'zero';
         const dArrow = r.delta > 0.005 ? '↑' : r.delta < -0.005 ? '↓' : '·';
         row.innerHTML = `
-          <div class="rank">${i + 1}</div>
-          <div class="name">${r.name}<div class="sub">${r.n} evaluations</div></div>
+          <div class="rank">${r.rank}</div>
+          <div class="name">${r.model}<div class="sub">${r.n_evaluations} evaluations · p50 ${(r.p50*100).toFixed(1)}</div></div>
           <div><div class="scorebar"><div class="ghost"></div><div class="fill"></div><div class="tick"></div></div></div>
-          <div class="score">${(r.mean*100).toFixed(1)}</div>
+          <div class="score">${(r.mean_score*100).toFixed(1)}</div>
           <div class="delta ${dCls}">${dArrow} ${Math.abs(r.delta*100).toFixed(2)}</div>
         `;
         const bar = row.querySelector('.scorebar');
-        requestAnimationFrame(() => Kairu.springBar(bar, r.mean));
+        requestAnimationFrame(() => Kairu.springBar(bar, r.mean_score));
         els.list.appendChild(row);
       });
     } catch (err) {
@@ -2606,7 +2578,7 @@ function escapeHtml(s) {
 })();
 
 // ════════════════════════════════════════════════════════════════════
-// TAB 9 — Analytics (synthesised from /audit)
+// TAB 9 — Analytics (v0.20 — real /analytics/score_distribution endpoint)
 // ════════════════════════════════════════════════════════════════════
 (function initAnalytics() {
   const els = {
@@ -2628,37 +2600,26 @@ function escapeHtml(s) {
       els.stats.innerHTML = '<div class="empty">eval API offline</div>'; return;
     }
     try {
-      const params = new URLSearchParams({ limit: '500' });
-      if (els.days.value !== 'all') {
-        const since = new Date(Date.now() - parseInt(els.days.value, 10) * 86400 * 1000).toISOString();
-        params.set('start', since);
-      }
-      if (els.rubric.value) params.set('rubric_name', els.rubric.value);
-      const audit = await Kairu.get('eval', `/audit?${params.toString()}`);
-      const items = audit.items || [];
-      const aggs = items.map(r => {
-        if (!r.scores) return 0;
-        const vals = Object.values(r.scores);
-        return vals.reduce((s,v)=>s+v, 0) / Math.max(1, vals.length);
+      const params = new URLSearchParams({
+        metric: 'aggregate',
+        days:   els.days.value,
+        n_bins: '20',
       });
-      const n = aggs.length;
-      if (n === 0) {
-        els.stats.innerHTML = '<div class="empty">No audit rows in this range.</div>';
+      if (els.rubric.value) params.set('rubric', els.rubric.value);
+      const j = await Kairu.get('eval', `/analytics/score_distribution?${params.toString()}`);
+      if (j.n === 0) {
+        els.stats.innerHTML = '<div class="empty">No evaluation rows in this window.</div>';
         Kairu.histogram(els.hist, []);
         els.pctLine.textContent = '—';
         els.anomalies.innerHTML = '<div class="empty">No data</div>';
         return;
       }
-      const mean = aggs.reduce((s,v) => s+v, 0) / n;
-      const variance = aggs.reduce((s,v) => s + (v-mean)**2, 0) / n;
-      const stdev = Math.sqrt(variance);
-      const sorted = [...aggs].sort((a,b) => a-b);
-      const pct = p => sorted[Math.floor(p * sorted.length)] ?? 0;
+      const pcts = j.percentiles;
       const stats = [
-        ['Rows', n, ''], ['Mean', (mean*100).toFixed(2), ''],
-        ['Stdev', (stdev*100).toFixed(2), ''], ['Min', (sorted[0]*100).toFixed(1), ''],
-        ['Max', (sorted[n-1]*100).toFixed(1), ''], ['p25', (pct(0.25)*100).toFixed(1), ''],
-        ['p50', (pct(0.5)*100).toFixed(1), ''], ['p75', (pct(0.75)*100).toFixed(1), ''],
+        ['Rows', j.n, j.source], ['Mean',  (j.mean*100).toFixed(2), ''],
+        ['Stdev', (j.stdev*100).toFixed(2), ''], ['Min',  (j.min*100).toFixed(1), ''],
+        ['Max',   (j.max*100).toFixed(1), ''],   ['p25',  (pcts.p25*100).toFixed(1), ''],
+        ['p50',   (pcts.p50*100).toFixed(1), ''], ['p75',  (pcts.p75*100).toFixed(1), ''],
       ];
       els.stats.innerHTML = '';
       stats.forEach(([k,v,sub]) => {
@@ -2666,33 +2627,33 @@ function escapeHtml(s) {
         c.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="sub">${sub}</div>`: ''}`;
         els.stats.appendChild(c);
       });
-      Kairu.histogram(els.hist, aggs, {
-        color: '#7c3aed',
-        percentileLines: { p25: pct(0.25), p50: pct(0.5), p75: pct(0.75), p95: pct(0.95) },
+      // Render server-supplied histogram buckets.
+      const allValues = [];
+      j.histogram.forEach(b => {
+        for (let i = 0; i < b.count; i++) allValues.push((b.low + b.high) / 2);
       });
-      els.pctLine.textContent = `p5 ${(pct(0.05)*100).toFixed(1)} · p25 ${(pct(0.25)*100).toFixed(1)} · p50 ${(pct(0.50)*100).toFixed(1)} · p75 ${(pct(0.75)*100).toFixed(1)} · p95 ${(pct(0.95)*100).toFixed(1)}`;
-      // anomalies: > 2σ
-      const anomalies = items.filter((r, i) => Math.abs(aggs[i] - mean) > 2 * stdev);
+      Kairu.histogram(els.hist, allValues, {
+        color: '#7c3aed',
+        percentileLines: { p25: pcts.p25, p50: pcts.p50, p75: pcts.p75, p95: pcts.p95 },
+      });
+      els.pctLine.textContent = `p5 ${(pcts.p5*100).toFixed(1)} · p25 ${(pcts.p25*100).toFixed(1)} · p50 ${(pcts.p50*100).toFixed(1)} · p75 ${(pcts.p75*100).toFixed(1)} · p95 ${(pcts.p95*100).toFixed(1)}`;
+      const anomalies = j.anomalies || [];
       if (!anomalies.length) {
-        els.anomalies.innerHTML = '<div class="empty">No anomalies in this window.</div>';
+        els.anomalies.innerHTML = '<div class="empty">No anomalies in this window — every row sits within ±2σ.</div>';
       } else {
         els.anomalies.innerHTML = '';
         const tbl = document.createElement('table');
         tbl.className = 'kt';
-        tbl.innerHTML = `<thead><tr><th>id</th><th>time</th><th>rubric</th><th>aggregate</th><th>z</th></tr></thead><tbody></tbody>`;
+        tbl.innerHTML = `<thead><tr><th>id</th><th>aggregate</th><th>z</th></tr></thead><tbody></tbody>`;
         const body = tbl.querySelector('tbody');
-        anomalies.slice(0, 50).forEach((r, k) => {
-          const agg = aggs[items.indexOf(r)];
-          const z = (agg - mean) / (stdev || 1e-9);
+        anomalies.slice(0, 50).forEach((a, k) => {
           const tr = document.createElement('tr');
           tr.className = 'row-anim';
           tr.style.animationDelay = `${k * 30}ms`;
           tr.innerHTML = `
-            <td>${r.id}</td>
-            <td>${Kairu.shortTime(r.timestamp_utc)}</td>
-            <td>${r.rubric_name || '—'}</td>
-            <td class="num" style="color:${z>0?'var(--pass)':'var(--fail)'}">${(agg*100).toFixed(2)}</td>
-            <td class="num" style="color:var(--warn)">${z.toFixed(2)}σ</td>`;
+            <td>${a.id}</td>
+            <td class="num" style="color:${a.z_score>0?'var(--pass)':'var(--fail)'}">${(a.score*100).toFixed(2)}</td>
+            <td class="num" style="color:var(--warn)">${a.z_score.toFixed(2)}σ</td>`;
           body.appendChild(tr);
         });
         els.anomalies.appendChild(tbl);

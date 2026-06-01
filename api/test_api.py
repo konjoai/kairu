@@ -1241,3 +1241,165 @@ async def test_tournament_duplicate_model_names_returns_422(client: AsyncClient)
 async def test_tournaments_get_unknown_returns_404(client: AsyncClient) -> None:
     r = await client.get("/tournaments/no-such-id")
     assert r.status_code == 404
+
+
+# ════════════════════════════════════════════════════════════════════════
+# v0.20 — leaderboard, score-distribution analytics, prompt library
+# ════════════════════════════════════════════════════════════════════════
+
+
+# ── /leaderboard ────────────────────────────────────────────────────────
+
+
+async def test_leaderboard_empty_initially(client: AsyncClient) -> None:
+    r = await client.get("/leaderboard")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["rankings"] == []
+    assert body["synthesised"] is False
+    assert body["metric"] == "aggregate"
+
+
+async def test_leaderboard_populated_by_evaluate_with_model(client: AsyncClient) -> None:
+    # Score the same model twice to build a real entry.
+    for resp in ("Paris is the capital.", "Paris is the capital of France."):
+        r = await client.post("/evaluate", json={
+            "prompt": "What is the capital of France?",
+            "response": resp,
+            "model": "alpha-v1",
+        })
+        assert r.status_code == 200
+        # The endpoint should signal it recorded an entry.
+        assert "leaderboard_id" in r.json()
+    lb = await client.get("/leaderboard")
+    body = lb.json()
+    assert body["n_models"] == 1
+    assert body["rankings"][0]["model"] == "alpha-v1"
+    assert body["rankings"][0]["n_evaluations"] == 2
+
+
+async def test_leaderboard_evaluate_without_model_does_not_record(client: AsyncClient) -> None:
+    r = await client.post("/evaluate", json={
+        "prompt": "What is the capital of France?",
+        "response": "Paris.",
+    })
+    assert r.status_code == 200
+    assert "leaderboard_id" not in r.json()
+
+
+async def test_leaderboard_metric_criterion(client: AsyncClient) -> None:
+    await client.post("/evaluate", json={
+        "prompt": "Brief explanation of photosynthesis.",
+        "response": "Photosynthesis converts sunlight into glucose via chlorophyll.",
+        "model": "beta-v1",
+    })
+    r = await client.get("/leaderboard?metric=relevance&limit=5")
+    body = r.json()
+    assert body["metric"] == "relevance"
+    # Either populated or empty if the criterion isn't in the rubric.
+    for row in body["rankings"]:
+        assert 0.0 <= row["mean_score"] <= 1.0
+
+
+async def test_leaderboard_rejects_bad_days_param(client: AsyncClient) -> None:
+    r = await client.get("/leaderboard?days=banana")
+    assert r.status_code == 422
+
+
+# ── /analytics/score_distribution ──────────────────────────────────────
+
+
+async def test_analytics_distribution_well_formed_payload(client: AsyncClient) -> None:
+    r = await client.get("/analytics/score_distribution?days=1")
+    assert r.status_code == 200
+    body = r.json()
+    # Tests share the eval app's audit log, so n may be non-zero — check shape.
+    assert body["synthesised"] is False
+    assert isinstance(body["histogram"], list)
+    assert len(body["histogram"]) == 20  # default n_bins
+    assert set(body["percentiles"].keys()) == {"p5", "p25", "p50", "p75", "p95"}
+    assert body["source"] in ("audit", "leaderboard")
+
+
+async def test_analytics_distribution_populated_from_audit(client: AsyncClient) -> None:
+    # Run several evaluations to fill the audit log.
+    for r_text in ("Paris.", "Paris is the capital.", "France's capital is Paris."):
+        await client.post("/evaluate", json={
+            "prompt": "Capital of France?",
+            "response": r_text,
+        })
+    r = await client.get("/analytics/score_distribution")
+    body = r.json()
+    assert body["n"] >= 3
+    assert "percentiles" in body
+    assert sum(b["count"] for b in body["histogram"]) == body["n"]
+    assert body["source"] == "audit"
+
+
+async def test_analytics_distribution_model_source_when_present(client: AsyncClient) -> None:
+    await client.post("/evaluate", json={
+        "prompt": "What is 2+2?", "response": "Four.", "model": "alpha-v1",
+    })
+    r = await client.get("/analytics/score_distribution?model=alpha-v1")
+    body = r.json()
+    assert body["source"] == "leaderboard"
+    assert body["n"] >= 1
+
+
+async def test_analytics_distribution_n_bins_customisable(client: AsyncClient) -> None:
+    r = await client.get("/analytics/score_distribution?n_bins=10")
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["histogram"]) == 10
+
+
+async def test_analytics_distribution_rejects_bad_n_bins(client: AsyncClient) -> None:
+    r = await client.get("/analytics/score_distribution?n_bins=1")
+    assert r.status_code == 422  # min is 2
+
+
+# ── /prompts ────────────────────────────────────────────────────────────
+
+
+async def test_create_and_get_prompt(client: AsyncClient) -> None:
+    r = await client.post("/prompts", json={
+        "name": "greet", "text": "hello world",
+        "description": "smoke test", "tags": ["smoke"],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["name"] == "greet"
+    assert body["text"] == "hello world"
+    assert body["tags"] == ["smoke"]
+    g = await client.get("/prompts/greet")
+    assert g.status_code == 200
+    assert g.json()["description"] == "smoke test"
+
+
+async def test_list_prompts_and_filter_by_tag(client: AsyncClient) -> None:
+    await client.post("/prompts", json={"name": "a", "text": "x", "tags": ["smoke"]})
+    await client.post("/prompts", json={"name": "b", "text": "y", "tags": ["regression"]})
+    all_r = await client.get("/prompts")
+    assert {p["name"] for p in all_r.json()["prompts"]} >= {"a", "b"}
+    smoke = await client.get("/prompts?tag=smoke")
+    names = {p["name"] for p in smoke.json()["prompts"]}
+    assert "a" in names and "b" not in names
+
+
+async def test_delete_prompt(client: AsyncClient) -> None:
+    await client.post("/prompts", json={"name": "doomed", "text": "bye"})
+    d = await client.delete("/prompts/doomed")
+    assert d.status_code == 200
+    assert d.json()["deleted"] == "doomed"
+    again = await client.delete("/prompts/doomed")
+    assert again.status_code == 404
+
+
+async def test_prompt_unknown_get_returns_404(client: AsyncClient) -> None:
+    r = await client.get("/prompts/no-such-prompt-here")
+    assert r.status_code == 404
+
+
+async def test_prompt_rejects_bad_name(client: AsyncClient) -> None:
+    r = await client.post("/prompts", json={"name": "with spaces", "text": "x"})
+    assert r.status_code == 422

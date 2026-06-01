@@ -66,8 +66,21 @@ from kairu.calibration import (
     correct_ensemble_scores,
 )
 from kairu.adversarial import check_adversarial
+from kairu.analytics import (
+    DEFAULT_ANOMALY_THRESHOLD,
+    DEFAULT_N_BINS,
+    compute_distribution,
+)
 from kairu.constitutional import GeneratedRubric, generate_rubric
+from kairu.leaderboard import (
+    LeaderboardStore,
+    open_default_leaderboard_store,
+)
 from kairu.log_eval import DEFAULT_LOG_THRESHOLD, evaluate_log
+from kairu.prompts import (
+    PromptStore,
+    open_default_prompt_store,
+)
 from kairu.rubrics import RUBRIC_DEFS
 from kairu.templates import (
     EvaluationTemplate,
@@ -103,6 +116,9 @@ class EvaluateRequest(BaseModel):
     rubric: Optional[str] = None
     criteria: Optional[List[str]] = None
     weights: Optional[Dict[str, float]] = None
+    # v0.20 — optional model identity. When supplied, the result is
+    # also appended to the leaderboard table under this name.
+    model: Optional[str] = Field(None, max_length=64)
 
 
 class NamedRubricRequest(BaseModel):
@@ -111,6 +127,7 @@ class NamedRubricRequest(BaseModel):
     prompt: str = Field(..., min_length=1)
     response: str = Field(..., min_length=1)
     weights: Optional[Dict[str, float]] = None
+    model: Optional[str] = Field(None, max_length=64)
 
 
 class CompareRequest(BaseModel):
@@ -169,6 +186,7 @@ class EnsembleEvaluateRequest(BaseModel):
     disagreement_threshold: float = Field(
         DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0
     )
+    model: Optional[str] = Field(None, max_length=64)
 
 
 class EnsembleCompareRequest(BaseModel):
@@ -257,6 +275,18 @@ class TournamentRequest(BaseModel):
     disagreement_threshold: float = Field(
         DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0,
     )
+
+
+# ── v0.20 prompt library request model ────────────────────────────
+
+
+class PromptSaveRequest(BaseModel):
+    """Body for ``POST /prompts``."""
+
+    name: str = Field(..., min_length=1, max_length=64)
+    text: str = Field(..., min_length=1)
+    description: str = Field("", max_length=512)
+    tags: Optional[List[str]] = None
 
 
 class RegisterRubricRequest(BaseModel):
@@ -391,6 +421,8 @@ def create_app(
     bias_profile_store: Optional[BiasProfileStore] = None,
     template_store: Optional[TemplateStore] = None,
     tournament_store: Optional[TournamentStore] = None,
+    leaderboard_store: Optional[LeaderboardStore] = None,
+    prompt_store: Optional[PromptStore] = None,
 ) -> FastAPI:
     app = FastAPI(
         title="kairu evaluation API",
@@ -409,6 +441,12 @@ def create_app(
     )
     app.state.tournaments = (
         tournament_store if tournament_store is not None else TournamentStore()
+    )
+    app.state.leaderboard = (
+        leaderboard_store if leaderboard_store is not None else open_default_leaderboard_store()
+    )
+    app.state.prompts = (
+        prompt_store if prompt_store is not None else open_default_prompt_store()
     )
 
     @app.get("/health")
@@ -518,6 +556,19 @@ def create_app(
             reasoning={"aggregate": ev.aggregate},
         )
         out["audit_id"] = audit_id
+        # v0.20 — opportunistic leaderboard population.
+        if req.model:
+            try:
+                lb_id = app.state.leaderboard.record(
+                    model=req.model,
+                    prompt=req.prompt,
+                    rubric_name=ev.rubric,
+                    aggregate=ev.aggregate,
+                    criteria={s.name: s.score for s in ev.scores},
+                )
+                out["leaderboard_id"] = lb_id
+            except (ValueError, TypeError) as exc:
+                logger.warning("leaderboard record failed: %s", exc)
         return out
 
     @app.post("/evaluate/rubric/{name}")
@@ -715,7 +766,21 @@ def create_app(
             )
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return result.to_dict()
+        out = result.to_dict()
+        if req.model:
+            try:
+                rubric_name = result.judges[0].rubric if result.judges else "default"
+                lb_id = app.state.leaderboard.record(
+                    model=req.model,
+                    prompt=req.prompt,
+                    rubric_name=rubric_name,
+                    aggregate=result.median_aggregate,
+                    criteria=dict(result.median_scores),
+                )
+                out["leaderboard_id"] = lb_id
+            except (ValueError, TypeError) as exc:
+                logger.warning("leaderboard record failed: %s", exc)
+        return out
 
     @app.post("/compare/ensemble")
     def compare_ensemble_endpoint(req: EnsembleCompareRequest):
@@ -1202,6 +1267,173 @@ def create_app(
                 status_code=404,
                 detail=f"tournament '{tournament_id}' not found",
             ) from exc
+
+    # ── v0.20 leaderboard ─────────────────────────────────────────────
+
+    @app.get("/leaderboard")
+    def leaderboard_endpoint(
+        metric: str = Query("aggregate", min_length=1, max_length=64),
+        days: Optional[str] = Query(None, max_length=8),
+        limit: int = Query(20, ge=1, le=200),
+    ) -> Dict[str, object]:
+        store: LeaderboardStore = app.state.leaderboard
+        days_int: Optional[int]
+        if days is None or days == "all":
+            days_int = None
+        else:
+            try:
+                days_int = int(days)
+                if days_int < 1:
+                    raise ValueError
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail="days must be a positive integer or 'all'",
+                ) from exc
+        try:
+            rows = store.rank(metric=metric, days=days_int, limit=limit)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "rankings": [r.to_dict() for r in rows],
+            "metric": metric,
+            "period_days": days_int,
+            "limit": limit,
+            "n_models": len(rows),
+            "synthesised": False,
+        }
+
+    # ── v0.20 score distribution analytics ────────────────────────────
+
+    @app.get("/analytics/score_distribution")
+    def analytics_distribution(
+        metric: str = Query("aggregate", min_length=1, max_length=64),
+        days: Optional[str] = Query(None, max_length=8),
+        rubric: Optional[str] = None,
+        model: Optional[str] = None,
+        anomaly_threshold: float = Query(DEFAULT_ANOMALY_THRESHOLD, ge=0.0, le=10.0),
+        n_bins: int = Query(DEFAULT_N_BINS, ge=2, le=200),
+    ) -> Dict[str, object]:
+        # Determine the time window.
+        from datetime import datetime, timedelta, timezone as _tz
+        start_iso: Optional[str] = None
+        days_int: Optional[int]
+        if days is None or days == "all":
+            days_int = None
+        else:
+            try:
+                days_int = int(days)
+                if days_int < 1:
+                    raise ValueError
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail="days must be a positive integer or 'all'",
+                ) from exc
+            start_iso = (datetime.now(_tz.utc) - timedelta(days=days_int)).strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+
+        # Source selection: if model is given, prefer the leaderboard table
+        # (model identity lives there); otherwise the audit log captures every call.
+        rows: List[Dict[str, object]] = []
+        if model:
+            lb_store: LeaderboardStore = app.state.leaderboard
+            with lb_store._lock:  # pylint: disable=protected-access
+                cur = lb_store._conn.execute(
+                    "SELECT id, aggregate, criteria_json, timestamp_utc, model, rubric_name "
+                    "FROM leaderboard_entries WHERE model = ?",
+                    (model,),
+                )
+                src_rows = cur.fetchall()
+            import json as _json
+            for r in src_rows:
+                if rubric and r["rubric_name"] != rubric:
+                    continue
+                if start_iso and r["timestamp_utc"] < start_iso:
+                    continue
+                try:
+                    criteria = _json.loads(r["criteria_json"])
+                except Exception:  # noqa: BLE001
+                    criteria = {}
+                rows.append({
+                    "id": r["id"],
+                    "aggregate": float(r["aggregate"]),
+                    "criteria": criteria,
+                    "scores": criteria,
+                })
+        else:
+            log: AuditLog = app.state.audit
+            try:
+                items = log.query(
+                    start=start_iso, end=None,
+                    rubric_name=rubric, rubric_version=None,
+                    limit=10_000, offset=0,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            for r in items:
+                rows.append({
+                    "id": r.id,
+                    "aggregate": (
+                        sum(r.scores.values()) / len(r.scores)
+                        if r.scores else 0.0
+                    ),
+                    "scores": dict(r.scores),
+                })
+
+        report = compute_distribution(
+            rows,
+            metric=metric,
+            n_bins=n_bins,
+            anomaly_threshold=anomaly_threshold,
+            filters={"rubric": rubric, "model": model, "days": days_int},
+        )
+        out = report.to_dict()
+        out["synthesised"] = False
+        out["source"] = "leaderboard" if model else "audit"
+        return out
+
+    # ── v0.20 prompt library ──────────────────────────────────────────
+
+    @app.post("/prompts")
+    def save_prompt_endpoint(req: PromptSaveRequest):
+        store: PromptStore = app.state.prompts
+        _check_text("prompt text", req.text)
+        try:
+            p = store.save(
+                req.name, text=req.text,
+                description=req.description, tags=req.tags,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return p.to_dict()
+
+    @app.get("/prompts")
+    def list_prompts_endpoint(tag: Optional[str] = None) -> Dict[str, object]:
+        store: PromptStore = app.state.prompts
+        items = store.list(tag=tag)
+        return {"prompts": [p.to_dict() for p in items], "count": len(items)}
+
+    @app.get("/prompts/{name}")
+    def get_prompt_endpoint(name: str):
+        store: PromptStore = app.state.prompts
+        try:
+            return store.get(name).to_dict()
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404, detail=f"prompt '{name}' not found",
+            ) from exc
+
+    @app.delete("/prompts/{name}")
+    def delete_prompt_endpoint(name: str):
+        store: PromptStore = app.state.prompts
+        removed = store.delete(name)
+        if not removed:
+            raise HTTPException(
+                status_code=404, detail=f"prompt '{name}' not found",
+            )
+        return {"deleted": name}
 
     return app
 
