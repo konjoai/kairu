@@ -492,12 +492,10 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 @keyframes dash-in { to { stroke-dashoffset: -120; } }
 .prism-stage svg.prism .beam {
-  stroke-width: 2.4; stroke-linecap: round;
-  opacity: 0;
-  filter: drop-shadow(0 0 6px currentColor);
-  transition: opacity 600ms, stroke-dashoffset 700ms cubic-bezier(.22,1,.36,1);
+  stroke-width: 2.8; stroke-linecap: round;
+  filter: drop-shadow(0 0 5px currentColor);
+  transition: stroke-dashoffset 900ms cubic-bezier(.22,1,.36,1);
 }
-.prism-stage svg.prism .beam.show { opacity: 1; }
 
 .judge-card {
   padding: 12px 14px;
@@ -708,6 +706,185 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .divider { height: 1px; background: var(--line-soft); margin: 14px 0; }
 .kbd { font-family: var(--mono); font-size: 11px; padding: 2px 6px; background: rgba(255,255,255,0.06); border: 1px solid var(--line-soft); border-radius: 5px; color: var(--muted); }
 
+/* Engine tab token bubbles */
+.token-bubble {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  border: 2px solid;
+  animation: bubble-pop 300ms cubic-bezier(.34,1.56,.64,1) both;
+}
+.token-bubble.accepted { background: rgba(16,185,129,0.18); color: var(--pass); border-color: var(--pass); box-shadow: 0 0 10px rgba(16,185,129,0.4); }
+.token-bubble.rejected { background: rgba(239,68,68,0.18); color: var(--fail); border-color: var(--fail); }
+.token-bubble.bonus    { background: rgba(245,200,75,0.18); color: var(--gold); border-color: var(--gold); box-shadow: 0 0 10px rgba(245,200,75,0.4); }
+.token-bubble.empty    { background: transparent; border-color: rgba(255,255,255,0.1); }
+.token-bubble.pending  { background: rgba(255,255,255,0.04); border-color: var(--dim); }
+@keyframes bubble-pop { from { transform: scale(0) rotate(-15deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+
+.round-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.018);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  animation: fade-rise 280ms ease both;
+}
+.round-label { font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 90px; }
+.round-tokens { display: flex; gap: 5px; flex: 1; }
+.round-stats { font-family: var(--mono); font-size: 11px; color: var(--accent-2); min-width: 80px; text-align: right; }
+
+.exit-bar-row {
+  display: grid; grid-template-columns: 70px 1fr 100px;
+  gap: 10px; align-items: center; padding: 5px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.exit-bar-track {
+  height: 14px; border-radius: 7px;
+  background: rgba(255,255,255,0.04);
+  overflow: hidden;
+  position: relative;
+}
+.exit-bar-fill {
+  height: 100%; border-radius: 7px;
+  transition: width 600ms cubic-bezier(.34,1.56,.64,1);
+  width: 0%;
+}
+.exit-bar-label { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+
+.cache-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.cache-slot {
+  width: 52px; height: 52px; border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255,255,255,0.03);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  transition: background 300ms, border-color 300ms, box-shadow 300ms;
+  position: relative;
+}
+.cache-slot.filled   { background: rgba(124,58,237,0.12); border-color: var(--line-2); color: var(--text); }
+.cache-slot.hit      { background: rgba(16,185,129,0.22); border-color: rgba(16,185,129,0.5); color: var(--pass); box-shadow: 0 0 12px rgba(16,185,129,0.35); }
+.cache-slot.evicted  { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.4); color: var(--fail); }
+.cache-slot .slot-lru { position: absolute; top: 2px; right: 4px; font-size: 9px; color: var(--dim); }
+
+.op-timeline { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.op-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  transition: transform 200ms;
+}
+.op-dot:hover { transform: scale(1.4); }
+.op-dot.hit  { background: var(--pass); box-shadow: 0 0 4px var(--pass); }
+.op-dot.miss { background: var(--fail); }
+.op-dot.evict { background: var(--warn); box-shadow: 0 0 4px var(--warn); }
+
+.heatmap-grid {
+  display: grid;
+  gap: 3px;
+}
+.hm-cell {
+  height: 36px;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 180ms, box-shadow 180ms, outline 100ms;
+  user-select: none;
+  border: 1px solid transparent;
+}
+.hm-cell:hover { transform: scale(1.06); z-index: 2; outline: 2px solid rgba(255,255,255,0.4); }
+.hm-cell.selected { outline: 2px solid var(--accent-3); z-index: 3; }
+.hm-axis { font-family: var(--mono); font-size: 10px; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+
+.profile-card {
+  padding: 20px 24px;
+  background: rgba(124,58,237,0.08);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.profile-card .strategy-name {
+  font-family: var(--mono); font-size: 30px; font-weight: 900;
+  text-transform: uppercase; letter-spacing: .1em;
+  background: var(--grad-purple); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.profile-card .rationale {
+  margin-top: 10px; color: var(--muted); font-size: 13px; line-height: 1.6;
+  border-left: 2px solid var(--line-2); padding-left: 12px;
+}
+.profile-card .profile-glow {
+  position: absolute; top: -40px; right: -40px;
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(124,58,237,0.25), transparent 70%);
+  pointer-events: none;
+}
+
+.wm-tokens { display: flex; flex-wrap: wrap; gap: 5px; margin: 12px 0; }
+.wm-token {
+  padding: 4px 8px; border-radius: 6px;
+  font-family: var(--mono); font-size: 11px;
+  border: 1px solid;
+  transition: transform 180ms;
+  animation: bubble-pop 240ms cubic-bezier(.34,1.56,.64,1) both;
+  cursor: default;
+}
+.wm-token.green { background: rgba(16,185,129,0.14); color: #6BFF8E; border-color: rgba(16,185,129,0.4); }
+.wm-token.red   { background: rgba(239,68,68,0.12);  color: #ff8585; border-color: rgba(239,68,68,0.3); }
+.wm-token:hover { transform: scale(1.08); }
+
+.z-score-display {
+  text-align: center; padding: 24px 0;
+}
+.z-score-display .z-val {
+  font-family: var(--mono); font-size: 56px; font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition: color 500ms;
+}
+.z-score-display .z-val.detected   { color: var(--pass); text-shadow: 0 0 30px rgba(16,185,129,0.5); }
+.z-score-display .z-val.undetected { color: var(--dim); }
+.z-score-display .z-label { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin-top: 6px; }
+
+.speedup-compare {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+}
+.speedup-compare .row-label { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.speedup-compare .bar-track {
+  height: 10px; border-radius: 5px; background: rgba(255,255,255,0.04);
+  overflow: hidden; position: relative; margin-bottom: 10px;
+}
+.speedup-compare .bar-fill {
+  height: 100%; border-radius: 5px;
+  transition: width 600ms cubic-bezier(.34,1.56,.64,1);
+}
+.speedup-compare .bar-fill.standard { background: rgba(255,255,255,0.15); }
+.speedup-compare .bar-fill.kairu    { background: var(--grad-purple); box-shadow: 0 0 8px rgba(124,58,237,0.4); }
+.speedup-number {
+  font-family: var(--mono); font-size: 32px; font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(245,200,75,0.5);
+  animation: fade-rise 400ms ease;
+}
+
+/* Decoder hint chip */
+.decoder-hint {
+  margin-top: 12px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px;
+  background: rgba(124,58,237,0.08);
+  border: 1px solid var(--line-2);
+  border-radius: 20px;
+  font-family: var(--mono); font-size: 11px; color: var(--accent-2);
+  animation: fade-rise 400ms ease;
+}
+.decoder-hint .hint-label { color: var(--muted); }
+
 </style>
 </head>
 <body>
@@ -731,7 +908,10 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
      Tab navigation
      ════════════════════════════════════════════════════════════════════ -->
 <nav class="tabs" role="tablist">
-  <button data-tab="generate"    class="active"><span class="ti">⚡</span>Generate</button>
+  <button data-tab="generate" class="active"><span class="ti">⚡</span>Generate</button>
+  <button data-tab="engine"><span class="ti">⚙</span>Engine</button>
+  <button data-tab="speedup"><span class="ti">◆</span>Speed-Up</button>
+  <button data-tab="watermark"><span class="ti">◎</span>Watermark</button>
   <button data-tab="evaluate"><span class="ti">◈</span>Evaluate</button>
   <button data-tab="tournament"><span class="ti">⚔</span>Tournament</button>
   <button data-tab="leaderboard"><span class="ti">⊕</span>Leaderboard</button>
@@ -788,6 +968,7 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
         <div class="stat-card"><div class="k">Time</div><div class="v" id="gen-stat-time">0.00s</div></div>
         <div class="stat-card"><div class="k">Tokens / sec</div><div class="v" id="gen-stat-rate">0</div></div>
       </div>
+      <div id="gen-decoder-hint"></div>
     </div>
 
     <div class="panel">
@@ -801,14 +982,202 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 
 <!-- ════════════════════════════════════════════════════════════════════
-     TAB 2 — EVALUATE (prism)
+     TAB 2 — ENGINE
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="engine">
+  <div class="grid" style="gap: 24px">
+
+    <div class="panel">
+      <div class="panel-title">Speculative Decoder <span class="meta">→ /api/simulate-race</span></div>
+      <div class="row" style="gap: 16px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-end">
+        <div>
+          <label class="field">ρ acceptance <span id="eng-rho-val">0.80</span></label>
+          <input type="range" id="eng-rho" min="0.4" max="0.99" step="0.01" value="0.8" style="width: 160px" oninput="document.getElementById('eng-rho-val').textContent=parseFloat(this.value).toFixed(2)" />
+        </div>
+        <div>
+          <label class="field">γ draft tokens</label>
+          <select id="eng-gamma" style="width: auto">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            <option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
+            <option value="7">7</option><option value="8">8</option>
+          </select>
+        </div>
+        <div>
+          <label class="field">n_tokens</label>
+          <input type="number" id="eng-ntok" value="60" min="10" max="200" style="width: 90px" />
+        </div>
+        <button class="btn" id="eng-spec-run">Run ▶</button>
+      </div>
+      <div id="eng-spec-rounds" style="max-height: 360px; overflow-y: auto;"></div>
+      <div id="eng-spec-compare"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Early Exit Decoder <span class="meta">→ /api/early-exit-sim</span></div>
+      <div class="row" style="gap: 16px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-end">
+        <div>
+          <label class="field">threshold <span id="eng-ee-thresh-val">0.85</span></label>
+          <input type="range" id="eng-ee-thresh" min="0.5" max="0.99" step="0.01" value="0.85" style="width: 160px" oninput="document.getElementById('eng-ee-thresh-val').textContent=parseFloat(this.value).toFixed(2)" />
+        </div>
+        <div>
+          <label class="field">n_tokens</label>
+          <input type="number" id="eng-ee-ntok" value="20" min="5" max="50" style="width: 90px" />
+        </div>
+        <div>
+          <label class="field">layers</label>
+          <select id="eng-ee-layers" style="width: auto">
+            <option value="6">6</option><option value="12" selected>12</option>
+            <option value="24">24</option><option value="48">48</option>
+          </select>
+        </div>
+        <button class="btn" id="eng-ee-run">Run ▶</button>
+      </div>
+      <div id="eng-ee-bars"></div>
+      <div id="eng-ee-summary" class="tiny-mono" style="margin-top: 10px; color: var(--muted)"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">KV Cache Monitor <span class="meta">→ /api/kv-cache-sim</span></div>
+      <div class="row" style="gap: 16px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-end">
+        <div>
+          <label class="field">capacity</label>
+          <input type="number" id="eng-kv-cap" value="8" min="4" max="32" style="width: 90px" />
+        </div>
+        <div>
+          <label class="field">n_ops</label>
+          <input type="number" id="eng-kv-ops" value="60" min="20" max="100" style="width: 90px" />
+        </div>
+        <div>
+          <label class="field">seed</label>
+          <input type="number" id="eng-kv-seed" value="42" min="0" max="9999" style="width: 90px" />
+        </div>
+        <button class="btn" id="eng-kv-run">Run ▶</button>
+      </div>
+      <div class="cache-grid" id="eng-kv-grid"></div>
+      <div class="op-timeline" id="eng-kv-timeline"></div>
+      <div class="row" style="gap: 16px; margin-top: 14px" id="eng-kv-stats"></div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TAB 3 — SPEED-UP
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="speedup">
+  <div class="grid grid-2" style="gap: 24px; margin-bottom: 24px">
+
+    <div class="panel">
+      <div class="panel-title">Speedup Heatmap <span class="meta">E[speedup] = (1−ρ^(γ+1)) / ((1−ρ)·(1+γ(1−ρ)))</span></div>
+      <div id="hm-wrap"></div>
+      <div id="hm-derivation" style="margin-top: 14px"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Model Profiler <span class="meta">→ /api/recommend</span></div>
+      <div class="grid grid-2" style="margin-bottom: 12px">
+        <div>
+          <label class="field">Model name</label>
+          <input type="text" id="prof-name" value="my-model" />
+        </div>
+        <div>
+          <label class="field">Vocab size</label>
+          <input type="number" id="prof-vocab" value="32000" />
+        </div>
+      </div>
+      <div class="row" style="gap: 18px; margin-bottom: 14px">
+        <label class="toggle"><input type="checkbox" id="prof-draft" /><span class="knob"></span>Has draft model</label>
+        <label class="toggle"><input type="checkbox" id="prof-layered" /><span class="knob"></span>Layered arch</label>
+      </div>
+      <button class="btn" id="prof-run">Profile →</button>
+      <div id="prof-result" style="margin-top: 16px"></div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TAB 4 — WATERMARK
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="watermark">
+  <div class="grid grid-2" style="gap: 24px">
+
+    <div class="panel">
+      <div class="panel-title">Watermark Generator <span class="meta">→ /api/watermark-demo</span></div>
+      <div class="grid grid-2" style="margin-bottom: 14px; gap: 14px">
+        <div>
+          <label class="field">δ delta bias <span id="wm-delta-val">2.0</span></label>
+          <input type="range" id="wm-delta" min="0.5" max="5.0" step="0.1" value="2.0" style="width: 100%" oninput="document.getElementById('wm-delta-val').textContent=parseFloat(this.value).toFixed(1)" />
+        </div>
+        <div>
+          <label class="field">Seed</label>
+          <input type="number" id="wm-seed" value="42" min="0" max="9999" />
+        </div>
+        <div>
+          <label class="field">Scheme</label>
+          <select id="wm-scheme">
+            <option value="single">single (prev token)</option>
+            <option value="context">context (window)</option>
+          </select>
+        </div>
+        <div>
+          <label class="field">n_tokens</label>
+          <input type="number" id="wm-ntok" value="40" min="10" max="80" />
+        </div>
+      </div>
+      <button class="btn" id="wm-run" style="width: 100%">Forge Watermark ◎</button>
+      <div class="wm-tokens" id="wm-tokens"><div class="empty" style="width:100%">Click to generate watermarked tokens</div></div>
+      <div id="wm-frac-bar" style="margin-top: 8px"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Watermark Detector <span class="meta">Kirchenbauer et al. 2023</span></div>
+      <div class="z-score-display">
+        <div class="z-val undetected" id="wm-zscore">—</div>
+        <div class="z-label">z-score</div>
+      </div>
+      <div style="text-align: center; margin-bottom: 16px" id="wm-decision-badge"></div>
+      <div class="grid grid-4" style="gap: 10px; margin-bottom: 12px" id="wm-stats"></div>
+      <div id="wm-confidence-bar"></div>
+      <div class="tiny-mono" id="wm-explain" style="margin-top: 14px; color: var(--muted); line-height: 1.7"></div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TAB 5 — EVALUATE (prism)
      ════════════════════════════════════════════════════════════════════ -->
 <section class="tab-pane" data-pane="evaluate">
+  <div class="prism-stage" style="margin-bottom: 18px">
+    <svg class="prism" viewBox="0 0 360 280" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="beam-glow">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <line class="light-in" x1="-10" y1="140" x2="75" y2="140"/>
+      <polygon class="face" points="75,25 75,255 245,140"/>
+      <line id="pb-0" class="beam" x1="245" y1="140" x2="329" y2="74"  stroke="#6BFF8E" stroke-dasharray="110" stroke-dashoffset="110"/>
+      <line id="pb-1" class="beam" x1="245" y1="140" x2="337" y2="95"  stroke="#9D6BFF" stroke-dasharray="110" stroke-dashoffset="110"/>
+      <line id="pb-2" class="beam" x1="245" y1="140" x2="341" y2="116" stroke="#4FA8FF" stroke-dasharray="110" stroke-dashoffset="110"/>
+      <line id="pb-3" class="beam" x1="245" y1="140" x2="344" y2="131" stroke="#3DDDE6" stroke-dasharray="110" stroke-dashoffset="110"/>
+      <line id="pb-4" class="beam" x1="245" y1="140" x2="344" y2="149" stroke="#F5C84B" stroke-dasharray="110" stroke-dashoffset="110"/>
+      <line id="pb-5" class="beam" x1="245" y1="140" x2="341" y2="164" stroke="#FF6BD0" stroke-dasharray="110" stroke-dashoffset="110"/>
+      <line id="pb-6" class="beam" x1="245" y1="140" x2="337" y2="185" stroke="#5BFFD0" stroke-dasharray="110" stroke-dashoffset="110"/>
+      <line id="pb-7" class="beam" x1="245" y1="140" x2="329" y2="206" stroke="#FF9466" stroke-dasharray="110" stroke-dashoffset="110"/>
+    </svg>
+  </div>
   <div class="grid grid-side" style="margin-bottom: 18px">
     <div class="panel">
       <div class="panel-title">Evaluate <span class="meta">prompt + response → 8-criterion prism</span></div>
 
       <div class="row" style="margin-bottom: 12px">
+
         <select id="ev-mode" style="width: auto; flex: 0 0 auto">
           <option value="single">single judge</option>
           <option value="ensemble">judge ensemble</option>
@@ -1622,6 +1991,17 @@ async function probeBackend(which, candidates) {
       cursor.remove();
       els.status.textContent = `done · ${tokens} tokens`;
 
+      // Silent background decoder hint
+      const modelNameHint = els.model.value.trim() || 'demo';
+      Kairu.post('infer', '/api/recommend', { model_name: modelNameHint, vocab_size: 32000 })
+        .then(rec => {
+          const hintEl = document.getElementById('gen-decoder-hint');
+          if (hintEl && rec.strategy) {
+            hintEl.innerHTML = `<div class="decoder-hint"><span class="hint-label">kairu recommends:</span> <strong>${rec.strategy.toUpperCase()}</strong>${rec.gamma ? ` (γ=${rec.gamma})` : ''}</div>`;
+          }
+        })
+        .catch(() => {}); // silent — don't block generation UX
+
       if (els.autoEval.checked) {
         await autoEvaluate(prompt, lastResponse);
       }
@@ -1831,9 +2211,13 @@ async function probeBackend(which, candidates) {
   }
 
   function fireBeams(scores) {
-    // Visual: stage already drawn — pulse beams here if present.
-    // Implementation is a no-op placeholder for now; the SVG below
-    // is decorative until a future patch adds animated beams.
+    const L = 110;
+    scores.slice(0, 8).forEach((v, i) => {
+      const el = document.getElementById(`pb-${i}`);
+      if (!el) return;
+      const offset = L * (1 - Math.max(0, Math.min(1, v)));
+      el.style.strokeDashoffset = String(offset);
+    });
   }
 
   // ── Quantization compare ─────────────────────────────────────────
@@ -1901,14 +2285,9 @@ async function probeBackend(which, candidates) {
       : `<span class="badge warn"><span class="dot"></span>no tier meets the tolerance</span>`;
   }
 
-  // Make the prism centerpiece appear in the prism-stage div on first render.
+  // Prism SVG is embedded in the HTML — no dynamic drawing needed.
+  function drawPrismStage() {}
   drawPrismStage();
-  function drawPrismStage() {
-    const stage = document.querySelector('[data-pane="evaluate"] .prism-stage');
-    if (!stage) return;
-    // Already exists if previously rendered — guard.
-    // (Skipped here intentionally; current design relies on the gauge as the focal point.)
-  }
 })();
 
 async function loadRubricsInto(selects) {
@@ -2662,6 +3041,387 @@ function escapeHtml(s) {
       els.stats.innerHTML = `<div class="empty" style="color:var(--fail);border-color:rgba(239,68,68,0.25)">${err.message}</div>`;
     }
   }
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// TAB 2 — Engine
+// ════════════════════════════════════════════════════════════════════
+(function initEngine() {
+
+  document.getElementById('eng-spec-run').addEventListener('click', async () => {
+    const rho = parseFloat(document.getElementById('eng-rho').value);
+    const gamma = parseInt(document.getElementById('eng-gamma').value);
+    const n_tokens = parseInt(document.getElementById('eng-ntok').value);
+    const btn = document.getElementById('eng-spec-run');
+    btn.disabled = true;
+    const roundsEl = document.getElementById('eng-spec-rounds');
+    const compareEl = document.getElementById('eng-spec-compare');
+    roundsEl.innerHTML = '<div class="empty">Running simulation…</div>';
+    compareEl.innerHTML = '';
+    try {
+      const j = await Kairu.post('infer', '/api/simulate-race', { rho, gamma, n_tokens });
+      roundsEl.innerHTML = '';
+      j.rounds.forEach((r, ri) => {
+        const row = document.createElement('div');
+        row.className = 'round-row';
+        row.style.animationDelay = `${ri * 30}ms`;
+        const mask = r.accepted_mask || [];
+        const g = r.gamma_used;
+        const accepted = r.accepted_count;
+        const allAccepted = accepted === g;
+        let bubblesHtml = '';
+        for (let i = 0; i < g; i++) {
+          const delay = i * 50;
+          if (i < mask.length) {
+            const cls = mask[i] ? 'accepted' : 'rejected';
+            const sym = mask[i] ? '✓' : '✗';
+            bubblesHtml += `<div class="token-bubble ${cls}" style="animation-delay:${delay}ms">${sym}</div>`;
+          } else {
+            bubblesHtml += `<div class="token-bubble empty" style="animation-delay:${delay}ms"></div>`;
+          }
+        }
+        if (allAccepted) {
+          bubblesHtml += `<div class="token-bubble bonus" style="animation-delay:${g * 50}ms">+1</div>`;
+        }
+        row.innerHTML = `
+          <div class="round-label">Round ${r.round} · γ=${g}</div>
+          <div class="round-tokens">${bubblesHtml}</div>
+          <div class="round-stats">${accepted}/${g} acc</div>`;
+        roundsEl.appendChild(row);
+      });
+      const su = j.actual_speedup;
+      const std = j.standard_steps;
+      const kai = j.kairu_steps;
+      const maxSteps = Math.max(std, kai);
+      compareEl.innerHTML = `
+        <div class="speedup-compare">
+          <div class="row-label">Standard: ${std} steps</div>
+          <div class="bar-track"><div class="bar-fill standard" style="width:100%"></div></div>
+          <div class="row-label">Kairu: ${kai} rounds</div>
+          <div class="bar-track"><div class="bar-fill kairu" style="width:${(kai / maxSteps) * 100}%"></div></div>
+          <div class="row between" style="margin-top:10px">
+            <span class="tiny-mono">empirical ρ: ${(j.empirical_acceptance_rate * 100).toFixed(1)}%</span>
+            <span class="speedup-number">${su.toFixed(2)}×</span>
+          </div>
+        </div>`;
+    } catch (err) {
+      roundsEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('eng-ee-run').addEventListener('click', async () => {
+    const threshold = parseFloat(document.getElementById('eng-ee-thresh').value);
+    const n_tokens = parseInt(document.getElementById('eng-ee-ntok').value);
+    const num_layers = parseInt(document.getElementById('eng-ee-layers').value);
+    const btn = document.getElementById('eng-ee-run');
+    btn.disabled = true;
+    const barsEl = document.getElementById('eng-ee-bars');
+    const summEl = document.getElementById('eng-ee-summary');
+    barsEl.innerHTML = '<div class="empty">Running…</div>';
+    summEl.textContent = '';
+    try {
+      const j = await Kairu.post('infer', '/api/early-exit-sim', { threshold, n_tokens, num_layers });
+      barsEl.innerHTML = '';
+      j.tokens.forEach((t, ti) => {
+        const row = document.createElement('div');
+        row.className = 'exit-bar-row';
+        const pct = t.depth_pct;
+        const rc = Math.round(pct * 239);
+        const bc = Math.round((1 - pct) * 200 + 50);
+        const fillColor = `rgb(${rc}, 58, ${bc})`;
+        const wPct = (pct * 100).toFixed(1) + '%';
+        row.innerHTML = `
+          <div class="exit-bar-label">tok ${t.idx}</div>
+          <div class="exit-bar-track">
+            <div class="exit-bar-fill" style="background:${fillColor}" data-w="${wPct}"></div>
+          </div>
+          <div class="exit-bar-label">L${t.exit_layer}/${num_layers} · −${t.layers_saved}</div>`;
+        barsEl.appendChild(row);
+        setTimeout(() => {
+          const fillEl = row.querySelector('.exit-bar-fill');
+          if (fillEl) fillEl.style.width = fillEl.dataset.w;
+        }, ti * 20 + 50);
+      });
+      summEl.textContent = `Mean exit: ${j.mean_exit_layer.toFixed(1)}/${num_layers} · compute saved: ${(j.compute_saved * 100).toFixed(1)}%`;
+    } catch (err) {
+      barsEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('eng-kv-run').addEventListener('click', async () => {
+    const capacity = parseInt(document.getElementById('eng-kv-cap').value);
+    const n_ops = parseInt(document.getElementById('eng-kv-ops').value);
+    const seed = parseInt(document.getElementById('eng-kv-seed').value);
+    const btn = document.getElementById('eng-kv-run');
+    btn.disabled = true;
+    const gridEl = document.getElementById('eng-kv-grid');
+    const timelineEl = document.getElementById('eng-kv-timeline');
+    const statsEl = document.getElementById('eng-kv-stats');
+    gridEl.innerHTML = '<span class="tiny-mono">Loading…</span>';
+    timelineEl.innerHTML = '';
+    statsEl.innerHTML = '';
+    try {
+      const j = await Kairu.post('infer', '/api/kv-cache-sim', { capacity, n_ops, seed });
+      const finalKeys = [];
+      const seenSet = new Set();
+      const seenOps = [...j.ops].reverse();
+      for (const op of seenOps) {
+        if (!seenSet.has(op.key)) {
+          seenSet.add(op.key);
+          if (finalKeys.length < capacity) finalKeys.unshift(op.key);
+        }
+        if (finalKeys.length >= capacity) break;
+      }
+      gridEl.innerHTML = '';
+      for (let s = 0; s < capacity; s++) {
+        const slot = document.createElement('div');
+        slot.className = 'cache-slot';
+        if (s < finalKeys.length) {
+          slot.classList.add('filled');
+          slot.textContent = `k${finalKeys[s]}`;
+        } else {
+          slot.textContent = '—';
+        }
+        gridEl.appendChild(slot);
+      }
+      timelineEl.innerHTML = '';
+      j.ops.slice(-80).forEach(op => {
+        const dot = document.createElement('div');
+        const cls = op.eviction ? 'evict' : op.hit ? 'hit' : 'miss';
+        dot.className = `op-dot ${cls}`;
+        dot.title = `op ${op.i}: key=${op.key} ${cls}`;
+        timelineEl.appendChild(dot);
+      });
+      const st = j.stats;
+      const hits = st.hits || 0;
+      const misses = st.misses || 0;
+      const evictions = st.evictions || 0;
+      const total = hits + misses;
+      const hitRate = total ? (hits / total * 100).toFixed(1) : '0.0';
+      statsEl.innerHTML = `
+        <div class="stat-card"><div class="k">Hit rate</div><div class="v">${hitRate}%</div></div>
+        <div class="stat-card"><div class="k">Hits</div><div class="v">${hits}</div></div>
+        <div class="stat-card"><div class="k">Misses</div><div class="v">${misses}</div></div>
+        <div class="stat-card"><div class="k">Evictions</div><div class="v">${evictions}</div></div>`;
+    } catch (err) {
+      gridEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// TAB 3 — Speed-Up
+// ════════════════════════════════════════════════════════════════════
+(function initSpeedup() {
+
+  function speedupClient(rho, gamma) {
+    if (rho >= 1.0 - 1e-12) return gamma + 1;
+    const num = 1 - Math.pow(rho, gamma + 1);
+    const den = (1 - rho) * (1 + gamma * (1 - rho));
+    return num / den;
+  }
+
+  const rhoValues = [];
+  for (let i = 0; i < 10; i++) rhoValues.push(parseFloat((0.1 + i * 0.1).toFixed(1)));
+  const gammaValues = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  function heatmapColor(su) {
+    const t = Math.max(0, Math.min(1, (su - 1) / 7));
+    if (t < 0.3) {
+      const s = t / 0.3;
+      return `rgba(${Math.round(6 + s * 118)}, ${Math.round(6 + s * 52)}, ${Math.round(18 + s * 219)}, 0.85)`;
+    }
+    const s = (t - 0.3) / 0.7;
+    const r = Math.round(124 + s * (245 - 124));
+    const g = Math.round(58 + s * (200 - 58));
+    const b = Math.round(237 + s * (75 - 237));
+    return `rgba(${r}, ${g}, ${b}, 0.9)`;
+  }
+
+  function drawHeatmap() {
+    const wrap = document.getElementById('hm-wrap');
+    if (!wrap) return;
+    const grid = document.createElement('div');
+    grid.className = 'heatmap-grid';
+    grid.style.gridTemplateColumns = `40px repeat(${gammaValues.length}, 1fr)`;
+    const corner = document.createElement('div');
+    corner.className = 'hm-axis';
+    corner.textContent = 'ρ \\ γ';
+    grid.appendChild(corner);
+    gammaValues.forEach(g => {
+      const h = document.createElement('div');
+      h.className = 'hm-axis';
+      h.textContent = g;
+      grid.appendChild(h);
+    });
+    rhoValues.slice().reverse().forEach(rho => {
+      const rowLabel = document.createElement('div');
+      rowLabel.className = 'hm-axis';
+      rowLabel.textContent = rho.toFixed(1);
+      grid.appendChild(rowLabel);
+      gammaValues.forEach(gamma => {
+        const su = speedupClient(rho, gamma);
+        const cell = document.createElement('div');
+        cell.className = 'hm-cell';
+        cell.style.background = heatmapColor(su);
+        cell.style.color = su > 4 ? '#fff' : '#e8e8f5';
+        cell.textContent = su.toFixed(1);
+        cell.title = `ρ=${rho}, γ=${gamma} → ${su.toFixed(3)}×`;
+        cell.addEventListener('click', () => {
+          grid.querySelectorAll('.hm-cell').forEach(c => c.classList.remove('selected'));
+          cell.classList.add('selected');
+          fetchDerivation(rho, gamma);
+        });
+        grid.appendChild(cell);
+      });
+    });
+    wrap.innerHTML = '';
+    wrap.appendChild(grid);
+    const legend = document.createElement('div');
+    legend.className = 'row';
+    legend.style.marginTop = '10px';
+    legend.style.gap = '12px';
+    legend.innerHTML = `
+      <span class="tiny-mono">speedup scale:</span>
+      <span style="width:14px;height:14px;border-radius:3px;background:rgba(6,6,18,0.85);border:1px solid var(--line-soft);display:inline-block"></span><span class="tiny-mono">1×</span>
+      <span style="width:14px;height:14px;border-radius:3px;background:rgba(124,58,237,0.9);display:inline-block"></span><span class="tiny-mono">3×</span>
+      <span style="width:14px;height:14px;border-radius:3px;background:rgba(245,200,75,0.9);display:inline-block"></span><span class="tiny-mono">8×</span>
+    `;
+    wrap.appendChild(legend);
+  }
+
+  async function fetchDerivation(rho, gamma) {
+    const el = document.getElementById('hm-derivation');
+    if (!el) return;
+    el.innerHTML = '<span class="tiny-mono">fetching…</span>';
+    try {
+      const j = await Kairu.post('infer', '/api/speedup', { rho, gamma });
+      el.innerHTML = `<div class="panel dense" style="font-family:var(--mono);font-size:11.5px;line-height:1.8">
+        <div style="color:var(--accent-2);margin-bottom:6px">ρ=${rho}, γ=${gamma} → <strong style="font-size:18px;color:var(--gold)">${j.speedup.toFixed(3)}×</strong></div>
+        <div style="color:var(--muted)">${j.formula_used}</div>
+        <div style="color:var(--dim);margin-top:6px;word-break:break-all">${j.derivation}</div>
+      </div>`;
+    } catch (err) {
+      el.innerHTML = `<span class="tiny-mono" style="color:var(--fail)">${err.message}</span>`;
+    }
+  }
+
+  drawHeatmap();
+
+  const profBtn = document.getElementById('prof-run');
+  if (profBtn) {
+    profBtn.addEventListener('click', async () => {
+      const name = document.getElementById('prof-name').value.trim() || 'model';
+      const vocab_size = parseInt(document.getElementById('prof-vocab').value) || 32000;
+      const has_draft = document.getElementById('prof-draft').checked;
+      const layered = document.getElementById('prof-layered').checked;
+      profBtn.disabled = true;
+      const resultEl = document.getElementById('prof-result');
+      resultEl.innerHTML = '<div class="empty">Profiling…</div>';
+      try {
+        const j = await Kairu.post('infer', '/api/recommend', { model_name: name, vocab_size, has_draft, layered });
+        const strategyColors = { streaming: '#3ddde6', speculative: '#a78bfa', early_exit: '#10b981', layered_early_exit: '#5BFFD0' };
+        const color = strategyColors[j.strategy] || '#a78bfa';
+        resultEl.innerHTML = `
+          <div class="profile-card">
+            <div class="profile-glow"></div>
+            <div class="strategy-name" style="background:none;color:${color}">${j.strategy || '—'}</div>
+            <div class="row" style="gap:12px;margin-top:10px;flex-wrap:wrap">
+              ${j.gamma ? `<span class="badge purple">γ = ${j.gamma}</span>` : ''}
+              ${j.use_cache ? `<span class="badge info">cache cap: ${j.cache_capacity}</span>` : ''}
+              ${j.temperature ? `<span class="badge">temp: ${j.temperature}</span>` : ''}
+            </div>
+            <div class="rationale">${j.rationale || '—'}</div>
+          </div>`;
+      } catch (err) {
+        resultEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
+      } finally {
+        profBtn.disabled = false;
+      }
+    });
+  }
+
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// TAB 4 — Watermark
+// ════════════════════════════════════════════════════════════════════
+(function initWatermark() {
+
+  const wmBtn = document.getElementById('wm-run');
+  if (!wmBtn) return;
+  wmBtn.addEventListener('click', async () => {
+    const n_tokens = parseInt(document.getElementById('wm-ntok').value);
+    const seed = parseInt(document.getElementById('wm-seed').value);
+    const delta = parseFloat(document.getElementById('wm-delta').value);
+    const scheme = document.getElementById('wm-scheme').value;
+    wmBtn.disabled = true;
+    const tokensEl = document.getElementById('wm-tokens');
+    const fracEl = document.getElementById('wm-frac-bar');
+    const zEl = document.getElementById('wm-zscore');
+    const badgeEl = document.getElementById('wm-decision-badge');
+    const statsEl = document.getElementById('wm-stats');
+    const confEl = document.getElementById('wm-confidence-bar');
+    const explEl = document.getElementById('wm-explain');
+    tokensEl.innerHTML = '<span class="tiny-mono">Generating…</span>';
+    try {
+      const j = await Kairu.post('infer', '/api/watermark-demo', { n_tokens, seed, delta, scheme });
+      tokensEl.innerHTML = '';
+      j.tokens.forEach((t, i) => {
+        const pill = document.createElement('div');
+        pill.className = `wm-token ${t.green ? 'green' : 'red'}`;
+        pill.style.animationDelay = `${i * 18}ms`;
+        pill.textContent = `#${t.id}`;
+        pill.title = `token ${t.id}: ${t.green ? 'green' : 'red'} list`;
+        tokensEl.appendChild(pill);
+      });
+      const gf = j.green_fraction;
+      fracEl.innerHTML = `
+        <div class="row between" style="margin-bottom:4px">
+          <span class="tiny-mono">green fraction</span>
+          <span class="tiny-mono" style="color:var(--pass)">${(gf * 100).toFixed(1)}%</span>
+        </div>
+        <div class="scorebar" style="height:8px">
+          <div class="ghost"></div><div class="fill" style="background:var(--pass)"></div>
+        </div>`;
+      requestAnimationFrame(() => Kairu.springBar(fracEl.querySelector('.scorebar'), gf));
+      const z = j.z_score;
+      zEl.textContent = z.toFixed(2);
+      zEl.className = `z-val ${j.decision ? 'detected' : 'undetected'}`;
+      badgeEl.innerHTML = j.decision
+        ? `<span class="badge pass" style="font-size:13px;padding:6px 16px"><span class="dot"></span>DETECTED</span>`
+        : `<span class="badge" style="font-size:13px;padding:6px 16px"><span class="dot"></span>NOT DETECTED</span>`;
+      statsEl.innerHTML = `
+        <div class="stat-card"><div class="k">z-score</div><div class="v">${z.toFixed(2)}</div></div>
+        <div class="stat-card"><div class="k">p-value</div><div class="v">${j.p_value.toExponential(2)}</div></div>
+        <div class="stat-card"><div class="k">green</div><div class="v">${j.num_green}/${j.n_tokens}</div></div>
+        <div class="stat-card"><div class="k">threshold</div><div class="v">${j.threshold.toFixed(1)}</div></div>`;
+      const maxZ = Math.max(j.threshold * 1.5, Math.abs(z) * 1.1, 6);
+      const zPct = Math.max(0, Math.min(1, z / maxZ));
+      const thPct = j.threshold / maxZ;
+      confEl.innerHTML = `
+        <div class="tiny-mono" style="margin-bottom:4px">z vs threshold (${j.threshold.toFixed(1)})</div>
+        <div style="position:relative;height:12px;border-radius:6px;background:rgba(255,255,255,0.04)">
+          <div style="position:absolute;left:0;top:0;height:100%;width:${(zPct * 100).toFixed(1)}%;border-radius:6px;background:${j.decision ? 'var(--pass)' : 'var(--fail)'};transition:width 600ms cubic-bezier(.34,1.56,.64,1)"></div>
+          <div style="position:absolute;top:-4px;bottom:-4px;width:2px;left:${(thPct * 100).toFixed(1)}%;background:var(--warn);border-radius:1px"></div>
+        </div>`;
+      explEl.innerHTML = j.decision
+        ? `The z-score <strong style="color:var(--pass)">${z.toFixed(2)}</strong> exceeds the threshold of <strong>${j.threshold.toFixed(1)}</strong>. With δ=${j.delta} and the <em>${j.scheme}</em> seeding scheme, <strong>${(gf * 100).toFixed(1)}%</strong> of tokens landed in the green list (expected ~50%). The watermark is statistically detectable.`
+        : `The z-score <strong style="color:var(--muted)">${z.toFixed(2)}</strong> does not exceed the threshold of <strong>${j.threshold.toFixed(1)}</strong>. The green fraction of ${(gf * 100).toFixed(1)}% is not significantly above 50% — the watermark is not detectable at this confidence level. Try increasing δ or n_tokens.`;
+    } catch (err) {
+      tokensEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
+    } finally {
+      wmBtn.disabled = false;
+    }
+  });
+
 })();
 
 // ════════════════════════════════════════════════════════════════════

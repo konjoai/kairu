@@ -1,5 +1,5 @@
-"""Kairu demo server — serves the dark-theme demo page and exposes three
-endpoints that drive every interactive widget from the *real* library code.
+"""Kairu demo server — serves the dark-theme demo page and exposes endpoints
+that drive every interactive widget from the *real* library code.
 
 Run from the repo root::
 
@@ -19,6 +19,9 @@ Endpoints
 ``POST /api/simulate-race`` → seeded-RNG simulation of speculative decoding,
                               token-by-token, against a real
                               :class:`DynamicGammaScheduler`.
+``POST /api/kv-cache-sim``  → LogitsCache LRU simulation with per-op trace.
+``POST /api/early-exit-sim`` → LayerwiseEarlyExitDecoder simulation.
+``POST /api/watermark-demo`` → watermark apply + detect via Kirchenbauer 2023.
 
 All three POST endpoints return JSON. CORS is open (this is a local demo).
 Pure stdlib HTTP — no FastAPI / uvicorn / aiohttp dependency.
@@ -50,6 +53,9 @@ from kairu import (  # noqa: E402 — sys.path manipulation must precede
 from kairu.evaluation import evaluate as eval_one  # noqa: E402
 from kairu.mock_model import MockModel  # noqa: E402
 from kairu.rubrics import RUBRIC_DEFS, rubric_names  # noqa: E402
+from kairu.layered import LayerwiseEarlyExitDecoder  # noqa: E402
+from kairu.watermark import WatermarkDetector, WatermarkLogitsProcessor  # noqa: E402
+from kairu.streaming import StreamingDecoder  # noqa: E402
 
 # Prism input limits — boundary validation per .claude/rules/security.md.
 PRISM_MAX_TEXT = 16_384
@@ -248,6 +254,151 @@ def real_simulate_race(rho: float, gamma: int, n_tokens: int, seed: int = 42) ->
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# KV-cache simulation: exercise LogitsCache LRU operations.
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def real_kv_cache_sim(capacity: int, n_ops: int, seed: int) -> dict:
+    """Simulate LogitsCache LRU operations; return per-op trace + final stats."""
+    if not (1 <= capacity <= 64):
+        raise ValueError("capacity must be in [1, 64]")
+    if not (1 <= n_ops <= 200):
+        raise ValueError("n_ops must be in [1, 200]")
+    cache = LogitsCache(capacity=capacity)
+    rng = np.random.default_rng(seed)
+    key_range = max(2, capacity + capacity // 2)
+    dummy = rng.standard_normal(8).astype(np.float32)
+    ops: list[dict] = []
+    for i in range(n_ops):
+        key_id = int(rng.integers(0, key_range))
+        key = (key_id,)
+        current_size = len(cache)
+        hit = cache.get(key) is not None
+        will_evict = (not hit) and (current_size >= capacity)
+        if not hit:
+            cache.put(key, dummy)
+        ops.append(
+            {
+                "i": i,
+                "key": key_id,
+                "hit": hit,
+                "eviction": will_evict,
+                "size": len(cache),
+            }
+        )
+    return {"ops": ops, "stats": cache.stats(), "capacity": capacity, "n_ops": n_ops}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Early-exit simulation: run LayerwiseEarlyExitDecoder and return per-token
+# exit-layer trace.
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def real_early_exit_sim(
+    threshold: float, n_tokens: int, num_layers: int, seed: int
+) -> dict:
+    """Run LayerwiseEarlyExitDecoder and return per-token exit-layer trace."""
+    if not (0.0 < threshold <= 1.0):
+        raise ValueError("threshold must be in (0, 1]")
+    if not (1 <= n_tokens <= 100):
+        raise ValueError("n_tokens must be in [1, 100]")
+    if num_layers not in (6, 12, 24, 48):
+        raise ValueError("num_layers must be one of 6, 12, 24, 48")
+
+    class _SeedableLayeredModel(MockLayeredModel):
+        def __init__(self, num_layers: int, seed: int) -> None:
+            super().__init__(num_layers=num_layers)
+            self._seed = seed
+
+        def _base_logits(self, token_ids: list) -> np.ndarray:
+            rng_seed = (sum(token_ids) * 2654435761 + self._seed) % (2**32)
+            rng = np.random.default_rng(rng_seed)
+            logits = rng.standard_normal(self.VOCAB_SIZE).astype(np.float32)
+            preferred = (sum(token_ids) * 7 + 13) % self.VOCAB_SIZE if token_ids else 0
+            logits[preferred] += 3.0
+            return logits
+
+    model = _SeedableLayeredModel(num_layers=num_layers, seed=seed)
+    decoder = LayerwiseEarlyExitDecoder(
+        model=model, confidence_threshold=threshold, min_layer=1
+    )
+    prompt = [1, 2, 3, 4, 5]
+    tokens, stats = decoder.generate(prompt, max_new_tokens=n_tokens)
+    exit_layers = stats["exit_layers"]
+    per_token = [
+        {
+            "idx": i,
+            "token_id": int(tok),
+            "exit_layer": int(el),
+            "depth_pct": round(el / num_layers, 4),
+            "layers_saved": num_layers - int(el),
+        }
+        for i, (tok, el) in enumerate(zip(tokens, exit_layers))
+    ]
+    return {
+        "tokens": per_token,
+        "num_layers": num_layers,
+        "n_tokens": len(tokens),
+        "mean_exit_layer": round(stats["mean_exit_layer"], 3),
+        "compute_saved": round(stats["compute_saved"], 4),
+        "threshold": threshold,
+    }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Watermark demo: generate watermarked tokens then detect the watermark.
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def real_watermark_demo(n_tokens: int, seed: int, delta: float, scheme: str) -> dict:
+    """Generate watermarked tokens then detect the watermark.
+
+    Returns per-token green-list membership plus detection statistics.
+    """
+    if not (1 <= n_tokens <= 100):
+        raise ValueError("n_tokens must be in [1, 100]")
+    if delta <= 0:
+        raise ValueError("delta must be > 0")
+    if scheme not in ("single", "context"):
+        raise ValueError("scheme must be 'single' or 'context'")
+
+    model = MockModel()
+    processor = WatermarkLogitsProcessor(
+        vocab_size=model.vocab_size, delta=delta, seeding_scheme=scheme
+    )
+    # StreamingDecoder always seeds at 42; use seed to shift the prompt
+    prompt = [(seed % 97) + 1, (seed % 53) + 2, (seed % 31) + 3]
+    decoder = StreamingDecoder(model, temperature=1.0, watermark=processor)
+    tokens = decoder.generate(prompt, max_new_tokens=n_tokens)
+
+    # Reconstruct green-list membership per token
+    context = list(prompt)
+    per_token = []
+    for tok_id in tokens:
+        gl = processor.green_list(context)
+        per_token.append({"id": int(tok_id), "green": bool(gl[tok_id])})
+        context.append(tok_id)
+
+    # Run detector
+    detector = WatermarkDetector(vocab_size=model.vocab_size, seeding_scheme=scheme)
+    result = detector.detect(tokens, prefix_ids=prompt)
+
+    return {
+        "tokens": per_token,
+        "n_tokens": len(tokens),
+        "z_score": round(result.z_score, 4),
+        "p_value": round(result.p_value, 6),
+        "decision": result.decision,
+        "green_fraction": round(result.green_fraction, 4),
+        "num_green": result.num_green,
+        "threshold": result.threshold,
+        "delta": delta,
+        "scheme": scheme,
+    }
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # Prism: run all eight named rubrics on one (prompt, response) and return
 # the ordered list of beam payloads the UI renders.  Each entry carries the
 # rubric name, its canonical color, its aggregate score in [0, 1], and the
@@ -347,6 +498,12 @@ class DemoHandler(BaseHTTPRequestHandler):
                 return self._handle_simulate(body)
             if self.path == "/api/prism":
                 return self._handle_prism(body)
+            if self.path == "/api/kv-cache-sim":
+                return self._handle_kv_cache(body)
+            if self.path == "/api/early-exit-sim":
+                return self._handle_early_exit(body)
+            if self.path == "/api/watermark-demo":
+                return self._handle_watermark(body)
         except (ValueError, TypeError, KeyError) as e:
             return self._json(400, {"error": str(e)})
         except Exception as e:  # noqa: BLE001
@@ -451,6 +608,39 @@ class DemoHandler(BaseHTTPRequestHandler):
         )
         return self._json(200, result)
 
+    def _handle_kv_cache(self, body: dict) -> None:
+        capacity = int(body.get("capacity", 8))
+        n_ops = int(body.get("n_ops", 50))
+        seed = int(body.get("seed", 42))
+        result = real_kv_cache_sim(capacity=capacity, n_ops=n_ops, seed=seed)
+        result["source"] = "kairu.kv_cache.LogitsCache (live simulation)"
+        return self._json(200, result)
+
+    def _handle_early_exit(self, body: dict) -> None:
+        threshold = float(body.get("threshold", 0.85))
+        n_tokens = int(body.get("n_tokens", 30))
+        num_layers = int(body.get("num_layers", 12))
+        seed = int(body.get("seed", 42))
+        result = real_early_exit_sim(
+            threshold=threshold, n_tokens=n_tokens, num_layers=num_layers, seed=seed
+        )
+        result["source"] = "kairu.layered.LayerwiseEarlyExitDecoder (live simulation)"
+        return self._json(200, result)
+
+    def _handle_watermark(self, body: dict) -> None:
+        n_tokens = int(body.get("n_tokens", 40))
+        seed = int(body.get("seed", 42))
+        delta = float(body.get("delta", 2.0))
+        scheme = str(body.get("scheme", "single"))
+        result = real_watermark_demo(
+            n_tokens=n_tokens, seed=seed, delta=delta, scheme=scheme
+        )
+        result["source"] = (
+            "kairu.watermark.WatermarkLogitsProcessor + WatermarkDetector "
+            "(Kirchenbauer et al. 2023)"
+        )
+        return self._json(200, result)
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # Cache demo — exercise LogitsCache during startup so the banner has real data
@@ -493,6 +683,9 @@ def main() -> None:
     print("    POST  /api/simulate-race → seeded speculative-decoding sim")
     print("    GET   /api/rubrics       → list 8 named prism rubrics")
     print("    POST  /api/prism         → all 8 rubric scores for a (prompt, response)")
+    print("    POST  /api/kv-cache-sim      → LogitsCache simulation")
+    print("    POST  /api/early-exit-sim    → LayerwiseEarlyExitDecoder simulation")
+    print("    POST  /api/watermark-demo    → watermark apply + detect")
     print()
     print(f"  startup self-test  LogitsCache(4)  →  {cache_stats}")
     print("  Ctrl-C to stop")
