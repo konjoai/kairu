@@ -885,6 +885,119 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .decoder-hint .hint-label { color: var(--muted); }
 
+/* ════════════════════════════════════════════════════════════════════
+   Visual overhaul — animated mesh, glass cards, neon glow, pulses
+   ════════════════════════════════════════════════════════════════════ */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(107,255,142,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(107,255,142,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: meshDrift 30s linear infinite;
+}
+@keyframes meshDrift {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 40px 40px, 40px 40px; }
+}
+
+.glass-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(107,255,142,0.12);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 20px;
+}
+
+.glow-num { color: #6BFF8E; text-shadow: 0 0 12px rgba(107,255,142,0.6); font-variant-numeric: tabular-nums; }
+
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #6BFF8E; display: inline-block; animation: livePulse 1.8s ease-in-out infinite; }
+@keyframes livePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(107,255,142,0.6); } 50% { box-shadow: 0 0 0 6px rgba(107,255,142,0); } }
+
+button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
+
+.progress-bar { height: 3px; background: linear-gradient(90deg, #6BFF8E 0%, #9B6BFF 50%, #6BFF8E 100%); background-size: 200% 100%; animation: progressSlide 1.5s linear infinite; border-radius: 2px; }
+@keyframes progressSlide { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* Stream token animation */
+.stream-token { animation: tokenFadeIn 0.15s ease; }
+@keyframes tokenFadeIn { from { opacity: 0; color: #6BFF8E; } to { opacity: 1; color: inherit; } }
+
+/* Prompt library */
+.prompt-lib-bar { display: flex; gap: 8px; margin-top: 8px; }
+.btn-ghost { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid rgba(124,58,237,0.32); background: transparent; color: var(--text); transition: background 0.15s, box-shadow 0.15s; }
+.btn-ghost:hover { background: rgba(124,58,237,0.08); }
+.btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: var(--accent); color: #fff; transition: background 0.15s, box-shadow 0.15s; }
+.btn-primary:hover { background: #8b48f5; }
+.lib-drawer { background: rgba(6,6,15,0.95); border: 1px solid rgba(107,255,142,0.15); border-radius: 8px; padding: 12px; margin-top: 8px; }
+.lib-search-input { width: 100%; padding: 6px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #dde; }
+.lib-list { max-height: 200px; overflow-y: auto; margin-top: 8px; }
+.lib-item { padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: background 0.15s; }
+.lib-item:hover { background: rgba(107,255,142,0.1); }
+.lib-name { font-size: 12px; color: #6BFF8E; font-weight: 600; display: block; }
+.lib-text { font-size: 11px; color: #778899; }
+
+/* Audit tab */
+.audit-table { width: 100%; border-collapse: collapse; }
+.audit-table th { text-align: left; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); color: #8899aa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+.audit-table td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; }
+.audit-table tr { animation: rowIn 0.3s ease both; }
+@keyframes rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; } }
+.audit-table-wrap { overflow-x: auto; margin-top: 12px; max-height: 500px; overflow-y: auto; }
+.audit-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.score-red { color: #ff6b6b; }
+.score-amber { color: #ffcc44; }
+.score-green { color: #6BFF8E; }
+
+/* Rubric Lab */
+.rubriclab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.rubriclab-half { }
+.criterion-tag { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; background: rgba(107,255,142,0.06); border: 1px solid rgba(107,255,142,0.2); border-radius: 6px; margin-bottom: 4px; animation: tagPop 0.3s cubic-bezier(0.34,1.56,0.64,1) both; }
+@keyframes tagPop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.c-name { font-size: 12px; color: var(--text); }
+.c-weight { font-size: 11px; color: #6BFF8E; font-family: var(--mono); }
+.rubric-list { max-height: 200px; overflow-y: auto; }
+.rubric-card { padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid; cursor: pointer; transition: transform 0.15s; margin-bottom: 6px; }
+.rubric-card:hover { transform: translateX(4px); }
+.rubriclab-result { margin-top: 12px; }
+
+/* Batch eval */
+.batch-pairs { margin-bottom: 8px; }
+.batch-pair { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: start; margin-bottom: 8px; }
+.batch-pair textarea { font-size: 13px; min-height: 60px; resize: vertical; padding: 8px; }
+.batch-results-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+.batch-result-row { animation: rowIn 0.3s ease both; }
+.batch-result-card { padding: 10px 14px; background: rgba(255,255,255,0.03); border-left: 3px solid #6BFF8E; border-radius: 0 6px 6px 0; margin-bottom: 6px; animation: rowIn 0.3s ease both; }
+
+/* Histogram animations */
+.hist-bar-fill { transform-origin: bottom; animation: barGrow 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+@keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.hist-bar.anomaly { background: rgba(255,80,80,0.3); border-color: #ff5050; box-shadow: 0 0 8px rgba(255,80,80,0.4); }
+
+/* Leaderboard enhancements */
+.rank-1 { color: #FFD700; text-shadow: 0 0 8px rgba(255,215,0,0.6); font-weight: 700; }
+.rank-2 { color: #C0C0C0; font-weight: 700; }
+.rank-3 { color: #CD7F32; font-weight: 700; }
+.sparkline { display: block; }
+.bench-pill { font-size: 10px; padding: 2px 6px; background: rgba(107,255,142,0.1); border: 1px solid rgba(107,255,142,0.3); border-radius: 10px; color: #6BFF8E; margin-left: 6px; }
+
+/* Human feedback panel */
+.feedback-panel { margin-top: 20px; padding: 16px; background: rgba(107,255,142,0.04); border: 1px solid rgba(107,255,142,0.1); border-radius: 8px; }
+.feedback-header { font-size: 12px; font-weight: 700; color: #6BFF8E; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.feedback-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.feedback-criterion-name { font-size: 12px; color: var(--muted); min-width: 120px; font-family: var(--mono); }
+.feedback-score { font-size: 12px; color: var(--text); font-family: var(--mono); min-width: 40px; }
+.thumb-btn { background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 14px; transition: all 0.15s; }
+.thumb-btn.active-up { border-color: #6BFF8E; background: rgba(107,255,142,0.15); }
+.thumb-btn.active-down { border-color: #ff6b6b; background: rgba(255,107,107,0.15); }
+.feedback-criteria-list { margin-bottom: 10px; }
+.ctrl-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.status-line { font-size: 12px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+.hint { font-size: 12px; color: var(--dim); margin-bottom: 12px; font-family: var(--mono); }
+.const-result { margin-top: 12px; }
+
 </style>
 </head>
 <body>
@@ -920,6 +1033,9 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
   <button data-tab="adversarial"><span class="ti">⚠</span>Adversarial</button>
   <button data-tab="logeval"><span class="ti">⊟</span>Log&nbsp;Eval</button>
   <button data-tab="analytics"><span class="ti">⌬</span>Analytics</button>
+  <button data-tab="audit"><span class="ti">⊜</span>Audit</button>
+  <button data-tab="rubriclab"><span class="ti">⊞</span>Rubric Lab</button>
+  <button data-tab="batch"><span class="ti">⊟</span>Batch</button>
 </nav>
 
 <main>
@@ -945,6 +1061,16 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
       <label class="field">Prompt</label>
       <textarea id="gen-prompt" rows="4" placeholder="Write a poem about a prism, or anything else…"></textarea>
+        <div class="prompt-lib-bar">
+          <button id="lib-open-btn" class="btn-ghost">📚 Library</button>
+          <button id="lib-save-btn" class="btn-ghost">💾 Save prompt</button>
+        </div>
+        <div id="prompt-lib-drawer" class="lib-drawer hidden">
+          <div class="ctrl-row">
+            <input id="lib-search" type="text" placeholder="Search prompts…" class="lib-search-input"/>
+          </div>
+          <div id="lib-list" class="lib-list"></div>
+        </div>
 
       <div class="row" style="margin-top: 14px">
         <label class="toggle"><input type="checkbox" id="gen-stream" checked /><span class="knob"></span>Stream</label>
@@ -1253,6 +1379,17 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
       </div>
     </div>
   </div>
+
+  <!-- Human Feedback Panel -->
+  <div id="feedback-panel" class="feedback-panel hidden" style="margin-top:20px">
+    <div class="feedback-header">Rate this evaluation</div>
+    <div id="feedback-criteria-list" class="feedback-criteria-list"></div>
+    <textarea id="feedback-note" placeholder="Optional note…" rows="2" style="margin-bottom:8px"></textarea>
+    <div class="ctrl-row">
+      <button id="feedback-submit-btn" class="btn-primary">Submit Feedback</button>
+      <div id="feedback-status" class="status-line"></div>
+    </div>
+  </div>
 </section>
 
 
@@ -1535,6 +1672,84 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
   <div class="panel">
     <div class="panel-title">Anomalous evaluations <span class="meta">> 2σ from mean</span></div>
     <div id="an-anomalies"><div class="empty">Loading…</div></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TAB: AUDIT
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="audit">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Audit Log</h2>
+  <div class="glass-card">
+    <div class="audit-controls ctrl-row" style="margin-bottom:12px">
+      <input type="date" id="audit-start" style="width:160px" />
+      <input type="date" id="audit-end" style="width:160px" />
+      <select id="audit-rubric" style="width:160px"><option value="">All rubrics</option></select>
+      <button id="audit-run-btn" class="btn-primary">Fetch</button>
+      <button id="audit-csv-btn" class="btn-ghost">⬇ CSV</button>
+    </div>
+    <div id="audit-status" class="status-line"></div>
+    <div id="audit-table-wrap" class="audit-table-wrap">
+      <table class="audit-table">
+        <thead><tr>
+          <th>Time</th><th>Rubric</th><th>Model</th><th>Score</th><th>Input hash</th>
+        </tr></thead>
+        <tbody id="audit-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TAB: RUBRIC LAB
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="rubriclab">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Rubric Lab</h2>
+  <div class="rubriclab-grid">
+    <div class="glass-card rubriclab-half">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:8px;color:#6BFF8E">Constitutional Rubric</h3>
+      <p class="hint">Paste a policy document. Kairu extracts obligation/prohibition clauses and builds a rubric automatically.</p>
+      <textarea id="const-policy-text" rows="8" placeholder="Paste policy text here…"></textarea>
+      <div class="ctrl-row" style="margin-top:10px">
+        <input id="const-rubric-name" type="text" placeholder="rubric-name (e.g. my-policy)" style="flex:1" />
+        <input id="const-max-clauses" type="number" value="20" min="1" max="50" style="width:70px" />
+        <button id="const-gen-btn" class="btn-primary">Generate</button>
+      </div>
+      <div id="const-result" class="const-result"></div>
+    </div>
+    <div class="glass-card rubriclab-half">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:8px;color:#6BFF8E">Rubric Browser</h3>
+      <div id="rubriclab-list" class="rubric-list"></div>
+      <div class="ctrl-row" style="margin-top:12px">
+        <input id="rubriclab-prompt" type="text" placeholder="Prompt to evaluate…" style="flex:1" />
+        <input id="rubriclab-response" type="text" placeholder="Response…" style="flex:1" />
+        <select id="rubriclab-select" style="width:140px"></select>
+        <button id="rubriclab-eval-btn" class="btn-primary">Evaluate</button>
+      </div>
+      <div id="rubriclab-result" class="rubriclab-result"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TAB: BATCH EVAL
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="batch">
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Batch Evaluation</h2>
+  <div class="glass-card">
+    <p class="hint">Evaluate multiple prompt/response pairs at once. One pair per row.</p>
+    <div id="batch-pairs" class="batch-pairs"></div>
+    <button id="batch-add-btn" class="btn-ghost">+ Add pair</button>
+    <div class="ctrl-row" style="margin-top:12px">
+      <select id="batch-rubric" style="width:160px"></select>
+      <button id="batch-run-btn" class="btn-primary">Run Batch</button>
+      <button id="batch-csv-btn" class="btn-ghost" disabled>⬇ CSV</button>
+    </div>
+    <div id="batch-progress" class="hidden" style="margin-top:12px">
+      <div class="progress-bar" id="batch-progress-bar"></div>
+      <span id="batch-progress-label" style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Running…</span>
+    </div>
+    <div id="batch-results" class="batch-results" style="margin-top:12px"></div>
   </div>
 </section>
 
@@ -3445,6 +3660,367 @@ function escapeHtml(s) {
       'error', 6500,
     );
   }
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// Prompt Library
+// ════════════════════════════════════════════════════════════════════
+(function initPromptLib() {
+  const openBtn = document.getElementById('lib-open-btn');
+  const drawer = document.getElementById('prompt-lib-drawer');
+  const searchIn = document.getElementById('lib-search');
+  const listEl = document.getElementById('lib-list');
+  const saveBtn = document.getElementById('lib-save-btn');
+  if (!openBtn) return;
+
+  openBtn.addEventListener('click', async () => {
+    drawer.classList.toggle('hidden');
+    if (!drawer.classList.contains('hidden')) await loadLib();
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    const text = document.getElementById('gen-prompt').value.trim();
+    if (!text) return Kairu.toast('Nothing to save', 'Type a prompt first', 'warn');
+    const name = 'prompt-' + Date.now();
+    try {
+      await Kairu.post('eval', '/prompts', { name, text, tags: ['saved'] });
+      Kairu.toast('Saved', name, 'info');
+    } catch (e) { Kairu.toast('Save failed', e.message, 'error'); }
+  });
+
+  searchIn.addEventListener('input', filterLib);
+
+  async function loadLib() {
+    try {
+      const data = await Kairu.get('eval', '/prompts');
+      renderLib(data.prompts || data);
+    } catch { listEl.textContent = 'Eval backend not connected'; }
+  }
+
+  function renderLib(prompts) {
+    listEl.innerHTML = '';
+    (prompts || []).forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'lib-item';
+      el.innerHTML = '<span class="lib-name">' + (p.name || '') + '</span><span class="lib-text">' + ((p.text || '').slice(0, 60)) + '…</span>';
+      el.addEventListener('click', () => {
+        document.getElementById('gen-prompt').value = p.text || '';
+        drawer.classList.add('hidden');
+      });
+      listEl.appendChild(el);
+    });
+  }
+
+  function filterLib() {
+    const q = searchIn.value.toLowerCase();
+    document.querySelectorAll('.lib-item').forEach(el => {
+      el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// Audit Tab
+// ════════════════════════════════════════════════════════════════════
+(function initAudit() {
+  const runBtn = document.getElementById('audit-run-btn');
+  const csvBtn = document.getElementById('audit-csv-btn');
+  const tbody  = document.getElementById('audit-tbody');
+  const statusEl = document.getElementById('audit-status');
+  const rubricSel = document.getElementById('audit-rubric');
+  if (!runBtn) return;
+
+  // Populate rubric options
+  (async () => {
+    try {
+      const j = await Kairu.get('eval', '/rubrics');
+      (j.rubrics || []).forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.name; opt.textContent = r.name;
+        rubricSel.appendChild(opt);
+      });
+    } catch { /* eval offline */ }
+  })();
+
+  function getParams() {
+    const p = new URLSearchParams();
+    const s = document.getElementById('audit-start').value;
+    const e = document.getElementById('audit-end').value;
+    const r = rubricSel.value;
+    if (s) p.set('start', s);
+    if (e) p.set('end', e);
+    if (r) p.set('rubric_name', r);
+    p.set('limit', '50');
+    return p;
+  }
+
+  runBtn.addEventListener('click', async () => {
+    statusEl.textContent = 'Loading…';
+    tbody.innerHTML = '';
+    try {
+      const j = await Kairu.get('eval', '/audit?' + getParams());
+      const rows = j.items || [];
+      statusEl.textContent = rows.length + ' rows (total: ' + (j.total || '?') + ')';
+      rows.forEach((row, i) => {
+        const sc = typeof row.scores === 'object' && row.scores
+          ? (Object.values(row.scores).reduce((a, b) => a + b, 0) / Math.max(1, Object.values(row.scores).length)).toFixed(2)
+          : '—';
+        const scNum = parseFloat(sc);
+        const cls = scNum < 0.5 ? 'score-red' : scNum > 0.8 ? 'score-green' : 'score-amber';
+        const tr = document.createElement('tr');
+        tr.style.animationDelay = (i * 30) + 'ms';
+        tr.innerHTML = '<td>' + (row.created_utc || '').replace('T', ' ').slice(0, 19) + '</td>' +
+          '<td>' + (row.rubric_name || '—') + '</td>' +
+          '<td>' + (row.judge_model || '—') + '</td>' +
+          '<td class="' + cls + '">' + sc + '</td>' +
+          '<td style="font-family:var(--mono);font-size:11px">' + (row.input_hash || '').slice(0, 12) + '…</td>';
+        tbody.appendChild(tr);
+      });
+    } catch (err) { statusEl.textContent = 'Error: ' + err.message; }
+  });
+
+  csvBtn.addEventListener('click', () => {
+    const base = Kairu.base.eval || '';
+    window.open(base + '/audit.csv?' + getParams());
+  });
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// Rubric Lab
+// ════════════════════════════════════════════════════════════════════
+(function initRubricLab() {
+  const genBtn   = document.getElementById('const-gen-btn');
+  const evalBtn  = document.getElementById('rubriclab-eval-btn');
+  const listEl   = document.getElementById('rubriclab-list');
+  const selEl    = document.getElementById('rubriclab-select');
+  const resultEl = document.getElementById('rubriclab-result');
+  const constResult = document.getElementById('const-result');
+  if (!genBtn) return;
+
+  async function loadRubrics() {
+    try {
+      const j = await Kairu.get('eval', '/rubrics');
+      const rubrics = j.rubrics || [];
+      listEl.innerHTML = '';
+      selEl.innerHTML = '';
+      rubrics.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'rubric-card';
+        card.style.borderLeftColor = r.color || '#6BFF8E';
+        card.innerHTML = '<strong style="font-size:13px">' + r.name + '</strong> <span style="font-size:11px;color:var(--muted)">' + (r.criteria || []).length + ' criteria</span>';
+        card.addEventListener('click', () => {
+          selEl.value = r.name;
+        });
+        listEl.appendChild(card);
+        const opt = document.createElement('option');
+        opt.value = r.name; opt.textContent = r.name;
+        selEl.appendChild(opt);
+      });
+    } catch { listEl.textContent = 'Eval backend offline'; }
+  }
+
+  loadRubrics();
+
+  genBtn.addEventListener('click', async () => {
+    const text = document.getElementById('const-policy-text').value.trim();
+    const name = document.getElementById('const-rubric-name').value.trim() || 'generated';
+    const maxClauses = parseInt(document.getElementById('const-max-clauses').value) || 20;
+    if (!text) return Kairu.toast('Empty', 'Paste policy text first', 'warn');
+    genBtn.disabled = true;
+    try {
+      const result = await Kairu.post('eval', '/rubrics/generate', { text, name, max_clauses: maxClauses });
+      constResult.innerHTML = '';
+      const criteria = result.criteria || [];
+      criteria.forEach((c, i) => {
+        const tag = document.createElement('div');
+        tag.className = 'criterion-tag';
+        tag.style.animationDelay = (i * 60) + 'ms';
+        const w = result.weights && result.weights[c] !== undefined ? result.weights[c].toFixed(2) : '—';
+        tag.innerHTML = '<span class="c-name">' + c + '</span><span class="c-weight">' + w + '</span>';
+        constResult.appendChild(tag);
+      });
+      Kairu.toast('Generated', result.n_clauses + ' clauses → ' + criteria.length + ' criteria', 'success');
+      loadRubrics();
+    } catch (err) { Kairu.toast('Generate failed', err.message, 'error', 5000); }
+    finally { genBtn.disabled = false; }
+  });
+
+  evalBtn.addEventListener('click', async () => {
+    const prompt = document.getElementById('rubriclab-prompt').value.trim();
+    const response = document.getElementById('rubriclab-response').value.trim();
+    const rubric = selEl.value;
+    if (!prompt || !response) return Kairu.toast('Missing', 'Enter prompt and response', 'warn');
+    evalBtn.disabled = true;
+    try {
+      const j = await Kairu.post('eval', '/evaluate', { prompt, response, rubric: rubric || undefined });
+      resultEl.innerHTML = '';
+      (j.scores || []).forEach(cs => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px';
+        const pct = ((cs.score || 0) * 100).toFixed(0);
+        row.innerHTML = '<span style="min-width:120px;color:var(--muted);font-family:var(--mono)">' + cs.name + '</span>' +
+          '<div style="flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px"><div style="height:100%;width:' + pct + '%;background:var(--grad-rg);border-radius:3px;transition:width 0.5s"></div></div>' +
+          '<span style="min-width:36px;text-align:right;font-family:var(--mono);color:#6BFF8E">' + (cs.score || 0).toFixed(2) + '</span>';
+        resultEl.appendChild(row);
+      });
+    } catch (err) { Kairu.toast('Eval failed', err.message, 'error', 5000); }
+    finally { evalBtn.disabled = false; }
+  });
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// Batch Eval
+// ════════════════════════════════════════════════════════════════════
+(function initBatch() {
+  const pairsEl    = document.getElementById('batch-pairs');
+  const addBtn     = document.getElementById('batch-add-btn');
+  const runBtn     = document.getElementById('batch-run-btn');
+  const csvBtn     = document.getElementById('batch-csv-btn');
+  const rubricSel  = document.getElementById('batch-rubric');
+  const progressEl = document.getElementById('batch-progress');
+  const resultsEl  = document.getElementById('batch-results');
+  if (!pairsEl) return;
+
+  let batchResults = [];
+
+  // Populate rubrics
+  (async () => {
+    try {
+      const j = await Kairu.get('eval', '/rubrics');
+      (j.rubrics || []).forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.name; opt.textContent = r.name;
+        rubricSel.appendChild(opt);
+      });
+    } catch { /* offline */ }
+  })();
+
+  function addPair() {
+    const pair = document.createElement('div');
+    pair.className = 'batch-pair';
+    pair.innerHTML =
+      '<textarea placeholder="Prompt…"></textarea>' +
+      '<textarea placeholder="Response…"></textarea>' +
+      '<button class="btn-ghost remove-pair" style="align-self:start">✕</button>';
+    pair.querySelector('.remove-pair').addEventListener('click', () => pair.remove());
+    pairsEl.appendChild(pair);
+  }
+
+  addPair(); addPair(); addPair();
+
+  addBtn.addEventListener('click', addPair);
+
+  runBtn.addEventListener('click', async () => {
+    const rows = pairsEl.querySelectorAll('.batch-pair');
+    const pairs = [];
+    rows.forEach(row => {
+      const [p, r] = row.querySelectorAll('textarea');
+      if (p.value.trim() && r.value.trim()) pairs.push({ prompt: p.value.trim(), response: r.value.trim() });
+    });
+    if (!pairs.length) return Kairu.toast('Empty', 'Add at least one pair', 'warn');
+    progressEl.classList.remove('hidden');
+    runBtn.disabled = true;
+    resultsEl.innerHTML = '';
+    batchResults = [];
+    try {
+      const rubric = rubricSel.value || undefined;
+      const body = { items: pairs.map((p, i) => ({ id: String(i), ...p })), rubric };
+      const j = await Kairu.post('eval', '/batch', body);
+      batchResults = j.results || [];
+      batchResults.forEach((res, i) => {
+        const sc = res.aggregate !== undefined ? res.aggregate : (res.scores ? Object.values(res.scores).reduce((a, b) => a + b, 0) / Object.values(res.scores).length : 0);
+        const cls = sc < 0.5 ? '#ff6b6b' : sc > 0.8 ? '#6BFF8E' : '#ffcc44';
+        const card = document.createElement('div');
+        card.className = 'batch-result-card';
+        card.style.animationDelay = (i * 40) + 'ms';
+        card.style.borderLeftColor = cls;
+        card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<span style="font-size:12px;color:var(--muted);font-family:var(--mono)">Pair ' + (i + 1) + '</span>' +
+          '<span style="font-size:14px;font-weight:700;color:' + cls + '">' + (sc * 100).toFixed(1) + '%</span>' +
+          '</div>';
+        resultsEl.appendChild(card);
+      });
+      csvBtn.disabled = false;
+      Kairu.toast('Batch complete', batchResults.length + ' results', 'success');
+    } catch (err) { Kairu.toast('Batch failed', err.message, 'error', 5000); }
+    finally { progressEl.classList.add('hidden'); runBtn.disabled = false; }
+  });
+
+  csvBtn.addEventListener('click', () => {
+    if (!batchResults.length) return;
+    const header = ['pair', 'aggregate'];
+    const lines = [header.join(',')];
+    batchResults.forEach((res, i) => {
+      const sc = res.aggregate !== undefined ? res.aggregate : 0;
+      lines.push((i + 1) + ',' + sc.toFixed(4));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'batch-results.csv';
+    a.click();
+  });
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// Human Feedback (Evaluate tab)
+// ════════════════════════════════════════════════════════════════════
+(function initHumanFeedback() {
+  const panel     = document.getElementById('feedback-panel');
+  const listEl    = document.getElementById('feedback-criteria-list');
+  const submitBtn = document.getElementById('feedback-submit-btn');
+  const statusEl  = document.getElementById('feedback-status');
+  if (!panel) return;
+
+  let currentEvalId = null;
+  const thumbState  = {};
+
+  window.showFeedbackPanel = function(evalId, scores) {
+    currentEvalId = evalId;
+    listEl.innerHTML = '';
+    Object.assign(thumbState, {});
+    (scores || []).forEach(cs => {
+      thumbState[cs.name] = 0;
+      const row = document.createElement('div');
+      row.className = 'feedback-row';
+      const upBtn  = document.createElement('button');
+      const downBtn = document.createElement('button');
+      upBtn.className = 'thumb-btn';  upBtn.textContent = '👍';
+      downBtn.className = 'thumb-btn'; downBtn.textContent = '👎';
+      upBtn.addEventListener('click', () => {
+        thumbState[cs.name] = 1;
+        upBtn.classList.add('active-up');   downBtn.classList.remove('active-down');
+      });
+      downBtn.addEventListener('click', () => {
+        thumbState[cs.name] = -1;
+        downBtn.classList.add('active-down'); upBtn.classList.remove('active-up');
+      });
+      row.innerHTML = '<span class="feedback-criterion-name">' + cs.name + '</span>' +
+        '<span class="feedback-score">' + (cs.score || 0).toFixed(2) + '</span>';
+      row.appendChild(upBtn);
+      row.appendChild(downBtn);
+      listEl.appendChild(row);
+    });
+    panel.classList.remove('hidden');
+  };
+
+  submitBtn.addEventListener('click', async () => {
+    if (!currentEvalId) return;
+    const note = document.getElementById('feedback-note').value.trim();
+    const votes = Object.entries(thumbState).filter(([, v]) => v !== 0);
+    if (!votes.length) { statusEl.textContent = 'Select at least one thumb first.'; return; }
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Submitting…';
+    let ok = 0;
+    for (const [criterion, vote] of votes) {
+      try {
+        await Kairu.post('eval', '/eval/' + currentEvalId + '/feedback', { criterion, vote, note });
+        ok++;
+      } catch { /* continue */ }
+    }
+    statusEl.textContent = ok + '/' + votes.length + ' votes recorded.';
+    submitBtn.disabled = false;
+  });
 })();
 
 </script>

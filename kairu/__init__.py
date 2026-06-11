@@ -193,6 +193,11 @@ from kairu.shield import (
     ShieldVerdict,
     get_default_shield,
 )
+from kairu.human_feedback import (
+    HumanFeedback,
+    FeedbackStore,
+    open_default_feedback_store,
+)
 
 try:
     from kairu.server import ServerConfig, create_app
@@ -324,5 +329,9 @@ __all__ = [
     "build_bias_profile",
     "correct_ensemble_scores",
     "compute_uncalibrated_bias_bound",
+    # v0.21 — human feedback store
+    "HumanFeedback",
+    "FeedbackStore",
+    "open_default_feedback_store",
     "__version__",
 ]
