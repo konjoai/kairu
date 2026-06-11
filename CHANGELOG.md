@@ -4,6 +4,40 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.20.1] — 2026-06-11
+
+### Added — Live Demo UI: Engine / Speed-Up / Watermark Tabs + Prism Beam Fix
+
+- `demo/index.html` — 9 → 12 tabs; ~+760 lines of live UI:
+  - **Engine tab** — Speculative Decoder panel (draft window γ, acceptance threshold ρ; animated accepted/rejected/bonus token bubbles with staggered pop animation + speedup comparison bar); Layerwise Early Exit panel (threshold slider, num_layers select; per-token exit-depth bars colored by `compute_saved`); KV Cache Monitor panel (capacity + n_ops sliders; hit/miss/evict timeline dots + slot grid)
+  - **Speed-Up tab** — interactive 10×8 speedup heatmap (client-side formula; click a cell to fetch `/api/speedup` derivation panel) + AutoProfile Model Profiler (model metadata → `/api/recommend` → strategy card with rationale)
+  - **Watermark tab** — Kirchenbauer green/red token pills with staggered animation, δ slider, scheme select, z-score glow display (gold = detected), p-value + decision badge
+  - **Prism beam animation fixed** — 8 named SVG beams (`pb-0`–`pb-7`) now animate via `stroke-dashoffset` proportional to rubric scores; previous implementation was a no-op placeholder
+  - **Decoder hint** — after generation, calls `/api/recommend` and displays suggested strategy inline in the Generate tab
+- `demo/server.py` — +197 lines, 3 new routes:
+  - `real_kv_cache_sim(capacity, n_ops, seed)` / `POST /api/kv-cache-sim` — exercises `LogitsCache` with LRU ops; returns per-op trace with hit/miss/eviction stats
+  - `real_early_exit_sim(threshold, n_tokens, num_layers, seed)` / `POST /api/early-exit-sim` — runs `LayerwiseEarlyExitDecoder` with seedable model; returns per-token exit-layer trace + `compute_saved`
+  - `real_watermark_demo(n_tokens, seed, delta, scheme)` / `POST /api/watermark-demo` — `StreamingDecoder` + `WatermarkLogitsProcessor` + `WatermarkDetector`; returns per-token green-list membership + z-score/p-value/decision
+
+---
+
+## [0.20.0] — 2026-06-01
+
+### Added — Real Leaderboard + Score Analytics + Prompt Library
+
+- `kairu/leaderboard.py` — SQLite-backed score history keyed on model identity. `rank(metric, days, limit)` returns ranked rows with `mean_score`, `n_evaluations`, `delta` vs. prior period, `trend` (last 10 scores), `p25/p50/p75`. WAL mode for concurrent read+write.
+- `kairu/analytics.py` — pure-stdlib distribution analytics: 20-bucket histogram, nearest-rank percentiles (NIST, no interpolation), z-score anomaly detection sorted by `|z|` desc. Works against audit-log rows or leaderboard rows.
+- `kairu/prompts.py` — saved prompt library (SQLite, INSERT OR REPLACE). Tag normalisation (lowercase, deduped, ≤32 chars), name validation (alnum + `.-_`, ≤64 chars). `KAIRU_PROMPT_DB` env switches `:memory:` → file.
+- `api/main.py` endpoints: `GET /leaderboard`, `GET /analytics/score_distribution`, `POST /prompts`, `GET /prompts`, `GET /prompts/{name}`, `DELETE /prompts/{name}`. `EvaluateRequest` gains optional `model` field — when present, result auto-populates the leaderboard.
+- `demo/index.html` — Leaderboard and Analytics tabs call live endpoints; "synthesised view" badges removed.
+- 46 new tests (12 leaderboard + 17 analytics + 16 prompts + 12 HTTP). Suite: **590 passed**, 4 HF-gated skipped.
+
+### Changed
+- `kairu/__init__.py` — exports `LeaderboardStore`, `LeaderboardRow`, `AnalyticsResult`, `ScoreDistribution`, `AnomalyResult`, `PromptStore`, `SavedPrompt`; version `0.19.0 → 0.20.0`.
+- `pyproject.toml` — version `0.19.0 → 0.20.0`.
+
+---
+
 ## [0.19.0] — 2026-05-19
 
 ### Added — Evaluation Templates + Adversarial Detection + Multi-Model Tournament

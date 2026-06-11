@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.19.0**
+Current version: **v0.20.1**
 
 ---
 
@@ -80,6 +80,23 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### ✅ v0.20.1 — Live Demo UI: Engine / Speed-Up / Watermark + Prism Fix *(DONE)*
+
+- **Engine tab** — Speculative Decoder (animated token bubbles), Layerwise Early Exit (depth bars), KV Cache Monitor (hit/miss/evict timeline) — all live via `/api/kv-cache-sim`, `/api/early-exit-sim`
+- **Speed-Up tab** — interactive 10×8 speedup heatmap + AutoProfile strategy card via `/api/recommend`
+- **Watermark tab** — Kirchenbauer token pills + z-score glow display via `/api/watermark-demo`
+- **Prism beam animation fixed** — `stroke-dashoffset` proportional to rubric scores (was no-op)
+- **Decoder hint** in Generate tab — calls `/api/recommend` inline after streaming completes
+- 517 tests passing, all gates green
+
+### ✅ v0.20.0 — Real Leaderboard + Score Analytics + Prompt Library *(DONE)*
+
+- `kairu/leaderboard.py` — SQLite-backed score history; `rank()` with delta/trend/percentiles
+- `kairu/analytics.py` — histogram, nearest-rank percentiles, z-score anomalies (pure stdlib)
+- `kairu/prompts.py` — saved prompt library with tag normalization
+- Live leaderboard + analytics in demo UI; "synthesised view" badges removed
+- 590 tests passing
 
 ### 🔵 v0.19.0 — Tooling that turns kairu into a service
 
