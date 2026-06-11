@@ -101,6 +101,8 @@ from kairu.cross_regression import (
     compare_models,
     DEFAULT_REGRESSION_THRESHOLD as DEFAULT_CROSS_REGRESSION_THRESHOLD,
 )
+from kairu.marketplace import MarketplaceStore, open_default_marketplace_store, seed_community_rubrics
+from api.marketplace_router import router as marketplace_router
 
 JUDGE_MODEL_ID: str = os.environ.get("KAIRU_JUDGE_MODEL", "kairu-heuristic-v1")
 
@@ -439,6 +441,7 @@ def create_app(
     leaderboard_store: Optional[LeaderboardStore] = None,
     prompt_store: Optional[PromptStore] = None,
     feedback_store: Optional[FeedbackStore] = None,
+    marketplace_store: Optional[MarketplaceStore] = None,
 ) -> FastAPI:
     app = FastAPI(
         title="kairu evaluation API",
@@ -469,6 +472,11 @@ def create_app(
     app.state.feedback = (
         feedback_store if feedback_store is not None else open_default_feedback_store()
     )
+    app.state.marketplace = (
+        marketplace_store if marketplace_store is not None else open_default_marketplace_store()
+    )
+    seed_community_rubrics(app.state.marketplace)
+    app.include_router(marketplace_router)
 
     @app.get("/health")
     def health() -> Dict[str, str]:

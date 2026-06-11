@@ -4,6 +4,39 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.23.0] — 2026-06-11
+
+### Added — Rubric Marketplace (last P3 strategic item)
+
+**New Python module `kairu/marketplace.py`:**
+- `MarketplaceEntry` — frozen dataclass: `(name, version, domain, description, rubric, signature, source_url, created_utc)`
+- `MarketplaceStore` — SQLite-backed store with WAL mode; `publish()`, `list_entries(domain, q)`, `get(name, version)`, `close()`
+- `compute_signature(name, version, rubric)` — deterministic SHA-256 hex signing for provenance verification
+- `open_default_marketplace_store()` — resolves `KAIRU_MARKETPLACE_DB` env (defaults to `:memory:`)
+- `seed_community_rubrics(store)` — idempotent seeder for 4 built-in community rubrics
+- 7 domain tags: `medical`, `legal`, `creative_writing`, `code_review`, `general`, `safety`, `education`
+- 4 community rubrics seeded at startup: `medical_qa`, `legal_analysis`, `creative_writing`, `code_review` — all use kairu's built-in scorer criteria
+
+**New FastAPI router `api/marketplace_router.py`:**
+- `GET /marketplace` — list entries (filter by `domain` and/or keyword `q`)
+- `GET /marketplace/domains` — enumerate valid domain tags
+- `GET /marketplace/{name}` — fetch a specific entry (latest or `?version=`)
+- `POST /marketplace` — publish a new community rubric (boundary: name ≤ 64, desc ≤ 512, url ≤ 256, rubric ≤ 20 criteria)
+- `POST /marketplace/{name}/import` — validate + register a marketplace rubric into the local `RUBRIC_REGISTRY`
+
+**`api/main.py`:** wires `marketplace_store` into `create_app()`, seeds community rubrics, includes the marketplace router
+
+**`kairu/__init__.py`:** exports `MARKETPLACE_DOMAINS`, `MarketplaceEntry`, `MarketplaceStore`, `compute_marketplace_signature`, `open_default_marketplace_store`, `seed_community_rubrics`
+
+**New Marketplace tab in demo UI (18 tabs total):**
+- Domain filter chips (All / Medical / Legal / Creative / Code Review / General / Safety / Education) with animated active state
+- Keyword search bar with live filtering
+- Animated rubric card grid: domain badge, criterion pills with weight tooltips, truncated signature, one-click import
+- Import button → `POST /marketplace/{name}/import` → toast on success + button flips to `✓ Imported`
+- Publish panel: name, version, domain, description, source URL, JSON rubric weights editor
+
+**Tests:** 26 new tests in `tests/test_marketplace.py` (18 unit + 8 API); suite: **640 passed**, 4 HF-gated skipped
+
 ## [0.21.0] — 2026-06-11
 
 ### Added — Audit / Rubric Lab / Batch tabs + Human Feedback + Visual Overhaul

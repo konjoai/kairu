@@ -1028,6 +1028,33 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 .reg-delta-negative { color: #ff6b6b; text-shadow: 0 0 8px rgba(255,107,107,0.4); }
 .reg-regression-badge { display: inline-block; padding: 2px 8px; background: rgba(255,80,80,0.15); border: 1px solid #ff5050; border-radius: 4px; color: #ff6b6b; font-size: 11px; animation: livePulse 1.8s ease-in-out infinite; }
 
+/* ── Marketplace ──────────────────────────────────────────────────── */
+.mp-chip { padding: 5px 13px; border-radius: 20px; border: 1px solid rgba(124,58,237,0.3); background: transparent; color: var(--dim); font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.18s; text-transform: capitalize; }
+.mp-chip:hover { border-color: var(--accent); color: var(--text); background: rgba(124,58,237,0.1); }
+.mp-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 14px rgba(124,58,237,0.4); }
+.mp-card { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s, box-shadow 0.2s; position: relative; overflow: hidden; }
+.mp-card::before { content:''; position:absolute; inset:0; background: linear-gradient(135deg, rgba(124,58,237,0.04) 0%, transparent 60%); pointer-events: none; }
+.mp-card:hover { border-color: rgba(124,58,237,0.3); box-shadow: 0 4px 24px rgba(124,58,237,0.12); }
+.mp-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.mp-card-name { font-size: 13.5px; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
+.mp-domain-badge { padding: 3px 10px; border-radius: 12px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; background: rgba(107,255,142,0.12); color: #6BFF8E; border: 1px solid rgba(107,255,142,0.25); white-space: nowrap; }
+.mp-domain-badge.legal { background: rgba(80,160,255,0.12); color: #7ab8ff; border-color: rgba(80,160,255,0.25); }
+.mp-domain-badge.creative_writing { background: rgba(255,180,80,0.12); color: #ffcc77; border-color: rgba(255,180,80,0.25); }
+.mp-domain-badge.code_review { background: rgba(255,100,200,0.12); color: #ff7ad5; border-color: rgba(255,100,200,0.25); }
+.mp-domain-badge.general { background: rgba(160,160,255,0.12); color: #aab8ff; border-color: rgba(160,160,255,0.25); }
+.mp-domain-badge.safety { background: rgba(255,80,80,0.12); color: #ff8888; border-color: rgba(255,80,80,0.25); }
+.mp-domain-badge.education { background: rgba(80,220,255,0.12); color: #60d8ff; border-color: rgba(80,220,255,0.25); }
+.mp-card-desc { font-size: 12px; color: var(--dim); line-height: 1.5; }
+.mp-criteria-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.mp-criterion-pill { padding: 2px 9px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); font-size: 10.5px; color: var(--dim); }
+.mp-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+.mp-sig { font-size: 10px; color: rgba(255,255,255,0.2); font-family: monospace; }
+.mp-import-btn { padding: 5px 14px; border-radius: 8px; border: 1px solid rgba(107,255,142,0.35); background: rgba(107,255,142,0.08); color: #6BFF8E; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+.mp-import-btn:hover { background: rgba(107,255,142,0.18); box-shadow: 0 0 12px rgba(107,255,142,0.3); }
+.mp-import-btn.imported { background: rgba(107,255,142,0.22); box-shadow: 0 0 14px rgba(107,255,142,0.4); border-color: #6BFF8E; }
+@keyframes mp-card-in { from { opacity:0; transform: translateY(12px) scale(0.97); } to { opacity:1; transform: none; } }
+.mp-card { animation: mp-card-in 0.3s cubic-bezier(.22,1,.36,1) both; }
+
 </style>
 </head>
 <body>
@@ -1068,6 +1095,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
   <button data-tab="batch"><span class="ti">⊟</span>Batch</button>
   <button data-tab="calibration"><span class="ti">⊕</span>Calibration</button>
   <button data-tab="trajectory"><span class="ti">◆</span>Trajectory</button>
+  <button data-tab="marketplace"><span class="ti">⊛</span>Marketplace</button>
 </nav>
 
 <main>
@@ -1883,7 +1911,82 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
   </div>
 </section>
 
-</main>
+<!-- ════════════════════════════════════════════════════════════════════
+     MARKETPLACE TAB
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="marketplace">
+  <h2>Rubric Marketplace</h2>
+  <p class="hint" style="margin-bottom:16px">Community rubrics curated by domain — browse, import, or publish your own.</p>
+
+  <!-- Domain filter chips + search -->
+  <div class="glass-card" style="padding:16px 20px;margin-bottom:16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <span style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-right:4px">Domain</span>
+      <button class="mp-chip active" data-domain="">All</button>
+      <button class="mp-chip" data-domain="medical">Medical</button>
+      <button class="mp-chip" data-domain="legal">Legal</button>
+      <button class="mp-chip" data-domain="creative_writing">Creative</button>
+      <button class="mp-chip" data-domain="code_review">Code Review</button>
+      <button class="mp-chip" data-domain="general">General</button>
+      <button class="mp-chip" data-domain="safety">Safety</button>
+      <button class="mp-chip" data-domain="education">Education</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <input id="mp-search" type="text" placeholder="Search rubrics…" style="flex:1;max-width:340px" />
+      <button id="mp-search-btn" class="btn-primary" style="padding:8px 18px">Search</button>
+      <button id="mp-refresh-btn" style="padding:8px 16px;margin-left:auto">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- Rubric cards grid -->
+  <div id="mp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:24px">
+    <div class="mp-card-placeholder" style="grid-column:1/-1;text-align:center;color:var(--dim);padding:40px">
+      Loading community rubrics…
+    </div>
+  </div>
+
+  <!-- Publish panel -->
+  <div class="glass-card" style="padding:20px 24px">
+    <h3 style="margin:0 0 12px;font-size:14px;color:var(--accent)">Publish a Rubric</h3>
+    <p class="hint" style="margin-bottom:16px">Share a custom rubric with the community. Criteria must be from the built-in kairu scorer set (relevance, coherence, conciseness, safety, fluency, specificity, completeness).</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">Name</label>
+        <input id="mp-pub-name" type="text" placeholder="my_rubric" />
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">Version</label>
+        <input id="mp-pub-version" type="text" placeholder="1.0.0" value="1.0.0" />
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">Domain</label>
+        <select id="mp-pub-domain" style="width:100%">
+          <option value="general">General</option>
+          <option value="medical">Medical</option>
+          <option value="legal">Legal</option>
+          <option value="creative_writing">Creative Writing</option>
+          <option value="code_review">Code Review</option>
+          <option value="safety">Safety</option>
+          <option value="education">Education</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">Source URL (optional)</label>
+        <input id="mp-pub-url" type="text" placeholder="https://…" />
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">Description</label>
+      <input id="mp-pub-desc" type="text" placeholder="What does this rubric evaluate?" style="width:100%" />
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">Rubric weights (JSON — criterion: weight)</label>
+      <textarea id="mp-pub-rubric" rows="4" style="font-family:monospace;font-size:12px;width:100%" placeholder='{"relevance": 0.4, "coherence": 0.3, "fluency": 0.3}'></textarea>
+    </div>
+    <button id="mp-pub-btn" class="btn-primary">Publish Rubric</button>
+    <div id="mp-pub-result" style="margin-top:12px;display:none"></div>
+  </div>
+</section>
 
 <div id="toast-stack"></div>
 
@@ -4472,6 +4575,162 @@ function escapeHtml(s) {
         stepTimeline.appendChild(row);
       });
     } catch (err) { Kairu.toast('Scoring failed', err.message, 'error'); }
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// MARKETPLACE TAB
+// ═══════════════════════════════════════════════════════════════════════
+(() => {
+  const grid = document.getElementById('mp-grid');
+  const searchInput = document.getElementById('mp-search');
+
+  let activeDomain = '';
+
+  // ── render helpers ──────────────────────────────────────────────────
+
+  const DOMAIN_COLORS = {
+    medical: 'medical',
+    legal: 'legal',
+    creative_writing: 'creative_writing',
+    code_review: 'code_review',
+    general: 'general',
+    safety: 'safety',
+    education: 'education',
+  };
+
+  function domainLabel(d) {
+    return d.replace('_', ' ');
+  }
+
+  function renderCard(entry, delay) {
+    const card = document.createElement('div');
+    card.className = 'mp-card';
+    card.style.animationDelay = `${delay * 60}ms`;
+
+    const criteria = Object.entries(entry.rubric || {})
+      .map(([c, w]) => `<span class="mp-criterion-pill" title="weight: ${w}">${c}</span>`)
+      .join('');
+
+    card.innerHTML = `
+      <div class="mp-card-header">
+        <div>
+          <div class="mp-card-name">${entry.name}</div>
+          <div style="font-size:10.5px;color:var(--dim);margin-top:2px">v${entry.version}</div>
+        </div>
+        <span class="mp-domain-badge ${DOMAIN_COLORS[entry.domain] || ''}">${domainLabel(entry.domain)}</span>
+      </div>
+      <div class="mp-card-desc">${entry.description}</div>
+      <div class="mp-criteria-row">${criteria}</div>
+      <div class="mp-card-footer">
+        <span class="mp-sig" title="${entry.signature_full || entry.signature}">${entry.signature}</span>
+        <button class="mp-import-btn" data-name="${entry.name}" data-version="${entry.version}">↓ Import</button>
+      </div>
+    `;
+
+    card.querySelector('.mp-import-btn').addEventListener('click', async function () {
+      const btn = this;
+      const name = btn.dataset.name;
+      const version = btn.dataset.version;
+      btn.textContent = '…';
+      btn.disabled = true;
+      try {
+        const result = await Kairu.post('eval', `/marketplace/${name}/import`, {});
+        btn.textContent = '✓ Imported';
+        btn.classList.add('imported');
+        Kairu.toast('Rubric imported', `${name} v${result.registry_version} is now available in Evaluate`, 'success');
+      } catch (err) {
+        btn.textContent = '↓ Import';
+        btn.disabled = false;
+        Kairu.toast('Import failed', err.message, 'error');
+      }
+    });
+
+    return card;
+  }
+
+  async function loadMarketplace() {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--dim);padding:32px">Loading…</div>';
+    const q = searchInput ? searchInput.value.trim() : '';
+    let url = '/marketplace';
+    const params = [];
+    if (activeDomain) params.push(`domain=${encodeURIComponent(activeDomain)}`);
+    if (q) params.push(`q=${encodeURIComponent(q)}`);
+    if (params.length) url += '?' + params.join('&');
+    try {
+      const data = await Kairu.get('eval', url);
+      grid.innerHTML = '';
+      if (!data.entries || data.entries.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--dim);padding:32px">No rubrics found.</div>';
+        return;
+      }
+      data.entries.forEach((entry, i) => grid.appendChild(renderCard(entry, i)));
+    } catch (err) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#ff6b6b;padding:32px">Failed to load: ${err.message}</div>`;
+    }
+  }
+
+  // ── domain chip wiring ──────────────────────────────────────────────
+
+  document.querySelectorAll('.mp-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.mp-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeDomain = chip.dataset.domain || '';
+      loadMarketplace();
+    });
+  });
+
+  document.getElementById('mp-search-btn').addEventListener('click', loadMarketplace);
+  searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadMarketplace(); });
+  document.getElementById('mp-refresh-btn').addEventListener('click', loadMarketplace);
+
+  // ── publish wiring ──────────────────────────────────────────────────
+
+  document.getElementById('mp-pub-btn').addEventListener('click', async () => {
+    const name = document.getElementById('mp-pub-name').value.trim();
+    const version = document.getElementById('mp-pub-version').value.trim() || '1.0.0';
+    const domain = document.getElementById('mp-pub-domain').value;
+    const description = document.getElementById('mp-pub-desc').value.trim();
+    const url = document.getElementById('mp-pub-url').value.trim();
+    const rubricRaw = document.getElementById('mp-pub-rubric').value.trim();
+    const resultEl = document.getElementById('mp-pub-result');
+
+    if (!name || !description || !rubricRaw) {
+      Kairu.toast('Missing fields', 'Name, description, and rubric weights are required', 'error');
+      return;
+    }
+
+    let rubric;
+    try {
+      rubric = JSON.parse(rubricRaw);
+    } catch {
+      Kairu.toast('Invalid JSON', 'Rubric must be a JSON object', 'error');
+      return;
+    }
+
+    try {
+      const result = await Kairu.post('eval', '/marketplace', {
+        name, version, domain, description, rubric, source_url: url,
+      });
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = `
+        <div style="padding:10px 14px;background:rgba(107,255,142,0.08);border:1px solid rgba(107,255,142,0.25);border-radius:8px">
+          <div style="color:#6BFF8E;font-weight:700;margin-bottom:4px">✓ Published ${result.name} v${result.version}</div>
+          <div style="font-size:11px;color:var(--dim);font-family:monospace">${result.signature}</div>
+        </div>`;
+      Kairu.toast('Rubric published', `${name} v${version} is now in the marketplace`, 'success');
+      loadMarketplace();
+    } catch (err) {
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = `<div style="color:#ff6b6b;font-size:12px">Error: ${err.message}</div>`;
+    }
+  });
+
+  // ── auto-load on tab enter ──────────────────────────────────────────
+
+  window.addEventListener('kairu-tab', e => {
+    if (e.detail === 'marketplace') loadMarketplace();
   });
 })();
 
