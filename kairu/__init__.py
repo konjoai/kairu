@@ -198,6 +198,20 @@ from kairu.human_feedback import (
     FeedbackStore,
     open_default_feedback_store,
 )
+from kairu.cross_regression import (
+    CriterionDelta,
+    CrossModelReport,
+    compare_models,
+    DEFAULT_REGRESSION_THRESHOLD as DEFAULT_CROSS_REGRESSION_THRESHOLD,
+)
+from kairu.marketplace import (
+    DOMAINS as MARKETPLACE_DOMAINS,
+    MarketplaceEntry,
+    MarketplaceStore,
+    compute_signature as compute_marketplace_signature,
+    open_default_marketplace_store,
+    seed_community_rubrics,
+)
 
 try:
     from kairu.server import ServerConfig, create_app
@@ -333,5 +347,17 @@ __all__ = [
     "HumanFeedback",
     "FeedbackStore",
     "open_default_feedback_store",
+    # v0.22 — cross-model regression
+    "CriterionDelta",
+    "CrossModelReport",
+    "compare_models",
+    "DEFAULT_CROSS_REGRESSION_THRESHOLD",
+    # v0.23 — rubric marketplace
+    "MARKETPLACE_DOMAINS",
+    "MarketplaceEntry",
+    "MarketplaceStore",
+    "compute_marketplace_signature",
+    "open_default_marketplace_store",
+    "seed_community_rubrics",
     "__version__",
 ]

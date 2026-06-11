@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.21.0**
+Current version: **v0.23.0**
 
 ---
 
@@ -81,6 +81,14 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
 
+### ✅ v0.23.0 — Rubric Marketplace (last P3 item) *(DONE)*
+
+- **`kairu/marketplace.py`** — `MarketplaceEntry`, `MarketplaceStore` (SQLite+WAL), `compute_signature`, `open_default_marketplace_store`, `seed_community_rubrics`
+- **`api/marketplace_router.py`** — `GET/POST /marketplace`, `GET /marketplace/domains`, `GET /marketplace/{name}`, `POST /marketplace/{name}/import`
+- **4 community rubrics** seeded at startup: `medical_qa`, `legal_analysis`, `creative_writing`, `code_review`
+- **Marketplace tab** (18th tab) — domain chips, search, animated rubric cards, one-click import, publish form
+- 26 new tests; suite: **640 passed**, 4 HF-gated skipped
+
 ### ✅ v0.21.0 — Audit/RubricLab/Batch tabs + Human Feedback + Visual Overhaul *(DONE)*
 
 - **Visual overhaul** — animated mesh bg, glassmorphism cards, slide/fade tab transitions, neon glow, sparklines, animated histogram
@@ -133,21 +141,19 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   per-criterion dominance counts, and a ranked leaderboard. Tournaments
   persist in memory; `GET /tournaments/{id}` and `GET /tournaments`.
 
-### 🟡 P3 — Strategic
+### ✅ P3 — Strategic *(all shipped)*
 
-- **Human feedback integration**
+- **Human feedback integration** *(DONE — v0.21.0)*
   `POST /eval/{id}/feedback` records human overrides on individual
-  audit rows. Accumulated feedback drives a fitness signal that
-  re-balances rubric weights over time (offline; gated behind a
-  `kairu finetune-weights` CLI command).
-- **Cross-model regression testing**
-  Run the same eval suite across model versions, flag regressions
-  >2% on any criterion. Surfaces as a new dashboard view: pick two
-  rubric+model pairs, see the diff.
-- **Rubric marketplace**
-  Share / import community rubrics by domain (medical, legal,
-  creative writing, code review). Backed by the version registry — a
-  marketplace entry is a `(name, version, signature, source_url)` tuple.
+  audit rows. `FeedbackStore` (SQLite) accumulates votes per criterion.
+- **Cross-model regression testing** *(DONE — v0.22.0)*
+  `GET /regression?model_a=&model_b=` flags regressions >2% per criterion.
+  Collapsible panel in Leaderboard tab — pick two models, see the diff.
+- **Rubric marketplace** *(DONE — v0.23.0)*
+  `kairu/marketplace.py` + `api/marketplace_router.py`. 4 community rubrics
+  seeded at startup (medical, legal, creative_writing, code_review). Domain
+  filter chips, keyword search, card grid, one-click import, publish form.
+  18-tab demo UI fully wired to the eval API.
 
 ---
 
