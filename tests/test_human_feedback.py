@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 
 from kairu.human_feedback import (
     FeedbackStore,
     HumanFeedback,
     open_default_feedback_store,
 )
-from api.main import create_app
+
+pytest.importorskip("fastapi")
+pytest.importorskip("httpx")
+
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+
+from api.main import create_app  # noqa: E402
 
 
 # ─────────────────────────────────────────────────────────────────────────────
