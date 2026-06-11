@@ -97,6 +97,10 @@ from kairu.tournament import (
 )
 from kairu.trajectory import TrajectoryStep, evaluate_trajectory
 from kairu.significance import paired_t_test, per_criterion_diffs
+from kairu.cross_regression import (
+    compare_models,
+    DEFAULT_REGRESSION_THRESHOLD as DEFAULT_CROSS_REGRESSION_THRESHOLD,
+)
 
 JUDGE_MODEL_ID: str = os.environ.get("KAIRU_JUDGE_MODEL", "kairu-heuristic-v1")
 
@@ -1512,6 +1516,64 @@ def create_app(
                     "timestamp_utc": r.timestamp_utc,
                 }
                 for r in records
+            ],
+        }
+
+    # ── v0.22 cross-model regression ─────────────────────────────────────
+
+    @app.get("/regression")
+    async def cross_model_regression(
+        request: Request,
+        model_a: str = Query(..., min_length=1, max_length=64),
+        model_b: str = Query(..., min_length=1, max_length=64),
+        threshold: float = Query(DEFAULT_CROSS_REGRESSION_THRESHOLD, ge=0.0, le=1.0),
+        days: int = Query(30, ge=1, le=365),
+    ) -> Dict[str, object]:
+        """Compare per-criterion scores between two models and flag regressions."""
+        try:
+            report = compare_models(
+                model_a,
+                model_b,
+                request.app.state.leaderboard,
+                threshold=threshold,
+                days=days,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {
+            "model_a": report.model_a,
+            "model_b": report.model_b,
+            "threshold": report.threshold,
+            "days": report.days,
+            "aggregate_delta": report.aggregate_delta,
+            "has_regressions": report.has_regressions,
+            "n_compared": report.n_compared,
+            "regressions": [
+                {
+                    "criterion": d.criterion,
+                    "score_a": d.score_a,
+                    "score_b": d.score_b,
+                    "delta": d.delta,
+                }
+                for d in report.regressions
+            ],
+            "improvements": [
+                {
+                    "criterion": d.criterion,
+                    "score_a": d.score_a,
+                    "score_b": d.score_b,
+                    "delta": d.delta,
+                }
+                for d in report.improvements
+            ],
+            "neutral": [
+                {
+                    "criterion": d.criterion,
+                    "score_a": d.score_a,
+                    "score_b": d.score_b,
+                    "delta": d.delta,
+                }
+                for d in report.neutral
             ],
         }
 

@@ -198,6 +198,12 @@ from kairu.human_feedback import (
     FeedbackStore,
     open_default_feedback_store,
 )
+from kairu.cross_regression import (
+    CriterionDelta,
+    CrossModelReport,
+    compare_models,
+    DEFAULT_REGRESSION_THRESHOLD as DEFAULT_CROSS_REGRESSION_THRESHOLD,
+)
 
 try:
     from kairu.server import ServerConfig, create_app
@@ -333,5 +339,10 @@ __all__ = [
     "HumanFeedback",
     "FeedbackStore",
     "open_default_feedback_store",
+    # v0.22 — cross-model regression
+    "CriterionDelta",
+    "CrossModelReport",
+    "compare_models",
+    "DEFAULT_CROSS_REGRESSION_THRESHOLD",
     "__version__",
 ]

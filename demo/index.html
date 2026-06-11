@@ -998,6 +998,36 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 .hint { font-size: 12px; color: var(--dim); margin-bottom: 12px; font-family: var(--mono); }
 .const-result { margin-top: 12px; }
 
+/* ── Calibration tab ─────────────────────────────────────────────────── */
+.cal-pair-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: start; }
+.cal-pair-row input { padding: 6px 8px; }
+.bias-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg, #ff6b6b, #6BFF8E); margin: 4px 0; }
+.cal-eval-result { margin-top: 12px; padding: 16px; background: rgba(107,255,142,0.04); border-radius: 8px; }
+.bias-corrected-score { font-size: 24px; font-weight: 700; color: #6BFF8E; text-shadow: 0 0 12px rgba(107,255,142,0.4); }
+
+/* ── Trajectory tab ─────────────────────────────────────────────────── */
+.traj-step-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.traj-step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.step-num-badge { width: 28px; height: 28px; border-radius: 50%; background: rgba(107,255,142,0.15); border: 1px solid rgba(107,255,142,0.4); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #6BFF8E; flex-shrink: 0; }
+.traj-step-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; }
+.traj-step-grid textarea { font-size: 12px; min-height: 48px; resize: vertical; padding: 6px 8px; }
+.traj-metric-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.traj-metric-label { font-size: 11px; color: #8899aa; width: 110px; flex-shrink: 0; }
+.traj-metric-bar { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+.traj-metric-fill { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+.traj-metric-val { font-size: 12px; color: #6BFF8E; width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+.traj-final-score { font-size: 48px; font-weight: 900; color: #6BFF8E; text-align: center; text-shadow: 0 0 24px rgba(107,255,142,0.4); padding: 16px; }
+.traj-agg-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.traj-timeline-step { display: grid; grid-template-columns: auto 1fr 2fr; gap: 12px; align-items: start; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); animation: rowIn 0.3s ease both; }
+.traj-result { margin-top: 16px; }
+.traj-steps-container { margin-bottom: 8px; }
+
+/* ── Cross-model regression panel ───────────────────────────────────── */
+.regression-panel summary::-webkit-details-marker { color: #6BFF8E; }
+.reg-delta-positive { color: #6BFF8E; text-shadow: 0 0 8px rgba(107,255,142,0.4); }
+.reg-delta-negative { color: #ff6b6b; text-shadow: 0 0 8px rgba(255,107,107,0.4); }
+.reg-regression-badge { display: inline-block; padding: 2px 8px; background: rgba(255,80,80,0.15); border: 1px solid #ff5050; border-radius: 4px; color: #ff6b6b; font-size: 11px; animation: livePulse 1.8s ease-in-out infinite; }
+
 </style>
 </head>
 <body>
@@ -1036,6 +1066,8 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
   <button data-tab="audit"><span class="ti">⊜</span>Audit</button>
   <button data-tab="rubriclab"><span class="ti">⊞</span>Rubric Lab</button>
   <button data-tab="batch"><span class="ti">⊟</span>Batch</button>
+  <button data-tab="calibration"><span class="ti">⊕</span>Calibration</button>
+  <button data-tab="trajectory"><span class="ti">◆</span>Trajectory</button>
 </nav>
 
 <main>
@@ -1471,6 +1503,21 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
     </div>
 
     <div id="lb-list"><div class="empty">Loading ranked models…</div></div>
+
+    <details class="glass-card regression-panel" style="margin-top:16px">
+      <summary style="cursor:pointer;padding:12px;font-weight:600;color:#6BFF8E">⚡ Cross-Model Regression Check</summary>
+      <div style="padding:0 12px 12px">
+        <p class="hint">Compare aggregate scores between two models. Flags regressions above the threshold.</p>
+        <div class="ctrl-row">
+          <select id="reg-model-a" style="flex:1"><option value="">Select Model A…</option></select>
+          <span style="color:#8899aa;font-size:18px">vs</span>
+          <select id="reg-model-b" style="flex:1"><option value="">Select Model B…</option></select>
+          <input id="reg-threshold" type="number" value="0.02" min="0.001" max="0.5" step="0.001" style="width:80px" title="Regression threshold" />
+          <button id="reg-run-btn" class="btn-primary">Compare</button>
+        </div>
+        <div id="reg-result" style="margin-top:12px"></div>
+      </div>
+    </details>
   </div>
 </section>
 
@@ -1750,6 +1797,89 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <span id="batch-progress-label" style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Running…</span>
     </div>
     <div id="batch-results" class="batch-results" style="margin-top:12px"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TAB — CALIBRATION
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="calibration">
+  <h2>Judge Bias Calibration</h2>
+
+  <!-- Panel 1: Build a bias profile -->
+  <div class="glass-card" style="margin-bottom:16px">
+    <h3>Build Bias Profile</h3>
+    <p class="hint">Add human-scored pairs to calibrate inter-judge bias for a rubric.</p>
+
+    <div class="ctrl-row" style="margin-bottom:12px">
+      <select id="cal-rubric"></select>
+      <label style="font-size:12px;color:#8899aa">Judges (JSON array):</label>
+      <input id="cal-judges-json" type="text" value='[{"name":"j1","rubric":"helpfulness","criteria":["relevance","fluency"],"seed":1}]' style="width:340px;font-family:monospace;font-size:11px" />
+    </div>
+
+    <div id="cal-pairs-container"></div>
+    <button id="cal-add-pair-btn" class="btn-ghost">+ Add pair</button>
+
+    <div class="ctrl-row" style="margin-top:12px">
+      <button id="cal-build-btn" class="btn-primary">Build Profile</button>
+    </div>
+    <div id="cal-build-result" class="glass-card" style="margin-top:12px;display:none"></div>
+  </div>
+
+  <!-- Panel 2: Stored profiles -->
+  <div class="glass-card" style="margin-bottom:16px">
+    <h3>Stored Profiles</h3>
+    <button id="cal-refresh-btn" class="btn-ghost" style="float:right">⟳ Refresh</button>
+    <div id="cal-profiles-list"></div>
+  </div>
+
+  <!-- Panel 3: Calibrated evaluate -->
+  <div class="glass-card">
+    <h3>Calibrated Ensemble Evaluate</h3>
+    <div class="ctrl-row">
+      <input id="cal-eval-prompt" type="text" placeholder="Prompt…" />
+      <input id="cal-eval-response" type="text" placeholder="Response…" />
+      <select id="cal-eval-rubric"></select>
+      <button id="cal-eval-btn" class="btn-primary">Evaluate</button>
+    </div>
+    <div id="cal-eval-result" class="cal-eval-result" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     TAB — TRAJECTORY
+     ════════════════════════════════════════════════════════════════════ -->
+<section class="tab-pane" data-pane="trajectory">
+  <h2>Agentic Trajectory Scorer</h2>
+  <div class="glass-card">
+    <p class="hint">Score an agentic sequence step by step — tool selection, error recovery, goal progress, efficiency.</p>
+    <div class="ctrl-row" style="margin-bottom:12px">
+      <input id="traj-goal" type="text" placeholder="Goal (e.g. 'Summarise the Q3 earnings report')" style="flex:1" />
+      <input id="traj-optimal" type="number" placeholder="Optimal steps (opt.)" min="1" max="50" style="width:140px" />
+    </div>
+
+    <div id="traj-steps-container" class="traj-steps-container"></div>
+    <button id="traj-add-step-btn" class="btn-ghost">+ Add step</button>
+
+    <div class="ctrl-row" style="margin-top:12px">
+      <button id="traj-run-btn" class="btn-primary">Score Trajectory</button>
+      <button id="traj-clear-btn" class="btn-ghost">Clear</button>
+    </div>
+  </div>
+
+  <div id="traj-result" class="traj-result hidden">
+    <!-- Aggregate scores bar -->
+    <div class="glass-card" style="margin-top:16px">
+      <h3>Aggregate Scores</h3>
+      <div id="traj-aggregate-bars" class="traj-agg-bars"></div>
+      <div id="traj-final-score" class="traj-final-score"></div>
+    </div>
+
+    <!-- Per-step timeline -->
+    <div class="glass-card" style="margin-top:16px">
+      <h3>Step Timeline</h3>
+      <div id="traj-step-timeline" class="traj-step-timeline"></div>
+    </div>
   </div>
 </section>
 
@@ -2757,6 +2887,21 @@ async function loadRubricsInto(selects) {
         return;
       }
       els.list.innerHTML = '';
+      // Populate regression model selects
+      const regA = document.getElementById('reg-model-a');
+      const regB = document.getElementById('reg-model-b');
+      if (regA && regB) {
+        regA.innerHTML = '<option value="">Select Model A…</option>';
+        regB.innerHTML = '<option value="">Select Model B…</option>';
+        ranking.forEach(r => {
+          const optA = document.createElement('option');
+          optA.value = r.model; optA.textContent = r.model;
+          regA.appendChild(optA);
+          const optB = document.createElement('option');
+          optB.value = r.model; optB.textContent = r.model;
+          regB.appendChild(optB);
+        });
+      }
       ranking.forEach((r, i) => {
         const row = document.createElement('div');
         row.className = 'lb-row row-anim';
@@ -2777,6 +2922,44 @@ async function loadRubricsInto(selects) {
     } catch (err) {
       els.list.innerHTML = `<div class="empty" style="color:var(--fail);border-color:rgba(239,68,68,0.25)">${err.message}</div>`;
     }
+  }
+
+  // Regression check
+  const regRunBtn = document.getElementById('reg-run-btn');
+  if (regRunBtn) {
+    regRunBtn.addEventListener('click', async () => {
+      const modelA = document.getElementById('reg-model-a').value;
+      const modelB = document.getElementById('reg-model-b').value;
+      const threshold = document.getElementById('reg-threshold').value;
+      const resultEl = document.getElementById('reg-result');
+      if (!modelA || !modelB) return Kairu.toast('Missing model', 'Select both Model A and Model B', 'warn');
+      resultEl.innerHTML = '<span style="color:var(--muted)">Loading…</span>';
+      try {
+        const params = new URLSearchParams({ model_a: modelA, model_b: modelB, threshold });
+        const j = await Kairu.get('eval', `/regression?${params.toString()}`);
+        const delta = j.aggregate_delta;
+        const dCls = delta >= 0 ? 'reg-delta-positive' : 'reg-delta-negative';
+        const sign = delta >= 0 ? '+' : '';
+        let html = `<div style="margin-bottom:8px">
+          Aggregate delta: <span class="${dCls}" style="font-size:20px;font-weight:700">${sign}${(delta*100).toFixed(2)}%</span>
+          ${j.has_regressions ? '<span class="reg-regression-badge" style="margin-left:8px">⚠ REGRESSION</span>' : ''}
+        </div>`;
+        if (j.regressions && j.regressions.length) {
+          html += '<div style="margin-bottom:6px;font-size:12px;color:#ff6b6b">Regressions:</div>';
+          j.regressions.forEach(d => { html += `<span class="criterion-tag" style="border-color:#ff5050;color:#ff6b6b;margin:2px">${d.criterion}: ${(d.score_a*100).toFixed(1)} → ${(d.score_b*100).toFixed(1)} (Δ${(d.delta*100).toFixed(2)}%)</span> `; });
+        }
+        if (j.improvements && j.improvements.length) {
+          html += '<div style="margin-top:6px;margin-bottom:6px;font-size:12px;color:#6BFF8E">Improvements:</div>';
+          j.improvements.forEach(d => { html += `<span class="criterion-tag" style="border-color:#6BFF8E;color:#6BFF8E;margin:2px">${d.criterion}: ${(d.score_a*100).toFixed(1)} → ${(d.score_b*100).toFixed(1)} (Δ+${(d.delta*100).toFixed(2)}%)</span> `; });
+        }
+        resultEl.innerHTML = html;
+      } catch (err) {
+        if (err.status === 404 || (err.message && err.message.includes('404'))) {
+          Kairu.toast('Not found', err.message, 'warn');
+        }
+        resultEl.innerHTML = `<span style="color:#ff6b6b">${err.message}</span>`;
+      }
+    });
   }
 })();
 
@@ -4020,6 +4203,275 @@ function escapeHtml(s) {
     }
     statusEl.textContent = ok + '/' + votes.length + ' votes recorded.';
     submitBtn.disabled = false;
+  });
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// Calibration tab
+// ════════════════════════════════════════════════════════════════════
+(function initCalibration() {
+  const pairsContainer = document.getElementById('cal-pairs-container');
+  const addPairBtn = document.getElementById('cal-add-pair-btn');
+  const buildBtn = document.getElementById('cal-build-btn');
+  const buildResult = document.getElementById('cal-build-result');
+  const refreshBtn = document.getElementById('cal-refresh-btn');
+  const profilesList = document.getElementById('cal-profiles-list');
+  const evalBtn = document.getElementById('cal-eval-btn');
+  const evalResult = document.getElementById('cal-eval-result');
+
+  function makePairRow(prompt, response, humanScores) {
+    const row = document.createElement('div');
+    row.className = 'cal-pair-row';
+    row.innerHTML = `
+      <input type="text" placeholder="Prompt…" value="${prompt || ''}" class="cal-pair-prompt" />
+      <input type="text" placeholder="Response…" value="${response || ''}" class="cal-pair-response" />
+      <input type="text" placeholder='Human scores JSON e.g. {"relevance":0.8}' value="${humanScores || ''}" class="cal-pair-scores" style="font-family:monospace;font-size:11px" />
+      <button class="btn-ghost" style="padding:4px 8px" title="Remove">✕</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => row.remove());
+    return row;
+  }
+
+  // Seed 2 initial pairs
+  pairsContainer.appendChild(makePairRow('What is the capital of France?', 'Paris is the capital.', '{"relevance":0.9,"fluency":0.8}'));
+  pairsContainer.appendChild(makePairRow('Explain gravity briefly.', 'Gravity pulls objects toward each other.', '{"relevance":0.85,"fluency":0.9}'));
+
+  addPairBtn.addEventListener('click', () => pairsContainer.appendChild(makePairRow('', '', '')));
+
+  async function loadRubrics() {
+    try {
+      const j = await Kairu.get('eval', '/rubrics');
+      const rubrics = (j.rubrics || []).map(r => r.name);
+      [document.getElementById('cal-rubric'), document.getElementById('cal-eval-rubric')].forEach(sel => {
+        if (!sel) return;
+        sel.innerHTML = '';
+        rubrics.forEach(name => {
+          const o = document.createElement('option'); o.value = name; o.textContent = name;
+          sel.appendChild(o);
+        });
+      });
+    } catch { /* API offline */ }
+  }
+
+  window.addEventListener('kairu-tab', e => { if (e.detail === 'calibration') { loadRubrics(); loadProfiles(); } });
+
+  buildBtn.addEventListener('click', async () => {
+    const rubric = document.getElementById('cal-rubric').value;
+    let judges;
+    try { judges = JSON.parse(document.getElementById('cal-judges-json').value); }
+    catch { return Kairu.toast('Bad JSON', 'Judges must be a valid JSON array', 'error'); }
+    const pairs = Array.from(pairsContainer.querySelectorAll('.cal-pair-row')).map(row => ({
+      prompt: row.querySelector('.cal-pair-prompt').value.trim(),
+      response: row.querySelector('.cal-pair-response').value.trim(),
+      human_scores: (() => { try { return JSON.parse(row.querySelector('.cal-pair-scores').value); } catch { return {}; } })(),
+    })).filter(p => p.prompt && p.response);
+    if (!pairs.length) return Kairu.toast('No pairs', 'Add at least one pair', 'warn');
+    try {
+      const profile = await Kairu.post('eval', '/calibration', { rubric, judges, calibration_pairs: pairs });
+      buildResult.style.display = '';
+      const biases = profile.criterion_biases || {};
+      let html = `<div style="font-weight:600;margin-bottom:8px">Profile: <code>${profile.rubric_name || rubric}</code></div>`;
+      Object.entries(biases).forEach(([criterion, bias]) => {
+        const pct = Math.round(Math.abs(bias) * 100);
+        html += `<div class="traj-metric-row"><span class="traj-metric-label">${criterion}</span><div class="traj-metric-bar"><div class="bias-bar" style="width:${Math.min(100,pct)}%"></div></div><span class="traj-metric-val">${bias >= 0 ? '+' : ''}${bias.toFixed(3)}</span></div>`;
+      });
+      buildResult.innerHTML = html;
+      Kairu.toast('Profile built', `calibration for ${rubric}`, 'success');
+      loadProfiles();
+    } catch (err) { Kairu.toast('Build failed', err.message, 'error'); }
+  });
+
+  async function loadProfiles() {
+    try {
+      const j = await Kairu.get('eval', '/calibration');
+      const rubrics = j.rubrics || [];
+      if (!rubrics.length) { profilesList.innerHTML = '<span style="color:var(--muted);font-size:12px">No profiles stored yet.</span>'; return; }
+      profilesList.innerHTML = '';
+      rubrics.forEach(name => {
+        const chip = document.createElement('span');
+        chip.className = 'criterion-tag';
+        chip.style.cursor = 'pointer';
+        chip.textContent = name;
+        chip.addEventListener('click', async () => {
+          try {
+            const p = await Kairu.get('eval', `/calibration/${name}`);
+            buildResult.style.display = '';
+            buildResult.innerHTML = `<pre style="font-size:11px;color:var(--muted)">${JSON.stringify(p, null, 2)}</pre>`;
+          } catch (err) { Kairu.toast('Load failed', err.message, 'error'); }
+        });
+        profilesList.appendChild(chip);
+      });
+    } catch { profilesList.innerHTML = '<span style="color:var(--muted)">Could not load profiles.</span>'; }
+  }
+
+  refreshBtn.addEventListener('click', loadProfiles);
+
+  evalBtn.addEventListener('click', async () => {
+    const prompt = document.getElementById('cal-eval-prompt').value.trim();
+    const response = document.getElementById('cal-eval-response').value.trim();
+    const rubric = document.getElementById('cal-eval-rubric').value;
+    if (!prompt || !response) return Kairu.toast('Missing input', 'Prompt and response required', 'warn');
+    try {
+      const result = await Kairu.post('eval', '/evaluate/ensemble/calibrated', {
+        prompt, response, rubric,
+        judges: [{ name: 'default', rubric, criteria: [], seed: 1 }],
+      });
+      evalResult.style.display = '';
+      const raw = (result.median_aggregate || 0) * 100;
+      const corrected = (result.bias_corrected_aggregate || result.median_aggregate || 0) * 100;
+      const delta = corrected - raw;
+      const sign = delta >= 0 ? '+' : '';
+      evalResult.innerHTML = `
+        <div style="display:flex;gap:32px;align-items:center;flex-wrap:wrap">
+          <div><div style="font-size:11px;color:var(--muted)">Raw Score</div><div style="font-size:28px;font-weight:700;color:var(--text)">${raw.toFixed(1)}</div></div>
+          <div style="font-size:20px;color:var(--muted)">→</div>
+          <div><div style="font-size:11px;color:var(--muted)">Bias-Corrected</div><div class="bias-corrected-score">${corrected.toFixed(1)}</div></div>
+          <div style="font-size:13px;color:${delta>=0?'#6BFF8E':'#ff6b6b'}">(Δ ${sign}${delta.toFixed(2)})</div>
+        </div>
+      `;
+      Kairu.countUp(evalResult.querySelector('.bias-corrected-score'), corrected, { duration: 1200, decimals: 1 });
+    } catch (err) { Kairu.toast('Eval failed', err.message, 'error'); }
+  });
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// Trajectory tab
+// ════════════════════════════════════════════════════════════════════
+(function initTrajectory() {
+  const stepsContainer = document.getElementById('traj-steps-container');
+  const addStepBtn = document.getElementById('traj-add-step-btn');
+  const runBtn = document.getElementById('traj-run-btn');
+  const clearBtn = document.getElementById('traj-clear-btn');
+  const resultPanel = document.getElementById('traj-result');
+  const aggBars = document.getElementById('traj-aggregate-bars');
+  const finalScore = document.getElementById('traj-final-score');
+  const stepTimeline = document.getElementById('traj-step-timeline');
+
+  function metricColor(score) {
+    if (score >= 0.8) return '#6BFF8E';
+    if (score >= 0.5) return '#ffcc44';
+    return '#ff6b6b';
+  }
+
+  function makeStepCard(idx) {
+    const card = document.createElement('div');
+    card.className = 'traj-step-card';
+    card.dataset.step = idx + 1;
+    card.innerHTML = `
+      <div class="traj-step-header">
+        <div class="step-num-badge step-badge">${idx + 1}</div>
+        <span style="font-size:12px;color:var(--muted)">Step ${idx + 1}</span>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn-ghost" style="padding:2px 8px;font-size:12px" title="Remove step">✕</button>
+      </div>
+      <div class="traj-step-grid">
+        <div><label style="font-size:11px;color:var(--muted)">Tool call (opt.)</label><textarea class="traj-tool-call" placeholder="e.g. search('Q3 report')"></textarea></div>
+        <div><label style="font-size:11px;color:var(--muted)">Observation (opt.)</label><textarea class="traj-observation" placeholder="e.g. Found 3 results…"></textarea></div>
+        <div><label style="font-size:11px;color:var(--muted)">Response *</label><textarea class="traj-response" placeholder="Agent's response…"></textarea></div>
+      </div>
+    `;
+    card.querySelector('button').addEventListener('click', () => {
+      card.remove();
+      renumberSteps();
+    });
+    return card;
+  }
+
+  function renumberSteps() {
+    Array.from(stepsContainer.querySelectorAll('.traj-step-card')).forEach((card, i) => {
+      card.dataset.step = i + 1;
+      const badge = card.querySelector('.step-badge');
+      if (badge) badge.textContent = i + 1;
+    });
+  }
+
+  // 2 initial steps
+  stepsContainer.appendChild(makeStepCard(0));
+  stepsContainer.appendChild(makeStepCard(1));
+
+  addStepBtn.addEventListener('click', () => {
+    const count = stepsContainer.querySelectorAll('.traj-step-card').length;
+    stepsContainer.appendChild(makeStepCard(count));
+  });
+
+  clearBtn.addEventListener('click', () => {
+    stepsContainer.innerHTML = '';
+    stepsContainer.appendChild(makeStepCard(0));
+    stepsContainer.appendChild(makeStepCard(1));
+    resultPanel.classList.add('hidden');
+  });
+
+  runBtn.addEventListener('click', async () => {
+    const goal = document.getElementById('traj-goal').value.trim();
+    const optVal = document.getElementById('traj-optimal').value;
+    const optimal_steps = optVal ? parseInt(optVal, 10) : undefined;
+    if (!goal) return Kairu.toast('Missing goal', 'Enter a goal first', 'warn');
+
+    const stepCards = Array.from(stepsContainer.querySelectorAll('.traj-step-card'));
+    const steps = stepCards.map((card, i) => ({
+      step: i + 1,
+      tool_call: card.querySelector('.traj-tool-call').value.trim() || null,
+      observation: card.querySelector('.traj-observation').value.trim() || null,
+      response: card.querySelector('.traj-response').value.trim(),
+    })).filter(s => s.response);
+
+    if (!steps.length) return Kairu.toast('No steps', 'At least one step with a response is required', 'warn');
+
+    const body = { goal, steps };
+    if (optimal_steps) body.optimal_steps = optimal_steps;
+
+    try {
+      const result = await Kairu.post('eval', '/eval/trajectory', body);
+      resultPanel.classList.remove('hidden');
+
+      // Aggregate bars
+      const metrics = ['tool_selection', 'error_recovery', 'goal_completion', 'efficiency'];
+      const labels = { tool_selection: 'Tool Selection', error_recovery: 'Error Recovery', goal_completion: 'Goal Completion', efficiency: 'Efficiency' };
+      aggBars.innerHTML = '';
+      metrics.forEach(m => {
+        const score = result[m] || 0;
+        const color = metricColor(score);
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <div class="traj-metric-row">
+            <span class="traj-metric-label">${labels[m]}</span>
+            <div class="traj-metric-bar"><div class="traj-metric-fill" style="width:0%;background:${color}"></div></div>
+            <span class="traj-metric-val">${(score * 100).toFixed(0)}</span>
+          </div>`;
+        aggBars.appendChild(div);
+        requestAnimationFrame(() => {
+          div.querySelector('.traj-metric-fill').style.width = `${score * 100}%`;
+        });
+      });
+
+      // Final score count-up
+      const agg = result.aggregate || 0;
+      finalScore.dataset.cur = '0';
+      Kairu.countUp(finalScore, agg * 100, { duration: 1500, decimals: 1 });
+
+      // Step timeline
+      stepTimeline.innerHTML = '';
+      (result.steps || []).forEach(ss => {
+        const row = document.createElement('div');
+        row.className = 'traj-timeline-step';
+        const miniMetrics = ['tool_selection', 'error_recovery', 'goal_progress', 'efficiency']
+          .map(m => {
+            const v = ss[m] || 0;
+            const c = metricColor(v);
+            return `<div class="traj-metric-row" style="margin-bottom:2px">
+              <span class="traj-metric-label" style="width:90px;font-size:10px">${m.replace('_', ' ')}</span>
+              <div class="traj-metric-bar" style="height:5px"><div class="traj-metric-fill" style="width:${v*100}%;background:${c}"></div></div>
+              <span class="traj-metric-val" style="font-size:10px">${(v*100).toFixed(0)}</span>
+            </div>`;
+          }).join('');
+        row.innerHTML = `
+          <div class="step-num-badge" style="align-self:start">${ss.step}</div>
+          <div style="font-size:11px;color:var(--muted);word-break:break-all">${ss.tool_call ? '🔧 ' + ss.tool_call.substring(0, 40) : '—'}</div>
+          <div>${miniMetrics}</div>
+        `;
+        stepTimeline.appendChild(row);
+      });
+    } catch (err) { Kairu.toast('Scoring failed', err.message, 'error'); }
   });
 })();
 
