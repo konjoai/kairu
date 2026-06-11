@@ -25,12 +25,13 @@ import logging
 import os
 from typing import Dict, List, Mapping, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 import kairu
 from kairu.audit import AuditLog, hash_inputs, open_default_audit
+from kairu.human_feedback import FeedbackStore, open_default_feedback_store
 from kairu.benchmarks import BENCHMARKS, percentile_rank
 from kairu.evaluation import (
     CRITERIA,
@@ -273,7 +274,9 @@ class TournamentRequest(BaseModel):
     elo_start: float = Field(DEFAULT_ELO_START, ge=0.0)
     elo_k: float = Field(DEFAULT_ELO_K, gt=0.0)
     disagreement_threshold: float = Field(
-        DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0,
+        DEFAULT_DISAGREEMENT_THRESHOLD,
+        ge=0.0,
+        le=1.0,
     )
 
 
@@ -337,6 +340,14 @@ class TrajectoryRequest(BaseModel):
     goal: str = Field(..., min_length=1)
     steps: List[TrajectoryStepRequest] = Field(..., min_length=1, max_length=100)
     optimal_steps: Optional[int] = Field(None, ge=1)
+
+
+class FeedbackRequest(BaseModel):
+    """Request body for recording human feedback on an evaluation criterion."""
+
+    criterion: str = Field(..., min_length=1, max_length=64)
+    vote: int = Field(..., ge=-1, le=1)
+    note: str = Field("", max_length=512)
 
 
 # ── v0.18 calibration request models ─────────────────────────────────────
@@ -423,6 +434,7 @@ def create_app(
     tournament_store: Optional[TournamentStore] = None,
     leaderboard_store: Optional[LeaderboardStore] = None,
     prompt_store: Optional[PromptStore] = None,
+    feedback_store: Optional[FeedbackStore] = None,
 ) -> FastAPI:
     app = FastAPI(
         title="kairu evaluation API",
@@ -443,10 +455,15 @@ def create_app(
         tournament_store if tournament_store is not None else TournamentStore()
     )
     app.state.leaderboard = (
-        leaderboard_store if leaderboard_store is not None else open_default_leaderboard_store()
+        leaderboard_store
+        if leaderboard_store is not None
+        else open_default_leaderboard_store()
     )
     app.state.prompts = (
         prompt_store if prompt_store is not None else open_default_prompt_store()
+    )
+    app.state.feedback = (
+        feedback_store if feedback_store is not None else open_default_feedback_store()
     )
 
     @app.get("/health")
@@ -1089,7 +1106,9 @@ def create_app(
         if req.judges:
             names = [j.name for j in req.judges]
             if len(set(names)) != len(names):
-                raise HTTPException(status_code=422, detail="judge names must be unique")
+                raise HTTPException(
+                    status_code=422, detail="judge names must be unique"
+                )
             # Validate each judge can materialise into a real config
             # (catches bad criteria, negative noise, etc.) before persisting.
             for j in req.judges:
@@ -1124,7 +1143,8 @@ def create_app(
             tpl = store.get(name)
         except KeyError as exc:
             raise HTTPException(
-                status_code=404, detail=f"template '{name}' not found",
+                status_code=404,
+                detail=f"template '{name}' not found",
             ) from exc
         return _template_to_dict(tpl)
 
@@ -1134,7 +1154,8 @@ def create_app(
         removed = store.delete(name)
         if not removed:
             raise HTTPException(
-                status_code=404, detail=f"template '{name}' not found",
+                status_code=404,
+                detail=f"template '{name}' not found",
             )
         return {"deleted": name}
 
@@ -1153,7 +1174,8 @@ def create_app(
             tpl = store.get(name)
         except KeyError as exc:
             raise HTTPException(
-                status_code=404, detail=f"template '{name}' not found",
+                status_code=404,
+                detail=f"template '{name}' not found",
             ) from exc
         judge_cfgs = tpl.judge_configs()
         try:
@@ -1164,7 +1186,8 @@ def create_app(
                 payload["mode"] = "ensemble"
             else:
                 ev = evaluate(
-                    req.prompt, req.response,
+                    req.prompt,
+                    req.response,
                     rubric=tpl.rubric,
                     criteria=tpl.criteria,
                     weights=tpl.weights,
@@ -1191,7 +1214,9 @@ def create_app(
         _check_text("response", req.response)
         try:
             report = check_adversarial(
-                req.prompt, req.response, threshold=req.threshold,
+                req.prompt,
+                req.response,
+                threshold=req.threshold,
             )
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1207,8 +1232,10 @@ def create_app(
             if len(m.responses) != len(req.prompts):
                 raise HTTPException(
                     status_code=422,
-                    detail=(f"model '{m.name}': {len(m.responses)} responses "
-                            f"but {len(req.prompts)} prompts"),
+                    detail=(
+                        f"model '{m.name}': {len(m.responses)} responses "
+                        f"but {len(req.prompts)} prompts"
+                    ),
                 )
             for r in m.responses:
                 _check_text(f"model '{m.name}' response", r)
@@ -1229,7 +1256,8 @@ def create_app(
                 [{"name": m.name, "responses": m.responses} for m in req.models],
                 list(req.prompts),
                 judge_cfgs,
-                elo_start=req.elo_start, elo_k=req.elo_k,
+                elo_start=req.elo_start,
+                elo_k=req.elo_k,
                 disagreement_threshold=req.disagreement_threshold,
             )
         except (ValueError, TypeError) as exc:
@@ -1316,6 +1344,7 @@ def create_app(
     ) -> Dict[str, object]:
         # Determine the time window.
         from datetime import datetime, timedelta, timezone as _tz
+
         start_iso: Optional[str] = None
         days_int: Optional[int]
         if days is None or days == "all":
@@ -1347,6 +1376,7 @@ def create_app(
                 )
                 src_rows = cur.fetchall()
             import json as _json
+
             for r in src_rows:
                 if rubric and r["rubric_name"] != rubric:
                     continue
@@ -1356,31 +1386,37 @@ def create_app(
                     criteria = _json.loads(r["criteria_json"])
                 except Exception:  # noqa: BLE001
                     criteria = {}
-                rows.append({
-                    "id": r["id"],
-                    "aggregate": float(r["aggregate"]),
-                    "criteria": criteria,
-                    "scores": criteria,
-                })
+                rows.append(
+                    {
+                        "id": r["id"],
+                        "aggregate": float(r["aggregate"]),
+                        "criteria": criteria,
+                        "scores": criteria,
+                    }
+                )
         else:
             log: AuditLog = app.state.audit
             try:
                 items = log.query(
-                    start=start_iso, end=None,
-                    rubric_name=rubric, rubric_version=None,
-                    limit=10_000, offset=0,
+                    start=start_iso,
+                    end=None,
+                    rubric_name=rubric,
+                    rubric_version=None,
+                    limit=10_000,
+                    offset=0,
                 )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
             for r in items:
-                rows.append({
-                    "id": r.id,
-                    "aggregate": (
-                        sum(r.scores.values()) / len(r.scores)
-                        if r.scores else 0.0
-                    ),
-                    "scores": dict(r.scores),
-                })
+                rows.append(
+                    {
+                        "id": r.id,
+                        "aggregate": (
+                            sum(r.scores.values()) / len(r.scores) if r.scores else 0.0
+                        ),
+                        "scores": dict(r.scores),
+                    }
+                )
 
         report = compute_distribution(
             rows,
@@ -1402,8 +1438,10 @@ def create_app(
         _check_text("prompt text", req.text)
         try:
             p = store.save(
-                req.name, text=req.text,
-                description=req.description, tags=req.tags,
+                req.name,
+                text=req.text,
+                description=req.description,
+                tags=req.tags,
             )
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1422,7 +1460,8 @@ def create_app(
             return store.get(name).to_dict()
         except KeyError as exc:
             raise HTTPException(
-                status_code=404, detail=f"prompt '{name}' not found",
+                status_code=404,
+                detail=f"prompt '{name}' not found",
             ) from exc
 
     @app.delete("/prompts/{name}")
@@ -1431,9 +1470,50 @@ def create_app(
         removed = store.delete(name)
         if not removed:
             raise HTTPException(
-                status_code=404, detail=f"prompt '{name}' not found",
+                status_code=404,
+                detail=f"prompt '{name}' not found",
             )
         return {"deleted": name}
+
+    # ── v0.21 human feedback ──────────────────────────────────────────
+
+    @app.post("/eval/{eval_id}/feedback")
+    def record_feedback_endpoint(
+        eval_id: int, req: FeedbackRequest, request: Request
+    ) -> Dict[str, object]:
+        """Record a human vote on a single evaluation criterion."""
+        if req.vote == 0:
+            raise HTTPException(status_code=422, detail="vote must be +1 or -1, not 0")
+        store: FeedbackStore = request.app.state.feedback
+        try:
+            record = store.record(eval_id, req.criterion, req.vote, req.note)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "eval_id": record.eval_id,
+            "criterion": record.criterion,
+            "vote": record.vote,
+            "recorded": True,
+        }
+
+    @app.get("/eval/{eval_id}/feedback")
+    def get_feedback_endpoint(eval_id: int, request: Request) -> Dict[str, object]:
+        """Retrieve all feedback records for an evaluation row."""
+        store: FeedbackStore = request.app.state.feedback
+        records = store.get(eval_id)
+        return {
+            "eval_id": eval_id,
+            "count": len(records),
+            "records": [
+                {
+                    "criterion": r.criterion,
+                    "vote": r.vote,
+                    "note": r.note,
+                    "timestamp_utc": r.timestamp_utc,
+                }
+                for r in records
+            ],
+        }
 
     return app
 
