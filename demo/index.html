@@ -833,6 +833,8 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .wm-token.green { background: rgba(16,185,129,0.14); color: #6BFF8E; border-color: rgba(16,185,129,0.4); }
 .wm-token.red   { background: rgba(239,68,68,0.12);  color: #ff8585; border-color: rgba(239,68,68,0.3); }
 .wm-token:hover { transform: scale(1.08); }
+#wm-radar-wrap { margin-top:16px; text-align:center; display:none; }
+#wm-radar { display:block; margin:0 auto; }
 
 .z-score-display {
   text-align: center; padding: 24px 0;
@@ -1063,6 +1065,10 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 .gen-perf-stats { display: flex; gap: 14px; }
 .gen-perf-stat { font-size: 10.5px; font-family: var(--mono); }
 .gen-perf-stat span { color: var(--accent-2); font-weight: 700; }
+.su-gauge-wrap { text-align:center; margin:10px 0 0; }
+.su-gauge-wrap canvas { display:block; margin:0 auto; }
+.heat-tok { border-radius:3px; padding:1px 3px; cursor:default; transition:filter .15s; font-family:var(--mono); }
+.heat-tok:hover { filter:brightness(1.35); }
 
 /* ── Engine tab — playback ───────────────────────────────────────── */
 .playback-control { display: flex; align-items: center; gap: 8px; margin-left: auto; }
@@ -1073,6 +1079,14 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 .round-row { animation: round-pop 0.2s both; }
 #eng-race-progress { height: 3px; background: rgba(124,58,237,0.15); border-radius: 2px; margin: 8px 0; overflow: hidden; }
 #eng-race-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.15s; width: 0%; }
+.accept-strip-hdr { display:flex; justify-content:space-between; font-size:11px; font-family:var(--mono); color:var(--muted); margin-bottom:8px; }
+.accept-dots { display:flex; flex-wrap:wrap; gap:4px; }
+.accept-dot { width:10px; height:10px; border-radius:3px; opacity:0; transform:scale(.1); transition:opacity .12s,transform .12s cubic-bezier(.34,1.56,.64,1); }
+.accept-dot.vis { opacity:1; transform:scale(1); }
+.accept-dot.ac { background:var(--accent); }
+.accept-dot.rj { background:var(--fail); }
+.accept-dot.bn { background:var(--gold); }
+#eng-accept-strip { margin-top:14px; padding:12px; background:rgba(124,58,237,0.04); border:1px solid var(--line); border-radius:8px; display:none; }
 
 /* ── Status Bar ─────────────────────────────────────────────────── */
 #status-bar {
@@ -1231,6 +1245,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <div class="row between" style="margin-bottom: 8px">
         <span class="tiny-mono" id="gen-status">ready · <span class="kbd">⏎</span> to run</span>
         <button class="btn ghost sm" id="gen-copy">⎘ copy</button>
+        <button class="btn ghost sm" id="gen-heat-btn" style="display:none">☀ Heat</button>
       </div>
 
       <div class="gen-output" id="gen-output"><span class="tiny-mono" style="color:var(--dim)">Response will stream here…</span></div>
@@ -1253,6 +1268,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
         </div>
         <canvas id="gen-throughput-chart"></canvas>
       </div>
+      <div id="gen-heat-panel" style="display:none; margin-top:12px; padding:12px 14px; background:rgba(0,0,0,0.15); border:1px solid var(--line); border-radius:10px; max-height:200px; overflow-y:auto; line-height:2; font-size:13.5px;"></div>
     </div>
 
     <div class="panel">
@@ -1304,6 +1320,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <div id="eng-race-progress"><div id="eng-race-bar"></div></div>
       <div id="eng-spec-rounds" style="max-height: 360px; overflow-y: auto;"></div>
       <div id="eng-spec-compare"></div>
+      <div id="eng-accept-strip"></div>
     </div>
 
     <div class="panel">
@@ -1435,6 +1452,9 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <div style="text-align: center; margin-bottom: 16px" id="wm-decision-badge"></div>
       <div class="grid grid-4" style="gap: 10px; margin-bottom: 12px" id="wm-stats"></div>
       <div id="wm-confidence-bar"></div>
+      <div id="wm-radar-wrap">
+        <canvas id="wm-radar" width="260" height="220"></canvas>
+      </div>
       <div class="tiny-mono" id="wm-explain" style="margin-top: 14px; color: var(--muted); line-height: 1.7"></div>
     </div>
 
@@ -2573,6 +2593,8 @@ async function probeBackend(which, candidates) {
     els.tokens.textContent = '0'; els.time.textContent = '0.00s'; els.rate.textContent = '0';
     els.status.textContent = stream ? 'streaming…' : 'requesting…';
     document.getElementById('gen-perf-panel').style.display = 'none';
+    document.getElementById('gen-heat-btn').style.display = 'none';
+    document.getElementById('gen-heat-panel').style.display = 'none';
 
     const cursor = document.createElement('span');
     cursor.className = 'cursor';
@@ -2666,6 +2688,8 @@ async function probeBackend(which, candidates) {
         perfPanel.style.display = 'block';
         requestAnimationFrame(() => Kairu.lineChart(canvas, throughputSamples, { color: '#7c3aed' }));
       }
+
+      if (window.Kairu._heatReady) window.Kairu._heatReady(lastResponse);
 
       // Silent background decoder hint
       const modelNameHint = els.model.value.trim() || 'demo';
@@ -3816,6 +3840,8 @@ function escapeHtml(s) {
       btn.disabled = true;
       roundsEl.innerHTML = '<div class="empty">Running simulation…</div>';
       compareEl.innerHTML = '';
+      document.getElementById('eng-accept-strip').style.display = 'none';
+      document.getElementById('eng-accept-strip').innerHTML = '';
       raceBar.style.width = '0%';
       try {
         const j = await Kairu.post('infer', '/api/simulate-race', { rho, gamma, n_tokens });
@@ -3854,6 +3880,38 @@ function escapeHtml(s) {
               <span class="speedup-number">${su.toFixed(2)}×</span>
             </div>
           </div>`;
+
+        // Build acceptance strip
+        const stripEl = document.getElementById('eng-accept-strip');
+        const dots = [];
+        let acCnt = 0, rjCnt = 0, bnCnt = 0;
+        j.rounds.forEach(r => {
+          (r.accepted_mask || []).forEach(a => {
+            dots.push(a ? 'ac' : 'rj');
+            if (a) acCnt++; else rjCnt++;
+          });
+          if (r.accepted_count === r.gamma_used) { dots.push('bn'); bnCnt++; }
+        });
+        stripEl.innerHTML = `
+          <div class="accept-strip-hdr">
+            <span>Draft acceptance · ${dots.length} positions</span>
+            <span>
+              <span style="color:var(--accent)">✓ ${acCnt}</span>
+              <span style="color:var(--fail);margin-left:8px">✗ ${rjCnt}</span>
+              <span style="color:var(--gold);margin-left:8px">+${bnCnt} bonus</span>
+            </span>
+          </div>
+          <div class="accept-dots" id="accept-strip-dots"></div>`;
+        const dotsEl = document.getElementById('accept-strip-dots');
+        dots.forEach(cls => {
+          const d = document.createElement('div');
+          d.className = `accept-dot ${cls}`;
+          dotsEl.appendChild(d);
+        });
+        stripEl.style.display = 'block';
+        dots.forEach((_, i) => setTimeout(() => {
+          if (dotsEl.children[i]) dotsEl.children[i].classList.add('vis');
+        }, i * 9 + 120));
       } catch (err) {
         roundsEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
       } finally {
@@ -4049,6 +4107,65 @@ function escapeHtml(s) {
     wrap.appendChild(legend);
   }
 
+  function drawSpeedupGauge(canvas, speedup) {
+    const W = canvas.width, H = canvas.height;
+    const ctx = canvas.getContext('2d');
+    const cx = W / 2, cy = H * 0.72;
+    const R = Math.min(W, H * 1.2) * 0.42;
+    const maxSpeed = 8.0;
+    const target = Math.min(1, Math.max(0, (speedup - 1) / (maxSpeed - 1)));
+    const SA = Math.PI, EA = 2 * Math.PI; // half-circle left→right
+
+    function drawFrame(frac) {
+      ctx.clearRect(0, 0, W, H);
+      // Track
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, SA, EA);
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 14; ctx.lineCap = 'round'; ctx.stroke();
+      // Tick marks
+      for (let t = 0; t <= 7; t++) {
+        const a = SA + (t / 7) * Math.PI;
+        const inner = R - 10, outer = R + 2;
+        ctx.beginPath();
+        ctx.moveTo(cx + inner * Math.cos(a), cy + inner * Math.sin(a));
+        ctx.lineTo(cx + outer * Math.cos(a), cy + outer * Math.sin(a));
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      // Filled arc
+      if (frac > 0) {
+        const grad = ctx.createLinearGradient(cx - R, cy, cx + R, cy);
+        grad.addColorStop(0, '#7c3aed'); grad.addColorStop(1, '#f5c84b');
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, SA, SA + frac * Math.PI);
+        ctx.strokeStyle = grad; ctx.lineWidth = 14; ctx.lineCap = 'round'; ctx.stroke();
+      }
+      // Center readout
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `bold ${Math.round(H * 0.22)}px -apple-system,sans-serif`;
+      ctx.fillStyle = '#f5c84b';
+      ctx.fillText(speedup.toFixed(2) + '×', cx, cy - R * 0.15);
+      ctx.font = `${Math.round(H * 0.09)}px ui-monospace,monospace`;
+      ctx.fillStyle = '#5a5a78';
+      ctx.fillText('speedup', cx, cy + R * 0.25);
+      // Scale labels
+      ctx.font = '10px ui-monospace,monospace';
+      ctx.fillStyle = '#5a5a78';
+      ctx.textAlign = 'left';  ctx.fillText('1×', cx - R - 4, cy + 6);
+      ctx.textAlign = 'right'; ctx.fillText(maxSpeed + '×', cx + R + 4, cy + 6);
+    }
+
+    const dur = 700;
+    const t0 = performance.now();
+    (function animate() {
+      const elapsed = performance.now() - t0;
+      const t = Math.min(1, elapsed / dur);
+      const p = 1 - Math.pow(1 - t, 3);
+      drawFrame(p * target);
+      if (t < 1) requestAnimationFrame(animate);
+    })();
+  }
+
   async function fetchDerivation(rho, gamma) {
     const el = document.getElementById('hm-derivation');
     if (!el) return;
@@ -4056,10 +4173,11 @@ function escapeHtml(s) {
     try {
       const j = await Kairu.post('infer', '/api/speedup', { rho, gamma });
       el.innerHTML = `<div class="panel dense" style="font-family:var(--mono);font-size:11.5px;line-height:1.8">
-        <div style="color:var(--accent-2);margin-bottom:6px">ρ=${rho}, γ=${gamma} → <strong style="font-size:18px;color:var(--gold)">${j.speedup.toFixed(3)}×</strong></div>
-        <div style="color:var(--muted)">${j.formula_used}</div>
+        <div class="su-gauge-wrap"><canvas id="su-gauge" width="220" height="130"></canvas></div>
+        <div style="color:var(--muted);margin-top:8px">${j.formula_used}</div>
         <div style="color:var(--dim);margin-top:6px;word-break:break-all">${j.derivation}</div>
       </div>`;
+      requestAnimationFrame(() => drawSpeedupGauge(document.getElementById('su-gauge'), j.speedup));
     } catch (err) {
       el.innerHTML = `<span class="tiny-mono" style="color:var(--fail)">${err.message}</span>`;
     }
@@ -4100,6 +4218,141 @@ function escapeHtml(s) {
     });
   }
 
+})();
+
+function drawWatermarkRadar(canvas, data) {
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const cx = W / 2, cy = H / 2 + 10;
+  const R = Math.min(W, H) / 2 - 38;
+  const axes = [
+    { label: 'Z-Score', value: Math.min(1, Math.max(0, data.z_score / 6)) },
+    { label: 'Green %', value: data.green_fraction },
+    { label: 'Bias δ', value: Math.min(1, data.delta / 5) },
+    { label: 'Tokens', value: Math.min(1, data.n_tokens / 100) },
+    { label: 'Confidence', value: Math.min(1, Math.max(0, 1 - data.p_value)) },
+  ];
+  const N = axes.length;
+  const step = (Math.PI * 2) / N;
+  const startA = -Math.PI / 2;
+
+  function drawFrame(p) {
+    ctx.clearRect(0, 0, W, H);
+    // Grid rings
+    for (let ring = 1; ring <= 4; ring++) {
+      const rr = R * ring / 4;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const a = startA + i * step;
+        i === 0 ? ctx.moveTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a))
+                : ctx.lineTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a));
+      }
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(124,58,237,${0.08 + ring * 0.04})`;
+      ctx.lineWidth = 1; ctx.stroke();
+    }
+    // Axis lines
+    for (let i = 0; i < N; i++) {
+      const a = startA + i * step;
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a));
+      ctx.strokeStyle = 'rgba(124,58,237,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    // Data polygon
+    ctx.beginPath();
+    axes.forEach((axis, i) => {
+      const a = startA + i * step;
+      const rv = R * axis.value * p;
+      i === 0 ? ctx.moveTo(cx + rv * Math.cos(a), cy + rv * Math.sin(a))
+              : ctx.lineTo(cx + rv * Math.cos(a), cy + rv * Math.sin(a));
+    });
+    ctx.closePath();
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    grad.addColorStop(0, 'rgba(167,139,250,0.55)');
+    grad.addColorStop(1, 'rgba(124,58,237,0.12)');
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 2; ctx.stroke();
+    // Points
+    axes.forEach((axis, i) => {
+      const a = startA + i * step;
+      const rv = R * axis.value * p;
+      const px = cx + rv * Math.cos(a), py = cy + rv * Math.sin(a);
+      ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#a78bfa'; ctx.fill();
+      ctx.strokeStyle = 'rgba(6,6,18,.8)'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+    // Labels (always full opacity)
+    ctx.font = '11px ui-monospace,monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    axes.forEach((axis, i) => {
+      const a = startA + i * step;
+      const lx = cx + (R + 26) * Math.cos(a), ly = cy + (R + 26) * Math.sin(a);
+      ctx.fillStyle = '#8c8caa'; ctx.fillText(axis.label, lx, ly);
+      ctx.fillStyle = '#a78bfa'; ctx.fillText((axis.value * 100).toFixed(0) + '%', lx, ly + 14);
+    });
+  }
+
+  const dur = 650;
+  const t0 = performance.now();
+  (function animate() {
+    const elapsed = performance.now() - t0;
+    const t = Math.min(1, elapsed / dur);
+    const p = 1 - Math.pow(1 - t, 3);
+    drawFrame(p);
+    if (t < 1) requestAnimationFrame(animate);
+  })();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Token Heat Map
+// ════════════════════════════════════════════════════════════════════
+(function initTokenHeat() {
+  const heatBtn = document.getElementById('gen-heat-btn');
+  const heatPanel = document.getElementById('gen-heat-panel');
+  if (!heatBtn) return;
+  let heatOpen = false;
+
+  window.Kairu._heatReady = function(text) {
+    heatBtn.style.display = 'inline-flex';
+    heatBtn.dataset.text = text || '';
+    heatOpen = false;
+    heatPanel.style.display = 'none';
+  };
+
+  heatBtn.addEventListener('click', async () => {
+    if (heatOpen) {
+      heatPanel.style.display = 'none';
+      heatOpen = false;
+      return;
+    }
+    const text = heatBtn.dataset.text;
+    if (!text) return;
+    heatPanel.innerHTML = '<span style="color:var(--muted);font-family:var(--mono);font-size:12px">Computing heat map…</span>';
+    heatPanel.style.display = 'block';
+    heatOpen = true;
+    try {
+      const j = await Kairu.post('infer', '/api/token-heat', { text, seed: 42 });
+      const frag = document.createDocumentFragment();
+      j.tokens.forEach(tok => {
+        const span = document.createElement('span');
+        span.className = 'heat-tok';
+        const norm = Math.min(1, (tok.rank - 1) / 60);
+        const r = Math.round(239 * norm * 0.85 + 120 * (1 - norm));
+        const g = Math.round(58 * (1 - norm) + 25 * norm);
+        const b = Math.round(237 * (1 - norm) * 0.75 + 30);
+        span.style.background = `rgba(${r},${g},${b},${(0.15 + norm * 0.45).toFixed(2)})`;
+        span.style.color = norm > 0.65 ? '#f5c84b' : 'var(--text)';
+        span.textContent = tok.text;
+        span.title = `p=${tok.prob.toFixed(4)} · rank #${tok.rank}`;
+        frag.appendChild(span);
+        frag.appendChild(document.createTextNode(' '));
+      });
+      heatPanel.innerHTML = '';
+      heatPanel.appendChild(frag);
+    } catch (err) {
+      heatPanel.innerHTML = `<span style="color:var(--fail);font-family:var(--mono)">${err.message}</span>`;
+    }
+  });
 })();
 
 // ════════════════════════════════════════════════════════════════════
@@ -4167,6 +4420,10 @@ function escapeHtml(s) {
       explEl.innerHTML = j.decision
         ? `The z-score <strong style="color:var(--pass)">${z.toFixed(2)}</strong> exceeds the threshold of <strong>${j.threshold.toFixed(1)}</strong>. With δ=${j.delta} and the <em>${j.scheme}</em> seeding scheme, <strong>${(gf * 100).toFixed(1)}%</strong> of tokens landed in the green list (expected ~50%). The watermark is statistically detectable.`
         : `The z-score <strong style="color:var(--muted)">${z.toFixed(2)}</strong> does not exceed the threshold of <strong>${j.threshold.toFixed(1)}</strong>. The green fraction of ${(gf * 100).toFixed(1)}% is not significantly above 50% — the watermark is not detectable at this confidence level. Try increasing δ or n_tokens.`;
+      const radarWrap = document.getElementById('wm-radar-wrap');
+      const radarCanvas = document.getElementById('wm-radar');
+      radarWrap.style.display = 'block';
+      requestAnimationFrame(() => drawWatermarkRadar(radarCanvas, j));
     } catch (err) {
       tokensEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
     } finally {
