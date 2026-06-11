@@ -1055,6 +1055,25 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 @keyframes mp-card-in { from { opacity:0; transform: translateY(12px) scale(0.97); } to { opacity:1; transform: none; } }
 .mp-card { animation: mp-card-in 0.3s cubic-bezier(.22,1,.36,1) both; }
 
+/* ── Generate tab — performance panel ───────────────────────────── */
+#gen-perf-panel { margin-top: 14px; padding: 10px 14px; background: rgba(124,58,237,0.04); border: 1px solid rgba(124,58,237,0.14); border-radius: 10px; }
+#gen-perf-panel canvas { display: block; width: 100%; height: 72px; border-radius: 4px; }
+.gen-perf-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.gen-perf-label { font-size: 10.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .07em; }
+.gen-perf-stats { display: flex; gap: 14px; }
+.gen-perf-stat { font-size: 10.5px; font-family: var(--mono); }
+.gen-perf-stat span { color: var(--accent-2); font-weight: 700; }
+
+/* ── Engine tab — playback ───────────────────────────────────────── */
+.playback-control { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.playback-label { font-size: 11px; color: var(--dim); }
+#eng-playback-speed { padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.round-row.playing { border-left: 2px solid var(--accent); background: rgba(124,58,237,0.08); }
+@keyframes round-pop { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform:none; } }
+.round-row { animation: round-pop 0.2s both; }
+#eng-race-progress { height: 3px; background: rgba(124,58,237,0.15); border-radius: 2px; margin: 8px 0; overflow: hidden; }
+#eng-race-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.15s; width: 0%; }
+
 /* ── Status Bar ─────────────────────────────────────────────────── */
 #status-bar {
   position: fixed; bottom: 0; left: 0; right: 0; height: 36px; z-index: 900;
@@ -1222,6 +1241,18 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
         <div class="stat-card"><div class="k">Tokens / sec</div><div class="v" id="gen-stat-rate">0</div></div>
       </div>
       <div id="gen-decoder-hint"></div>
+
+      <div id="gen-perf-panel" style="display:none">
+        <div class="gen-perf-header">
+          <span class="gen-perf-label">Throughput · tok/s</span>
+          <div class="gen-perf-stats">
+            <div class="gen-perf-stat">avg <span id="gen-perf-avg">—</span></div>
+            <div class="gen-perf-stat">peak <span id="gen-perf-peak">—</span></div>
+            <div class="gen-perf-stat">p50 <span id="gen-perf-p50">—</span></div>
+          </div>
+        </div>
+        <canvas id="gen-throughput-chart"></canvas>
+      </div>
     </div>
 
     <div class="panel">
@@ -1260,7 +1291,17 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
           <input type="number" id="eng-ntok" value="60" min="10" max="200" style="width: 90px" />
         </div>
         <button class="btn" id="eng-spec-run">Run ▶</button>
+        <div class="playback-control">
+          <span class="playback-label">Playback</span>
+          <select id="eng-playback-speed">
+            <option value="0">Instant</option>
+            <option value="60" selected>Normal</option>
+            <option value="180">Slow</option>
+            <option value="400">Very Slow</option>
+          </select>
+        </div>
       </div>
+      <div id="eng-race-progress"><div id="eng-race-bar"></div></div>
       <div id="eng-spec-rounds" style="max-height: 360px; overflow-y: auto;"></div>
       <div id="eng-spec-compare"></div>
     </div>
@@ -2359,6 +2400,64 @@ const Kairu = {
     ctx.closePath(); ctx.fill(); ctx.stroke();
   },
 
+  // ── Line chart (area fill + smooth curve) ──────────────────────
+  lineChart(canvas, data, opts = {}) {
+    const { ctx, w, h } = this.resizeCanvas(canvas);
+    ctx.clearRect(0, 0, w, h);
+    if (!data || data.length < 2) {
+      ctx.fillStyle = '#5a5a78'; ctx.font = '10px ui-monospace, monospace';
+      ctx.textAlign = 'center'; ctx.fillText('—', w / 2, h / 2);
+      return;
+    }
+    const color = opts.color || '#7c3aed';
+    const pad = { l: 34, r: 8, t: 6, b: 18 };
+    const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+    const rates = data.map(d => d.rate);
+    const maxR = Math.max(...rates);
+    const minR = Math.max(0, Math.min(...rates) * 0.9);
+    const range = maxR - minR || 1;
+    const pts = data.map((d, i) => ({
+      x: pad.l + (i / (data.length - 1)) * iw,
+      y: pad.t + ih * (1 - (d.rate - minR) / range),
+    }));
+    // Baseline grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+    [0, 0.5, 1].forEach(v => {
+      const y = pad.t + ih * (1 - v);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    });
+    // Y-axis labels
+    ctx.fillStyle = '#5a5a78'; ctx.font = '9px ui-monospace, monospace'; ctx.textAlign = 'right';
+    [0, 0.5, 1].forEach(v => {
+      ctx.fillText((minR + v * range).toFixed(0), pad.l - 3, pad.t + ih * (1 - v) + 3);
+    });
+    // Gradient fill (area under curve)
+    const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ih);
+    grad.addColorStop(0, this._hexAlpha(color, 0.3));
+    grad.addColorStop(1, this._hexAlpha(color, 0.02));
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pad.t + ih);
+    pts.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(pts[pts.length - 1].x, pad.t + ih);
+    ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+    // Smooth line (Catmull-Rom via control points)
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const cp1x = pts[i].x + (pts[i + 1].x - pts[i].x) / 3;
+      const cp1y = pts[i].y;
+      const cp2x = pts[i + 1].x - (pts[i + 1].x - pts[i].x) / 3;
+      const cp2y = pts[i + 1].y;
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pts[i + 1].x, pts[i + 1].y);
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = 1.8; ctx.stroke();
+    // Peak dot
+    const peakIdx = rates.indexOf(maxR);
+    ctx.beginPath();
+    ctx.arc(pts[peakIdx].x, pts[peakIdx].y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+  },
+
   _hexAlpha(hex, a) {
     const v = hex.replace('#','');
     const r = parseInt(v.slice(0,2), 16), g = parseInt(v.slice(2,4), 16), b = parseInt(v.slice(4,6), 16);
@@ -2473,6 +2572,7 @@ async function probeBackend(which, candidates) {
     lastResponse = ''; lastPrompt = prompt;
     els.tokens.textContent = '0'; els.time.textContent = '0.00s'; els.rate.textContent = '0';
     els.status.textContent = stream ? 'streaming…' : 'requesting…';
+    document.getElementById('gen-perf-panel').style.display = 'none';
 
     const cursor = document.createElement('span');
     cursor.className = 'cursor';
@@ -2480,6 +2580,8 @@ async function probeBackend(which, candidates) {
 
     const t0 = performance.now();
     let tokens = 0;
+    const throughputSamples = [];
+    let lastSampleTime = 0;
 
     try {
       const path = stream ? '/generate/stream' : '/generate';
@@ -2524,7 +2626,12 @@ async function probeBackend(which, candidates) {
                 const dt = (performance.now() - t0) / 1000;
                 Kairu.countUp(els.tokens, tokens, { duration: 220 });
                 els.time.textContent = dt.toFixed(2) + 's';
-                els.rate.textContent = (tokens / Math.max(dt, 0.001)).toFixed(1);
+                const rate = tokens / Math.max(dt, 0.001);
+                els.rate.textContent = rate.toFixed(1);
+                if (dt - lastSampleTime >= 0.25) {
+                  throughputSamples.push({ t: dt, rate });
+                  lastSampleTime = dt;
+                }
               }
             } catch (_) { /* skip non-JSON lines */ }
           }
@@ -2543,6 +2650,22 @@ async function probeBackend(which, candidates) {
       }
       cursor.remove();
       els.status.textContent = `done · ${tokens} tokens`;
+
+      // Throughput chart
+      if (throughputSamples.length >= 3) {
+        const perfPanel = document.getElementById('gen-perf-panel');
+        const canvas = document.getElementById('gen-throughput-chart');
+        const rates = throughputSamples.map(d => d.rate);
+        const avg = rates.reduce((s, r) => s + r, 0) / rates.length;
+        const peak = Math.max(...rates);
+        const sorted = [...rates].sort((a, b) => a - b);
+        const p50 = sorted[Math.floor(sorted.length * 0.5)];
+        document.getElementById('gen-perf-avg').textContent = avg.toFixed(1);
+        document.getElementById('gen-perf-peak').textContent = peak.toFixed(1);
+        document.getElementById('gen-perf-p50').textContent = p50.toFixed(1);
+        perfPanel.style.display = 'block';
+        requestAnimationFrame(() => Kairu.lineChart(canvas, throughputSamples, { color: '#7c3aed' }));
+      }
 
       // Silent background decoder hint
       const modelNameHint = els.model.value.trim() || 'demo';
@@ -3655,68 +3778,90 @@ function escapeHtml(s) {
 // ════════════════════════════════════════════════════════════════════
 (function initEngine() {
 
-  document.getElementById('eng-spec-run').addEventListener('click', async () => {
-    const rho = parseFloat(document.getElementById('eng-rho').value);
-    const gamma = parseInt(document.getElementById('eng-gamma').value);
-    const n_tokens = parseInt(document.getElementById('eng-ntok').value);
-    const btn = document.getElementById('eng-spec-run');
-    btn.disabled = true;
-    const roundsEl = document.getElementById('eng-spec-rounds');
+  (() => {
+    const btn       = document.getElementById('eng-spec-run');
+    const roundsEl  = document.getElementById('eng-spec-rounds');
     const compareEl = document.getElementById('eng-spec-compare');
-    roundsEl.innerHTML = '<div class="empty">Running simulation…</div>';
-    compareEl.innerHTML = '';
-    try {
-      const j = await Kairu.post('infer', '/api/simulate-race', { rho, gamma, n_tokens });
-      roundsEl.innerHTML = '';
-      j.rounds.forEach((r, ri) => {
-        const row = document.createElement('div');
-        row.className = 'round-row';
-        row.style.animationDelay = `${ri * 30}ms`;
-        const mask = r.accepted_mask || [];
-        const g = r.gamma_used;
-        const accepted = r.accepted_count;
-        const allAccepted = accepted === g;
-        let bubblesHtml = '';
-        for (let i = 0; i < g; i++) {
-          const delay = i * 50;
-          if (i < mask.length) {
-            const cls = mask[i] ? 'accepted' : 'rejected';
-            const sym = mask[i] ? '✓' : '✗';
-            bubblesHtml += `<div class="token-bubble ${cls}" style="animation-delay:${delay}ms">${sym}</div>`;
-          } else {
-            bubblesHtml += `<div class="token-bubble empty" style="animation-delay:${delay}ms"></div>`;
+    const raceBar   = document.getElementById('eng-race-bar');
+
+    function buildRoundRow(r) {
+      const row = document.createElement('div');
+      row.className = 'round-row';
+      const mask = r.accepted_mask || [];
+      const g = r.gamma_used;
+      const accepted = r.accepted_count;
+      const allAccepted = accepted === g;
+      let bubblesHtml = '';
+      for (let i = 0; i < g; i++) {
+        if (i < mask.length) {
+          const cls = mask[i] ? 'accepted' : 'rejected';
+          bubblesHtml += `<div class="token-bubble ${cls}">${mask[i] ? '✓' : '✗'}</div>`;
+        } else {
+          bubblesHtml += `<div class="token-bubble empty"></div>`;
+        }
+      }
+      if (allAccepted) bubblesHtml += `<div class="token-bubble bonus">+1</div>`;
+      row.innerHTML = `
+        <div class="round-label">Round ${r.round} · γ=${g}</div>
+        <div class="round-tokens">${bubblesHtml}</div>
+        <div class="round-stats">${accepted}/${g} acc</div>`;
+      return row;
+    }
+
+    btn.addEventListener('click', async () => {
+      const rho      = parseFloat(document.getElementById('eng-rho').value);
+      const gamma    = parseInt(document.getElementById('eng-gamma').value);
+      const n_tokens = parseInt(document.getElementById('eng-ntok').value);
+      const delay    = parseInt(document.getElementById('eng-playback-speed').value);
+      btn.disabled = true;
+      roundsEl.innerHTML = '<div class="empty">Running simulation…</div>';
+      compareEl.innerHTML = '';
+      raceBar.style.width = '0%';
+      try {
+        const j = await Kairu.post('infer', '/api/simulate-race', { rho, gamma, n_tokens });
+        roundsEl.innerHTML = '';
+
+        // Animated playback
+        const rounds = j.rounds;
+        if (delay === 0) {
+          rounds.forEach(r => roundsEl.appendChild(buildRoundRow(r)));
+          raceBar.style.width = '100%';
+        } else {
+          for (let ri = 0; ri < rounds.length; ri++) {
+            await new Promise(res => setTimeout(res, delay));
+            const row = buildRoundRow(rounds[ri]);
+            row.classList.add('playing');
+            roundsEl.appendChild(row);
+            roundsEl.scrollTop = roundsEl.scrollHeight;
+            raceBar.style.width = `${((ri + 1) / rounds.length) * 100}%`;
+            await new Promise(res => setTimeout(res, Math.min(delay * 0.5, 80)));
+            row.classList.remove('playing');
           }
         }
-        if (allAccepted) {
-          bubblesHtml += `<div class="token-bubble bonus" style="animation-delay:${g * 50}ms">+1</div>`;
-        }
-        row.innerHTML = `
-          <div class="round-label">Round ${r.round} · γ=${g}</div>
-          <div class="round-tokens">${bubblesHtml}</div>
-          <div class="round-stats">${accepted}/${g} acc</div>`;
-        roundsEl.appendChild(row);
-      });
-      const su = j.actual_speedup;
-      const std = j.standard_steps;
-      const kai = j.kairu_steps;
-      const maxSteps = Math.max(std, kai);
-      compareEl.innerHTML = `
-        <div class="speedup-compare">
-          <div class="row-label">Standard: ${std} steps</div>
-          <div class="bar-track"><div class="bar-fill standard" style="width:100%"></div></div>
-          <div class="row-label">Kairu: ${kai} rounds</div>
-          <div class="bar-track"><div class="bar-fill kairu" style="width:${(kai / maxSteps) * 100}%"></div></div>
-          <div class="row between" style="margin-top:10px">
-            <span class="tiny-mono">empirical ρ: ${(j.empirical_acceptance_rate * 100).toFixed(1)}%</span>
-            <span class="speedup-number">${su.toFixed(2)}×</span>
-          </div>
-        </div>`;
-    } catch (err) {
-      roundsEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
-    } finally {
-      btn.disabled = false;
-    }
-  });
+
+        const su = j.actual_speedup;
+        const std = j.standard_steps;
+        const kai = j.kairu_steps;
+        const maxSteps = Math.max(std, kai);
+        compareEl.innerHTML = `
+          <div class="speedup-compare">
+            <div class="row-label">Standard: ${std} steps</div>
+            <div class="bar-track"><div class="bar-fill standard" style="width:100%"></div></div>
+            <div class="row-label">Kairu: ${kai} rounds</div>
+            <div class="bar-track"><div class="bar-fill kairu" style="width:${(kai / maxSteps) * 100}%"></div></div>
+            <div class="row between" style="margin-top:10px">
+              <span class="tiny-mono">empirical ρ: ${(j.empirical_acceptance_rate * 100).toFixed(1)}%</span>
+              <span class="speedup-number">${su.toFixed(2)}×</span>
+            </div>
+          </div>`;
+      } catch (err) {
+        roundsEl.innerHTML = `<div class="empty" style="color:var(--fail)">${err.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        raceBar.style.width = '100%';
+      }
+    });
+  })();
 
   document.getElementById('eng-ee-run').addEventListener('click', async () => {
     const threshold = parseFloat(document.getElementById('eng-ee-thresh').value);
