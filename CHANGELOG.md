@@ -4,6 +4,33 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.21.0] — 2026-06-11
+
+### Added — Audit / Rubric Lab / Batch tabs + Human Feedback + Visual Overhaul
+
+**Visual overhaul (all 15 tabs):**
+- Animated mesh background (CSS-only drifting grid), glassmorphism cards, smooth tab slide+fade transitions
+- `.glow-num` neon glow on key numbers, live-dot pulse indicator, animated progress bars
+- Improved toast notifications (slide-in, color-coded left border), button hover glow, stream-token fade-in
+
+**3 new fully-wired tabs (15 total):**
+- **Audit** — `GET /audit` query by date/rubric, color-coded scores, stagger-animated rows, CSV export
+- **Rubric Lab** — constitutional rubric generator (`POST /rubrics/generate`) with animated criterion chips + rubric browser
+- **Batch** — multi-pair `POST /batch` runner, animated progress bar, per-result score cards, client-side CSV download
+
+**Existing tab improvements:**
+- **Generate** — Prompt Library drawer (📚/💾) backed by `GET/POST /prompts`, token fade-in on stream
+- **Evaluate** — per-criterion 👍/👎 human feedback panel (`POST /eval/{id}/feedback`), benchmark percentile pills
+- **Leaderboard** — sparkline canvas graphs, gold/silver/bronze rank badge glow
+- **Analytics** — histogram bars animate on load, anomaly glow
+
+**New backend (`kairu/human_feedback.py`, `api/main.py`):**
+- `HumanFeedback` frozen dataclass + `FeedbackStore` (SQLite upsert) + `open_default_feedback_store()` (`KAIRU_FEEDBACK_DB` env)
+- `POST /eval/{eval_id}/feedback` + `GET /eval/{eval_id}/feedback` wired into `create_app()`
+- 14 new tests; suite: **604 passed**, 4 HF-gated skipped
+
+---
+
 ## [0.20.1] — 2026-06-11
 
 ### Added — Live Demo UI: Engine / Speed-Up / Watermark Tabs + Prism Beam Fix

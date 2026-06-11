@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.20.1**
+Current version: **v0.21.0**
 
 ---
 
@@ -80,6 +80,17 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### ✅ v0.21.0 — Audit/RubricLab/Batch tabs + Human Feedback + Visual Overhaul *(DONE)*
+
+- **Visual overhaul** — animated mesh bg, glassmorphism cards, slide/fade tab transitions, neon glow, sparklines, animated histogram
+- **Audit tab** — live eval history query (`GET /audit`), CSV export, color-coded scores
+- **Rubric Lab tab** — constitutional rubric generator (`POST /rubrics/generate`) + rubric browser
+- **Batch tab** — multi-pair batch eval (`POST /batch`) with animated progress bar
+- **Human Feedback** — `kairu/human_feedback.py` (FeedbackStore, SQLite), `POST /eval/{id}/feedback` endpoint, 👍/👎 UI in Evaluate tab
+- **Generate tab** — Prompt Library drawer backed by `/prompts` API
+- **Leaderboard** — sparkline graphs + rank badge glow
+- 604 tests passing, all CI gates green
 
 ### ✅ v0.20.1 — Live Demo UI: Engine / Speed-Up / Watermark + Prism Fix *(DONE)*
 
