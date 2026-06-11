@@ -1055,6 +1055,73 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 @keyframes mp-card-in { from { opacity:0; transform: translateY(12px) scale(0.97); } to { opacity:1; transform: none; } }
 .mp-card { animation: mp-card-in 0.3s cubic-bezier(.22,1,.36,1) both; }
 
+/* ── Status Bar ─────────────────────────────────────────────────── */
+#status-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 36px; z-index: 900;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+  background: rgba(7,7,18,0.92); border-top: 1px solid rgba(124,58,237,0.18);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  font-size: 11.5px; user-select: none;
+}
+#sb-left { display: flex; align-items: center; gap: 10px; }
+#sb-logo { font-weight: 800; letter-spacing: 0.04em; color: var(--accent-3); }
+#sb-version { padding: 1px 7px; border-radius: 6px; background: rgba(124,58,237,0.14); color: var(--muted); font-size: 10.5px; font-family: var(--mono); }
+#sb-tab-crumb { color: var(--muted); font-size: 11px; }
+#sb-tab-crumb span { color: var(--accent-2); font-weight: 600; }
+#sb-center { display: flex; align-items: center; gap: 10px; color: var(--dim); }
+#sb-right { display: flex; align-items: center; gap: 14px; }
+.sb-api { display: flex; align-items: center; gap: 5px; color: var(--dim); }
+.sb-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); transition: background 0.3s, box-shadow 0.3s; }
+.sb-api.ok .sb-dot { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.6); }
+.sb-api.down .sb-dot { background: var(--fail); box-shadow: 0 0 6px rgba(239,68,68,0.5); animation: none; }
+.sb-api.ok .sb-label { color: var(--text); }
+.sb-label { font-size: 11px; }
+#sb-kbd { padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.12); color: var(--dim); font-family: var(--mono); font-size: 10.5px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+#sb-kbd:hover { border-color: var(--accent); color: var(--accent-2); }
+#sb-latency { font-family: var(--mono); font-size: 10.5px; }
+
+/* ── Command Palette ────────────────────────────────────────────── */
+#cmd-overlay {
+  position: fixed; inset: 0; z-index: 9999; display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 12vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  opacity: 0; pointer-events: none; transition: opacity 0.18s;
+}
+#cmd-overlay.open { opacity: 1; pointer-events: all; }
+#cmd-box {
+  width: min(640px, 92vw); border-radius: 16px; overflow: hidden;
+  background: rgba(13,13,32,0.97); border: 1px solid rgba(124,58,237,0.35);
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(124,58,237,0.1);
+  transform: translateY(-12px) scale(0.97); transition: transform 0.2s cubic-bezier(.22,1,.36,1);
+}
+#cmd-overlay.open #cmd-box { transform: none; }
+#cmd-input-row {
+  display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+  border-bottom: 1px solid rgba(124,58,237,0.15);
+}
+#cmd-icon { font-size: 18px; color: var(--accent); flex-shrink: 0; }
+#cmd-input {
+  flex: 1; background: transparent; border: none; outline: none; color: var(--text);
+  font: inherit; font-size: 15px; caret-color: var(--accent);
+}
+#cmd-input::placeholder { color: var(--dim); }
+#cmd-esc { padding: 2px 7px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); color: var(--dim); font: 10.5px var(--mono); }
+#cmd-results { max-height: 380px; overflow-y: auto; padding: 8px; }
+.cmd-section { padding: 4px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); margin-top: 4px; }
+.cmd-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px;
+  cursor: pointer; transition: background 0.12s; color: var(--text);
+}
+.cmd-item:hover, .cmd-item.selected { background: rgba(124,58,237,0.14); }
+.cmd-item.selected { background: rgba(124,58,237,0.2); outline: none; }
+.cmd-item-icon { width: 28px; height: 28px; border-radius: 7px; background: rgba(124,58,237,0.15); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.cmd-item-label { font-size: 13px; font-weight: 600; }
+.cmd-item-desc { font-size: 11px; color: var(--dim); }
+.cmd-item-shortcut { margin-left: auto; font-size: 10.5px; font-family: var(--mono); color: var(--dim); }
+.cmd-item.action .cmd-item-icon { background: rgba(107,255,142,0.1); }
+.cmd-empty { padding: 32px 16px; text-align: center; color: var(--dim); font-size: 13px; }
+@keyframes cmd-in { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform:none; } }
+.cmd-item { animation: cmd-in 0.15s both; }
+
 </style>
 </head>
 <body>
@@ -1990,6 +2057,44 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 
 <div id="toast-stack"></div>
 
+<!-- ════════════════════════════════════════════════════════════════════
+     Status Bar
+     ════════════════════════════════════════════════════════════════════ -->
+<div id="status-bar">
+  <div id="sb-left">
+    <span id="sb-logo">kairu</span>
+    <span id="sb-version">v0.23.0</span>
+    <span id="sb-tab-crumb">/ <span id="sb-tab-name">generate</span></span>
+  </div>
+  <div id="sb-center">
+    <span id="sb-eval-api" class="sb-api" title="Eval API (port 8000)">
+      <span class="sb-dot"></span><span class="sb-label">Eval</span>
+    </span>
+    <span id="sb-infer-api" class="sb-api" title="Infer API (port 7777)">
+      <span class="sb-dot"></span><span class="sb-label">Infer</span>
+    </span>
+    <span id="sb-latency" style="color:var(--dim)">—</span>
+  </div>
+  <div id="sb-right">
+    <span id="sb-evals" style="color:var(--dim);font-family:var(--mono);font-size:10.5px">0 evals</span>
+    <span id="sb-kbd" title="Command Palette (⌘K / Ctrl+K)">⌘K</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     Command Palette
+     ════════════════════════════════════════════════════════════════════ -->
+<div id="cmd-overlay" role="dialog" aria-modal="true" aria-label="Command palette">
+  <div id="cmd-box">
+    <div id="cmd-input-row">
+      <span id="cmd-icon">⌘</span>
+      <input id="cmd-input" type="text" placeholder="Search tabs and actions…" autocomplete="off" spellcheck="false" />
+      <kbd id="cmd-esc">Esc</kbd>
+    </div>
+    <div id="cmd-results"></div>
+  </div>
+</div>
+
 <script>
 // ════════════════════════════════════════════════════════════════════
 // Kairu — global toolkit (API client, animations, charts, components)
@@ -2562,6 +2667,7 @@ async function probeBackend(which, candidates) {
         const j = await Kairu.post('eval', '/compare/ensemble', { prompt, response_a: respA, response_b: respB, judges });
         applyCompare(j);
       }
+      if (window.Kairu.session) window.Kairu.session.recordEval();
     } catch (err) {
       Kairu.toast('Evaluation failed', err.message, 'error', 5200);
       els.criteria.innerHTML = `<div class="empty" style="border-color:rgba(239,68,68,0.25);color:var(--fail)">${err.message}</div>`;
@@ -4732,6 +4838,245 @@ function escapeHtml(s) {
   window.addEventListener('kairu-tab', e => {
     if (e.detail === 'marketplace') loadMarketplace();
   });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// STATUS BAR — persistent health + tab crumb + eval counter
+// ═══════════════════════════════════════════════════════════════════════
+(() => {
+  const evalDot  = document.querySelector('#sb-eval-api');
+  const inferDot = document.querySelector('#sb-infer-api');
+  const latEl    = document.getElementById('sb-latency');
+  const tabName  = document.getElementById('sb-tab-name');
+  const evalsEl  = document.getElementById('sb-evals');
+
+  let evalCount = 0;
+
+  function setApiStatus(el, state, ms) {
+    el.classList.toggle('ok',   state === 'ok');
+    el.classList.toggle('down', state === 'down');
+    if (ms != null) latEl.innerHTML = `<span style="color:var(--muted)">${ms}ms</span>`;
+  }
+
+  async function probe() {
+    // Eval API
+    try {
+      const t0 = Date.now();
+      await Kairu.fetch('eval', '/health');
+      setApiStatus(evalDot, 'ok', Date.now() - t0);
+    } catch { setApiStatus(evalDot, 'down', null); }
+
+    // Infer API
+    try {
+      await Kairu.fetch('infer', '/api/health');
+      setApiStatus(inferDot, 'ok', null);
+    } catch { setApiStatus(inferDot, 'down', null); }
+  }
+
+  // Hook into tab changes to update breadcrumb
+  window.addEventListener('kairu-tab', e => {
+    const label = document.querySelector(`nav.tabs button[data-tab="${e.detail}"]`);
+    tabName.textContent = label ? label.textContent.trim() : e.detail;
+  });
+
+  // Expose eval counter for tab controllers
+  window.Kairu.session = {
+    recordEval() {
+      evalCount++;
+      evalsEl.textContent = `${evalCount} eval${evalCount !== 1 ? 's' : ''}`;
+    },
+  };
+
+  probe();
+  setInterval(probe, 30_000);
+
+  // Keyboard shortcut hint click
+  document.getElementById('sb-kbd').addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('cmd-palette-open'));
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// COMMAND PALETTE — ⌘K / Ctrl+K fuzzy tab + action search
+// ═══════════════════════════════════════════════════════════════════════
+(() => {
+  const overlay  = document.getElementById('cmd-overlay');
+  const input    = document.getElementById('cmd-input');
+  const results  = document.getElementById('cmd-results');
+
+  const TABS = [
+    { icon: '⚡', label: 'Generate',    tab: 'generate',    desc: 'Stream text from inference backend' },
+    { icon: '⚙', label: 'Engine',       tab: 'engine',      desc: 'Speculative decoder · Early exit · KV cache' },
+    { icon: '◆', label: 'Speed-Up',     tab: 'speedup',     desc: 'Speedup heatmap · AutoProfile strategy' },
+    { icon: '◎', label: 'Watermark',    tab: 'watermark',   desc: 'Kirchenbauer token watermarking + z-score' },
+    { icon: '◈', label: 'Evaluate',     tab: 'evaluate',    desc: 'Rubric scoring · Human feedback · Ensemble' },
+    { icon: '⚔', label: 'Tournament',   tab: 'tournament',  desc: 'Round-robin Elo multi-model tournament' },
+    { icon: '⊕', label: 'Leaderboard',  tab: 'leaderboard', desc: 'Score history · Sparklines · Regression check' },
+    { icon: '⎘', label: 'Templates',    tab: 'templates',   desc: 'Save & apply named rubric+judge bundles' },
+    { icon: '⛬', label: 'CI Gate',      tab: 'ci',          desc: 'Baseline snapshot · Candidate regression check' },
+    { icon: '⚠', label: 'Adversarial',  tab: 'adversarial', desc: 'Prompt injection · Jailbreak detection' },
+    { icon: '⊟', label: 'Log Eval',     tab: 'logeval',     desc: 'Production log → batch eval pipeline' },
+    { icon: '⌬', label: 'Analytics',    tab: 'analytics',   desc: 'Score histograms · Anomaly detection' },
+    { icon: '⊜', label: 'Audit',        tab: 'audit',       desc: 'Immutable eval history · CSV export' },
+    { icon: '⊞', label: 'Rubric Lab',   tab: 'rubriclab',   desc: 'Constitutional rubric generator · Rubric browser' },
+    { icon: '⊟', label: 'Batch',        tab: 'batch',       desc: 'Multi-pair batch evaluation' },
+    { icon: '⊕', label: 'Calibration',  tab: 'calibration', desc: 'Bias profiles · Calibrated ensemble evaluation' },
+    { icon: '◆', label: 'Trajectory',   tab: 'trajectory',  desc: 'Agentic step sequence scoring' },
+    { icon: '⊛', label: 'Marketplace',  tab: 'marketplace', desc: 'Community rubrics · Domain filter · Publish & import' },
+  ];
+
+  const ACTIONS = [
+    { icon: '↻', label: 'Check API health',  desc: 'Ping eval + infer backends',        action: () => window.dispatchEvent(new CustomEvent('kairu-health-check')) },
+    { icon: '?', label: 'Keyboard shortcuts', desc: 'Show all shortcuts',               action: showShortcuts },
+  ];
+
+  function fuzzy(str, q) {
+    if (!q) return true;
+    let si = 0;
+    const sl = str.toLowerCase(), ql = q.toLowerCase();
+    for (let i = 0; i < ql.length; i++) {
+      const idx = sl.indexOf(ql[i], si);
+      if (idx === -1) return false;
+      si = idx + 1;
+    }
+    return true;
+  }
+
+  function score(item, q) {
+    const haystack = (item.label + ' ' + item.desc).toLowerCase();
+    const ql = q.toLowerCase();
+    if (haystack.startsWith(ql)) return 3;
+    if (item.label.toLowerCase().includes(ql)) return 2;
+    if (fuzzy(haystack, ql)) return 1;
+    return 0;
+  }
+
+  let selectedIdx = 0;
+  let flatItems = [];
+
+  function navigate(tab) {
+    const btn = document.querySelector(`nav.tabs button[data-tab="${tab}"]`);
+    if (btn) btn.click();
+    close();
+  }
+
+  function render(q) {
+    const filtered = TABS
+      .map(t => ({ ...t, _score: score(t, q) }))
+      .filter(t => !q || t._score > 0)
+      .sort((a, b) => b._score - a._score);
+
+    const filteredActions = ACTIONS.filter(a => !q || fuzzy(a.label + ' ' + a.desc, q));
+
+    results.innerHTML = '';
+    flatItems = [];
+
+    if (!filtered.length && !filteredActions.length) {
+      results.innerHTML = '<div class="cmd-empty">No results for "<strong>' + q + '</strong>"</div>';
+      return;
+    }
+
+    if (filtered.length) {
+      const sec = document.createElement('div');
+      sec.className = 'cmd-section';
+      sec.textContent = q ? 'Tabs' : 'Navigate to…';
+      results.appendChild(sec);
+      filtered.forEach((t, i) => {
+        const el = document.createElement('div');
+        el.className = 'cmd-item';
+        el.style.animationDelay = `${i * 18}ms`;
+        el.innerHTML = `
+          <div class="cmd-item-icon">${t.icon}</div>
+          <div>
+            <div class="cmd-item-label">${t.label}</div>
+            <div class="cmd-item-desc">${t.desc}</div>
+          </div>
+        `;
+        el.addEventListener('click', () => navigate(t.tab));
+        results.appendChild(el);
+        flatItems.push({ el, action: () => navigate(t.tab) });
+      });
+    }
+
+    if (filteredActions.length) {
+      const sec = document.createElement('div');
+      sec.className = 'cmd-section';
+      sec.textContent = 'Actions';
+      results.appendChild(sec);
+      filteredActions.forEach((a, i) => {
+        const el = document.createElement('div');
+        el.className = 'cmd-item action';
+        el.style.animationDelay = `${(filtered.length + i) * 18}ms`;
+        el.innerHTML = `
+          <div class="cmd-item-icon">${a.icon}</div>
+          <div>
+            <div class="cmd-item-label">${a.label}</div>
+            <div class="cmd-item-desc">${a.desc}</div>
+          </div>
+        `;
+        el.addEventListener('click', () => { a.action(); close(); });
+        results.appendChild(el);
+        flatItems.push({ el, action: () => { a.action(); close(); } });
+      });
+    }
+
+    setSelected(0);
+  }
+
+  function setSelected(idx) {
+    flatItems.forEach((item, i) => item.el.classList.toggle('selected', i === idx));
+    selectedIdx = idx;
+    if (flatItems[idx]) flatItems[idx].el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function open() {
+    overlay.classList.add('open');
+    input.value = '';
+    render('');
+    requestAnimationFrame(() => input.focus());
+  }
+
+  function close() {
+    overlay.classList.remove('open');
+    input.blur();
+  }
+
+  function showShortcuts() {
+    Kairu.toast('Keyboard Shortcuts', '⌘K open palette · ⌘1-9 tabs 1-9 · Esc close', 'info', 6000);
+  }
+
+  input.addEventListener('input', () => { render(input.value.trim()); setSelected(0); });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { close(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected(Math.min(selectedIdx + 1, flatItems.length - 1)); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setSelected(Math.max(selectedIdx - 1, 0)); }
+    if (e.key === 'Enter') { if (flatItems[selectedIdx]) flatItems[selectedIdx].action(); }
+  });
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.getElementById('cmd-esc').addEventListener('click', close);
+
+  // Global keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    const isMac = navigator.platform.includes('Mac');
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      overlay.classList.contains('open') ? close() : open();
+      return;
+    }
+    if (e.key === 'Escape' && overlay.classList.contains('open')) {
+      close();
+      return;
+    }
+    // ⌘1-9 / Ctrl+1-9 to jump to tab
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key >= '1' && e.key <= '9') {
+      const idx = parseInt(e.key) - 1;
+      if (TABS[idx]) { e.preventDefault(); navigate(TABS[idx].tab); }
+    }
+  });
+
+  window.addEventListener('cmd-palette-open', open);
 })();
 
 </script>
