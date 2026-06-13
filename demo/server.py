@@ -399,6 +399,41 @@ def real_watermark_demo(n_tokens: int, seed: int, delta: float, scheme: str) -> 
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# Token heat map: per-pseudo-token softmax confidence for a piece of text.
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def real_token_heat(text: str, seed: int) -> dict:
+    """Per-pseudo-token softmax confidence for a piece of text.
+
+    Splits on whitespace, runs MockModel logits for each position,
+    returns softmax probability and rank for each word-level pseudo-token.
+    """
+    max_chars = 4_096
+    if not text or not text.strip():
+        raise ValueError("text must be non-empty")
+    if len(text) > max_chars:
+        raise ValueError(f"text exceeds {max_chars} chars")
+    model = MockModel()
+    words = text.split()[:200]
+    tokens: list[dict] = []
+    ctx: list[int] = [(seed % 97) + 1, (seed % 53) + 2, (seed % 31) + 3]
+    for word in words:
+        logits = model.next_token_logits(ctx)
+        shifted = logits - float(logits.max())
+        exp_l = np.exp(shifted)
+        probs = exp_l / exp_l.sum()
+        tok_idx = (
+            sum(ord(c) * (i + 1) for i, c in enumerate(word[:8])) % model.vocab_size
+        )
+        prob = float(probs[tok_idx])
+        rank = int((probs > prob).sum()) + 1
+        tokens.append({"text": word, "prob": round(prob, 5), "rank": rank})
+        ctx = (ctx + [tok_idx])[-4:]
+    return {"tokens": tokens, "n_tokens": len(tokens)}
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # Prism: run all eight named rubrics on one (prompt, response) and return
 # the ordered list of beam payloads the UI renders.  Each entry carries the
 # rubric name, its canonical color, its aggregate score in [0, 1], and the
@@ -504,6 +539,8 @@ class DemoHandler(BaseHTTPRequestHandler):
                 return self._handle_early_exit(body)
             if self.path == "/api/watermark-demo":
                 return self._handle_watermark(body)
+            if self.path == "/api/token-heat":
+                return self._handle_token_heat(body)
         except (ValueError, TypeError, KeyError) as e:
             return self._json(400, {"error": str(e)})
         except Exception as e:  # noqa: BLE001
@@ -641,6 +678,15 @@ class DemoHandler(BaseHTTPRequestHandler):
         )
         return self._json(200, result)
 
+    def _handle_token_heat(self, body: dict) -> None:
+        text = str(body.get("text", ""))
+        seed = int(body.get("seed", 42))
+        if not (0 <= seed <= 99_999):
+            raise ValueError("seed must be in [0, 99999]")
+        result = real_token_heat(text=text, seed=seed)
+        result["source"] = "kairu.mock_model.MockModel logits + softmax (deterministic)"
+        return self._json(200, result)
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # Cache demo — exercise LogitsCache during startup so the banner has real data
@@ -686,6 +732,7 @@ def main() -> None:
     print("    POST  /api/kv-cache-sim      → LogitsCache simulation")
     print("    POST  /api/early-exit-sim    → LayerwiseEarlyExitDecoder simulation")
     print("    POST  /api/watermark-demo    → watermark apply + detect")
+    print("    POST  /api/token-heat         → per-token confidence heat map")
     print()
     print(f"  startup self-test  LogitsCache(4)  →  {cache_stats}")
     print("  Ctrl-C to stop")
