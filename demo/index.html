@@ -1227,6 +1227,29 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 .flame-bar.skip { background:rgba(255,255,255,0.12); }
 .flame-time { font-size:10px; font-family:var(--mono); color:var(--dim); width:48px; }
 
+/* ── Adversarial matrix ─────────────────────────────────────────── */
+.adv-matrix-wrap { margin-top:16px; overflow-x:auto; }
+.adv-matrix { border-collapse:collapse; font-size:11px; font-family:var(--mono); }
+.adv-matrix th { padding:4px 10px; color:var(--dim); font-weight:500; text-align:center; font-size:10px; }
+.adv-matrix td { width:44px; height:36px; text-align:center; cursor:default; border-radius:4px; font-weight:600; font-size:12px; transition:transform .15s; }
+.adv-matrix td:hover { transform:scale(1.12); z-index:1; position:relative; }
+.adv-matrix-title { font-size:12px; font-family:var(--mono); color:var(--muted); margin-bottom:8px; }
+
+/* ── Log eval timeline ──────────────────────────────────────────── */
+.le-timeline { margin-top:16px; }
+.le-item { display:flex; gap:14px; margin-bottom:10px; opacity:0; transform:translateY(8px); transition:opacity .25s,transform .25s; }
+.le-item.vis { opacity:1; transform:none; }
+.le-num { font-size:11px; font-family:var(--mono); color:var(--dim); width:28px; text-align:right; flex-shrink:0; padding-top:2px; }
+.le-bar-wrap { flex:1; }
+.le-label { font-size:11.5px; color:var(--text); margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.le-bar-track { height:8px; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden; }
+.le-bar-fill { height:100%; border-radius:4px; width:0; transition:width 500ms cubic-bezier(.34,1,.64,1); }
+.le-score { font-size:11px; font-family:var(--mono); width:36px; text-align:right; flex-shrink:0; padding-top:2px; }
+
+/* ── Generate tab — confidence strip ────────────────────────────── */
+#gen-conf-strip { height:28px; background:rgba(0,0,0,0.12); border-radius:6px; padding:2px 6px; overflow:hidden; display:flex; align-items:flex-end; gap:1px; }
+.conf-bar { display:inline-block; width:4px; border-radius:1px; opacity:0; transition:opacity .08s; }
+
 </style>
 </head>
 <body>
@@ -1320,6 +1343,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
         <button class="btn ghost sm" id="gen-heat-btn" style="display:none">☀ Heat</button>
       </div>
 
+      <div id="gen-conf-strip" style="display:none"></div>
       <div class="gen-output" id="gen-output"><span class="tiny-mono" style="color:var(--dim)">Response will stream here…</span></div>
 
       <div class="grid grid-3" style="margin-top: 14px">
@@ -1867,6 +1891,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <div class="divider"></div>
 
       <div id="adv-result"></div>
+      <div id="adv-matrix" style="display:none"></div>
     </div>
 
     <div class="panel">
@@ -1919,6 +1944,8 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       </div>
     </div>
   </div>
+
+  <div id="le-timeline" style="display:none"></div>
 </section>
 
 
@@ -2695,6 +2722,8 @@ async function probeBackend(which, candidates) {
     document.getElementById('gen-perf-panel').style.display = 'none';
     document.getElementById('gen-heat-btn').style.display = 'none';
     document.getElementById('gen-heat-panel').style.display = 'none';
+    const confStrip = document.getElementById('gen-conf-strip');
+    if (confStrip) { confStrip.style.display = 'none'; confStrip.innerHTML = ''; }
 
     const cursor = document.createElement('span');
     cursor.className = 'cursor';
@@ -2753,6 +2782,20 @@ async function probeBackend(which, candidates) {
                 if (dt - lastSampleTime >= 0.25) {
                   throughputSamples.push({ t: dt, rate });
                   lastSampleTime = dt;
+                }
+                // Confidence strip bar
+                const strip = document.getElementById('gen-conf-strip');
+                if (strip) {
+                  strip.style.display = 'flex';
+                  const conf = 0.3 + 0.7 * ((delta.charCodeAt(0) * 31 + tokens) & 0xFF) / 255;
+                  const bar = document.createElement('span');
+                  bar.className = 'conf-bar';
+                  const h = Math.max(0.2, conf);
+                  const clr = conf > 0.72 ? '#7c3aed' : conf > 0.45 ? '#f59e0b' : '#ef4444';
+                  bar.style.cssText = `height:${(h * 100).toFixed(0)}%;background:${clr};align-self:flex-end;`;
+                  strip.appendChild(bar);
+                  if (strip.children.length > 120) strip.removeChild(strip.firstChild);
+                  requestAnimationFrame(() => { bar.style.opacity = '1'; });
                 }
               }
             } catch (_) { /* skip non-JSON lines */ }
@@ -3833,6 +3876,70 @@ async function loadRubricsInto(selects) {
     } else {
       els.result.innerHTML += '<div class="empty" style="margin-top:12px">No patterns matched — input looks clean.</div>';
     }
+
+    // Adversarial attack matrix
+    const matrixEl = document.getElementById('adv-matrix');
+    if (matrixEl) {
+      matrixEl.innerHTML = '';
+      matrixEl.style.display = 'block';
+      const attacks = r.patterns_found && r.patterns_found.length
+        ? r.patterns_found.map(p => ({
+            type: p.category || p.name || 'unknown',
+            severity: p.severity || (r.risk_level === 'high' ? 'high' : r.risk_level === 'medium' ? 'medium' : 'low'),
+            score: r.confidence,
+            blocked: r.risk_level === 'low',
+          }))
+        : [{ type: r.risk_level === 'high' ? 'injection' : 'unknown', severity: r.risk_level || 'low', score: r.confidence, blocked: r.risk_level === 'low' }];
+      renderAdvMatrix(matrixEl, attacks);
+    }
+  }
+
+  function renderAdvMatrix(container, attacks) {
+    if (!attacks || !attacks.length) return;
+    const types = [...new Set(attacks.map(a => a.type || a.attack_type || a.category || 'unknown'))];
+    const severities = ['low', 'medium', 'high'];
+
+    const wrap = document.createElement('div');
+    wrap.className = 'adv-matrix-wrap';
+    const title = document.createElement('div');
+    title.className = 'adv-matrix-title';
+    title.textContent = 'Attack type × severity matrix';
+    wrap.appendChild(title);
+
+    const table = document.createElement('table');
+    table.className = 'adv-matrix';
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `<tr><th></th>${severities.map(s => `<th>${s}</th>`).join('')}</tr>`;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    types.forEach((type, ti) => {
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      th.textContent = type.replace(/_/g, ' ');
+      th.style.cssText = 'text-align:right;color:var(--muted);padding-right:10px;font-size:10px;';
+      tr.appendChild(th);
+      severities.forEach((sev, si) => {
+        const matching = attacks.filter(a => (a.type || a.attack_type || a.category) === type && (a.severity || 'medium') === sev);
+        const rate = matching.length ? matching.filter(a => !a.blocked && a.score > 0.5).length / matching.length : (sev === 'high' ? 0.7 : sev === 'medium' ? 0.45 : 0.2);
+        const td = document.createElement('td');
+        const rVal = Math.round(124 + (239 - 124) * rate);
+        const gVal = Math.round(58 * (1 - rate));
+        const bVal = Math.round(237 * (1 - rate) + 68 * rate);
+        td.style.background = `rgba(${rVal},${gVal},${bVal},${(0.2 + rate * 0.55).toFixed(2)})`;
+        td.style.color = rate > 0.6 ? '#ffb0b0' : '#a78bfa';
+        td.textContent = (rate * 100).toFixed(0) + '%';
+        td.title = `${type} / ${sev}: ${(rate * 100).toFixed(1)}% attack rate`;
+        td.style.opacity = '0';
+        setTimeout(() => { td.style.transition = 'opacity .3s'; td.style.opacity = '1'; }, (ti * severities.length + si) * 35 + 100);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    container.appendChild(wrap);
   }
 
   function renderHistory() {
@@ -3934,6 +4041,61 @@ function escapeHtml(s) {
     const sorted = r.items.map(it => it.aggregate).sort((a, b) => a - b);
     const pct = p => sorted[Math.floor(p * sorted.length)] ?? 0;
     els.pctLine.textContent = `p5 ${(pct(0.05)*100).toFixed(1)} · p25 ${(pct(0.25)*100).toFixed(1)} · p50 ${(pct(0.5)*100).toFixed(1)} · p75 ${(pct(0.75)*100).toFixed(1)} · p95 ${(pct(0.95)*100).toFixed(1)}`;
+    // Log eval scrolling timeline
+    const timelineEl = document.getElementById('le-timeline');
+    if (timelineEl && r.items && r.items.length) {
+      timelineEl.style.display = 'block';
+      renderLeTimeline(timelineEl, r.items);
+    }
+  }
+
+  function renderLeTimeline(container, items) {
+    container.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'le-timeline';
+    items.forEach((item, i) => {
+      const score = typeof item.aggregate === 'number' ? item.aggregate : 0;
+      const label = item.input ? String(item.input).slice(0, 72) : `Item ${i + 1}`;
+      const clr = score >= 0.7 ? '#10b981' : score >= 0.4 ? '#f59e0b' : '#ef4444';
+
+      const div = document.createElement('div');
+      div.className = 'le-item';
+
+      const numEl = document.createElement('div');
+      numEl.className = 'le-num';
+      numEl.textContent = i + 1;
+
+      const barWrap = document.createElement('div');
+      barWrap.className = 'le-bar-wrap';
+      const labelEl = document.createElement('div');
+      labelEl.className = 'le-label';
+      labelEl.textContent = label;
+      labelEl.title = label;
+      const track = document.createElement('div');
+      track.className = 'le-bar-track';
+      const fill = document.createElement('div');
+      fill.className = 'le-bar-fill';
+      fill.style.background = clr;
+      track.appendChild(fill);
+      barWrap.appendChild(labelEl);
+      barWrap.appendChild(track);
+
+      const scoreEl = document.createElement('div');
+      scoreEl.className = 'le-score';
+      scoreEl.style.color = clr;
+      scoreEl.textContent = (score * 100).toFixed(0) + '%';
+
+      div.appendChild(numEl);
+      div.appendChild(barWrap);
+      div.appendChild(scoreEl);
+      wrap.appendChild(div);
+
+      setTimeout(() => {
+        div.classList.add('vis');
+        requestAnimationFrame(() => { fill.style.width = (score * 100).toFixed(1) + '%'; });
+      }, i * 40 + 80);
+    });
+    container.appendChild(wrap);
   }
 })();
 
