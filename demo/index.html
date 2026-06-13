@@ -599,6 +599,19 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .lb-row .delta.zero { color: var(--dim); }
 .lb-row .sparkline { height: 22px; }
 
+/* Leaderboard podium */
+.podium { display:flex; align-items:flex-end; justify-content:center; gap:12px; margin:10px 0 24px; height:150px; }
+.podium-col { display:flex; flex-direction:column; align-items:center; gap:0; width:90px; }
+.podium-bar { width:100%; border-radius:8px 8px 0 0; transform:scaleY(0); transform-origin:bottom; transition:transform 600ms cubic-bezier(.34,1.2,.64,1); }
+.podium-bar.animate { transform:scaleY(1); }
+.podium-bar.gold   { background:linear-gradient(180deg,#f5c84b 0%,#c49b0a 100%); box-shadow:0 -4px 20px rgba(245,200,75,0.35); }
+.podium-bar.silver { background:linear-gradient(180deg,#c0c0d4 0%,#8a8aa8 100%); box-shadow:0 -4px 16px rgba(192,192,212,0.25); }
+.podium-bar.bronze { background:linear-gradient(180deg,#cd7f32 0%,#8b5518 100%); box-shadow:0 -4px 16px rgba(205,127,50,0.25); }
+.podium-label { font-size:11px; font-family:var(--mono); color:var(--muted); text-align:center; margin-top:4px; max-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.podium-score { font-size:13px; font-weight:700; margin-bottom:4px; }
+.podium-medal { font-size:20px; margin-bottom:2px; }
+.podium-rank-rows { margin-top:4px; }
+
 /* ════════════════════════════════════════════════════════════════════
    Tab: Templates
    ════════════════════════════════════════════════════════════════════ */
@@ -952,6 +965,34 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 .score-red { color: #ff6b6b; }
 .score-amber { color: #ffcc44; }
 .score-green { color: #6BFF8E; }
+
+/* Audit timeline */
+#audit-timeline { display:none; }
+.tl-entry { display:flex; gap:16px; margin-bottom:0; opacity:0; transform:translateX(-12px); transition:opacity .25s,transform .25s; }
+.tl-entry.vis { opacity:1; transform:none; }
+.tl-spine { display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:28px; }
+.tl-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; border:2px solid var(--bg); box-shadow:0 0 8px currentColor; }
+.tl-dot.pass { color:var(--pass); background:var(--pass); }
+.tl-dot.warn { color:var(--warn); background:var(--warn); }
+.tl-dot.fail { color:var(--fail); background:var(--fail); }
+.tl-line { width:2px; flex:1; background:var(--line); min-height:24px; margin:2px 0; }
+.tl-card { flex:1; background:var(--panel); border:1px solid var(--line-soft); border-radius:8px; padding:10px 14px; margin-bottom:14px; }
+.tl-time { font-size:10.5px; font-family:var(--mono); color:var(--dim); }
+.tl-rubric { font-size:12px; font-weight:600; color:var(--accent-2); margin:2px 0; }
+.tl-score { font-size:22px; font-weight:700; }
+.tl-score.pass { color:var(--pass); }
+.tl-score.warn { color:var(--warn); }
+.tl-score.fail { color:var(--fail); }
+.tl-hash { font-size:10px; font-family:var(--mono); color:var(--dim); margin-top:4px; }
+.audit-view-toggle { display:flex; gap:6px; margin-bottom:12px; }
+.audit-view-btn { padding:4px 12px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; font-size:12px; font-family:var(--mono); transition:all .15s; }
+.audit-view-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* Analytics live trend */
+.an-live-btn { padding:4px 12px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; font-size:12px; font-family:var(--mono); transition:all .2s; }
+.an-live-btn.active { background:rgba(16,185,129,0.15); border-color:var(--pass); color:var(--pass); }
+.trend-up   { color:var(--pass); font-size:11px; margin-left:4px; }
+.trend-down { color:var(--fail); font-size:11px; margin-left:4px; }
 
 /* Rubric Lab */
 .rubriclab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -1864,6 +1905,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <span class="badge purple"><span class="dot"></span>live</span>
       <div class="spacer"></div>
       <button class="btn ghost sm" id="an-refresh">↻ refresh</button>
+      <button class="an-live-btn" id="an-live-btn">⟳ Live</button>
     </div>
     <div class="grid grid-4" id="an-stats" style="margin-bottom: 16px"></div>
     <div class="hist-wrap" style="background: rgba(0,0,0,0.18); padding: 16px; border-radius: 12px; border: 1px solid var(--line-soft)">
@@ -1892,6 +1934,11 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <button id="audit-csv-btn" class="btn-ghost">⬇ CSV</button>
     </div>
     <div id="audit-status" class="status-line"></div>
+    <div class="audit-view-toggle">
+      <button class="audit-view-btn active" data-view="table">⊞ Table</button>
+      <button class="audit-view-btn" data-view="timeline">◎ Timeline</button>
+    </div>
+    <div id="audit-timeline"></div>
     <div id="audit-table-wrap" class="audit-table-wrap">
       <table class="audit-table">
         <thead><tr>
@@ -3258,7 +3305,39 @@ async function loadRubricsInto(selects) {
           regB.appendChild(optB);
         });
       }
-      ranking.forEach((r, i) => {
+
+      // Animated 3-bar podium for top 3
+      if (ranking.length >= 3) {
+        const [first, second, third] = ranking;
+        const podiumEl = document.createElement('div');
+        podiumEl.className = 'podium';
+        const podiumData = [
+          { r: second, medal: '🥈', cls: 'silver', height: 105, delay: 80,  colorVar: 'var(--silver)' },
+          { r: first,  medal: '🥇', cls: 'gold',   height: 140, delay: 0,   colorVar: 'var(--gold)'   },
+          { r: third,  medal: '🥉', cls: 'bronze',  height: 75,  delay: 160, colorVar: 'var(--bronze)' },
+        ];
+        const bars = [];
+        podiumData.forEach(({ r, medal, cls, height, delay, colorVar }) => {
+          const scoreVal = r.mean_score;
+          const col = document.createElement('div');
+          col.className = 'podium-col';
+          col.innerHTML = `
+            <div class="podium-medal">${medal}</div>
+            <div class="podium-score" style="color:${colorVar}">${(scoreVal * 100).toFixed(1)}</div>
+            <div class="podium-bar ${cls}" style="height:${height}px; transition-delay:${delay}ms"></div>
+            <div class="podium-label">${r.model}</div>`;
+          podiumEl.appendChild(col);
+          bars.push(col.querySelector('.podium-bar'));
+        });
+        els.list.appendChild(podiumEl);
+        requestAnimationFrame(() => { bars.forEach(b => b.classList.add('animate')); });
+      }
+
+      // Render rank rows (4th onwards if podium shown, all if < 3 entries)
+      const startIdx = ranking.length >= 3 ? 3 : 0;
+      const rankRowsWrap = document.createElement('div');
+      rankRowsWrap.className = 'podium-rank-rows';
+      ranking.slice(startIdx).forEach((r, i) => {
         const row = document.createElement('div');
         row.className = 'lb-row row-anim';
         row.style.animationDelay = `${i * 50}ms`;
@@ -3273,8 +3352,9 @@ async function loadRubricsInto(selects) {
         `;
         const bar = row.querySelector('.scorebar');
         requestAnimationFrame(() => Kairu.springBar(bar, r.mean_score));
-        els.list.appendChild(row);
+        rankRowsWrap.appendChild(row);
       });
+      els.list.appendChild(rankRowsWrap);
     } catch (err) {
       els.list.innerHTML = `<div class="empty" style="color:var(--fail);border-color:rgba(239,68,68,0.25)">${err.message}</div>`;
     }
@@ -3728,6 +3808,9 @@ function escapeHtml(s) {
   els.days.addEventListener('change', refresh);
   window.addEventListener('kairu-tab', e => { if (e.detail === 'analytics') refresh(); });
 
+  // Track previous stat values for trend arrows
+  const prevStats = {};
+
   async function refresh() {
     if (!Kairu.endpoint.eval && Kairu.endpoint.eval !== '') {
       els.stats.innerHTML = '<div class="empty">eval API offline</div>'; return;
@@ -3755,9 +3838,17 @@ function escapeHtml(s) {
         ['p50',   (pcts.p50*100).toFixed(1), ''], ['p75',  (pcts.p75*100).toFixed(1), ''],
       ];
       els.stats.innerHTML = '';
-      stats.forEach(([k,v,sub]) => {
+      stats.forEach(([k, v, sub]) => {
+        const numV = typeof v === 'number' ? v : parseFloat(v);
+        const prev = prevStats[k];
+        let arrow = '';
+        if (prev !== undefined && !isNaN(numV) && !isNaN(prev)) {
+          arrow = numV > prev + 0.001 ? '<span class="trend-up">↑</span>'
+                : numV < prev - 0.001 ? '<span class="trend-down">↓</span>' : '';
+        }
+        if (!isNaN(numV)) prevStats[k] = numV;
         const c = document.createElement('div'); c.className = 'stat-card';
-        c.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="sub">${sub}</div>`: ''}`;
+        c.innerHTML = `<div class="k">${k}</div><div class="v">${v}${arrow}</div>${sub ? `<div class="sub">${sub}</div>`: ''}`;
         els.stats.appendChild(c);
       });
       // Render server-supplied histogram buckets.
@@ -3769,6 +3860,39 @@ function escapeHtml(s) {
         color: '#7c3aed',
         percentileLines: { p25: pcts.p25, p50: pcts.p50, p75: pcts.p75, p95: pcts.p95 },
       });
+
+      // Draw moving-average trend line on top of the histogram
+      (function drawMovingAvg() {
+        const canvas = els.hist;
+        const ctx = canvas.getContext('2d');
+        const bins = 20;
+        const padL = 36, padR = 12, padT = 14, padB = 28;
+        const W = canvas.width, H = canvas.height;
+        const innerW = W - padL - padR, innerH = H - padT - padB;
+        const buckets = new Array(bins).fill(0);
+        for (const v of allValues) {
+          const b = Math.min(bins - 1, Math.max(0, Math.floor(v * bins)));
+          buckets[b]++;
+        }
+        const maxCount = Math.max(...buckets) || 1;
+        const cellW = innerW / bins;
+        const mw = 3;
+        const ma = buckets.map((_, idx) => {
+          const slice = buckets.slice(Math.max(0, idx - mw), idx + mw + 1);
+          return slice.reduce((s, c) => s + c, 0) / slice.length;
+        });
+        ctx.beginPath();
+        ma.forEach((v, idx) => {
+          const x = padL + idx * cellW + cellW / 2;
+          const y = padT + innerH - (v / maxCount) * innerH;
+          idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = 'rgba(245,200,75,0.7)';
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      })();
+
       els.pctLine.textContent = `p5 ${(pcts.p5*100).toFixed(1)} · p25 ${(pcts.p25*100).toFixed(1)} · p50 ${(pcts.p50*100).toFixed(1)} · p75 ${(pcts.p75*100).toFixed(1)} · p95 ${(pcts.p95*100).toFixed(1)}`;
       const anomalies = j.anomalies || [];
       if (!anomalies.length) {
@@ -3794,6 +3918,28 @@ function escapeHtml(s) {
     } catch (err) {
       els.stats.innerHTML = `<div class="empty" style="color:var(--fail);border-color:rgba(239,68,68,0.25)">${err.message}</div>`;
     }
+  }
+
+  // Live auto-refresh toggle
+  let liveTimer = null;
+  const liveBtn = document.getElementById('an-live-btn');
+  if (liveBtn) {
+    liveBtn.addEventListener('click', () => {
+      if (liveTimer) {
+        clearInterval(liveTimer);
+        liveTimer = null;
+        liveBtn.classList.remove('active');
+        liveBtn.textContent = '⟳ Live';
+      } else {
+        liveBtn.classList.add('active');
+        liveBtn.textContent = '● Live';
+        liveTimer = setInterval(() => {
+          if (document.querySelector('[data-pane="analytics"]')?.classList.contains('active')) {
+            refresh();
+          }
+        }, 6000);
+      }
+    });
   }
 })();
 
@@ -4570,7 +4716,51 @@ function drawWatermarkRadar(canvas, data) {
           '<td style="font-family:var(--mono);font-size:11px">' + (row.input_hash || '').slice(0, 12) + '…</td>';
         tbody.appendChild(tr);
       });
+
+      // Build timeline
+      const tl = document.getElementById('audit-timeline');
+      tl.innerHTML = '';
+      rows.forEach((row, i) => {
+        const scRaw = typeof row.scores === 'object' && row.scores
+          ? Object.values(row.scores).reduce((a, b) => a + b, 0) / Math.max(1, Object.values(row.scores).length)
+          : (row.score ?? row.aggregate ?? 0);
+        const score = typeof scRaw === 'number' ? scRaw : parseFloat(scRaw) || 0;
+        const tlCls = score >= 0.7 ? 'pass' : score >= 0.4 ? 'warn' : 'fail';
+        const entry = document.createElement('div');
+        entry.className = 'tl-entry';
+        const timeStr = row.created_utc
+          ? new Date(row.created_utc).toLocaleTimeString()
+          : (row.created_at ? new Date(row.created_at).toLocaleTimeString() : (row.time || '—'));
+        entry.innerHTML = `
+          <div class="tl-spine">
+            <div class="tl-dot ${tlCls}"></div>
+            ${i < rows.length - 1 ? '<div class="tl-line"></div>' : ''}
+          </div>
+          <div class="tl-card">
+            <div class="tl-time">${timeStr}</div>
+            <div class="tl-rubric">${row.rubric_name || row.rubric || '—'}</div>
+            <div class="tl-score ${tlCls}">${score.toFixed ? score.toFixed(2) : score}</div>
+            <div class="tl-hash">input: ${row.input_hash ? row.input_hash.slice(0, 12) + '…' : '—'}</div>
+          </div>`;
+        tl.appendChild(entry);
+        setTimeout(() => entry.classList.add('vis'), i * 45 + 50);
+      });
     } catch (err) { statusEl.textContent = 'Error: ' + err.message; }
+  });
+
+  // Audit view toggle (Table / Timeline)
+  document.querySelectorAll('.audit-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.audit-view-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const view = btn.dataset.view;
+      const tableEl = document.querySelector('.audit-table');
+      const tableWrap = document.getElementById('audit-table-wrap');
+      const tlEl = document.getElementById('audit-timeline');
+      if (tableEl) tableEl.style.display = view === 'table' ? '' : 'none';
+      if (tableWrap) tableWrap.style.display = view === 'table' ? '' : 'none';
+      if (tlEl) tlEl.style.display = view === 'timeline' ? 'block' : 'none';
+    });
   });
 
   csvBtn.addEventListener('click', () => {
