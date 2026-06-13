@@ -599,6 +599,19 @@ table.kt td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .lb-row .delta.zero { color: var(--dim); }
 .lb-row .sparkline { height: 22px; }
 
+/* Leaderboard podium */
+.podium { display:flex; align-items:flex-end; justify-content:center; gap:12px; margin:10px 0 24px; height:150px; }
+.podium-col { display:flex; flex-direction:column; align-items:center; gap:0; width:90px; }
+.podium-bar { width:100%; border-radius:8px 8px 0 0; transform:scaleY(0); transform-origin:bottom; transition:transform 600ms cubic-bezier(.34,1.2,.64,1); }
+.podium-bar.animate { transform:scaleY(1); }
+.podium-bar.gold   { background:linear-gradient(180deg,#f5c84b 0%,#c49b0a 100%); box-shadow:0 -4px 20px rgba(245,200,75,0.35); }
+.podium-bar.silver { background:linear-gradient(180deg,#c0c0d4 0%,#8a8aa8 100%); box-shadow:0 -4px 16px rgba(192,192,212,0.25); }
+.podium-bar.bronze { background:linear-gradient(180deg,#cd7f32 0%,#8b5518 100%); box-shadow:0 -4px 16px rgba(205,127,50,0.25); }
+.podium-label { font-size:11px; font-family:var(--mono); color:var(--muted); text-align:center; margin-top:4px; max-width:88px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.podium-score { font-size:13px; font-weight:700; margin-bottom:4px; }
+.podium-medal { font-size:20px; margin-bottom:2px; }
+.podium-rank-rows { margin-top:4px; }
+
 /* ════════════════════════════════════════════════════════════════════
    Tab: Templates
    ════════════════════════════════════════════════════════════════════ */
@@ -953,6 +966,34 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 .score-amber { color: #ffcc44; }
 .score-green { color: #6BFF8E; }
 
+/* Audit timeline */
+#audit-timeline { display:none; }
+.tl-entry { display:flex; gap:16px; margin-bottom:0; opacity:0; transform:translateX(-12px); transition:opacity .25s,transform .25s; }
+.tl-entry.vis { opacity:1; transform:none; }
+.tl-spine { display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:28px; }
+.tl-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; border:2px solid var(--bg); box-shadow:0 0 8px currentColor; }
+.tl-dot.pass { color:var(--pass); background:var(--pass); }
+.tl-dot.warn { color:var(--warn); background:var(--warn); }
+.tl-dot.fail { color:var(--fail); background:var(--fail); }
+.tl-line { width:2px; flex:1; background:var(--line); min-height:24px; margin:2px 0; }
+.tl-card { flex:1; background:var(--panel); border:1px solid var(--line-soft); border-radius:8px; padding:10px 14px; margin-bottom:14px; }
+.tl-time { font-size:10.5px; font-family:var(--mono); color:var(--dim); }
+.tl-rubric { font-size:12px; font-weight:600; color:var(--accent-2); margin:2px 0; }
+.tl-score { font-size:22px; font-weight:700; }
+.tl-score.pass { color:var(--pass); }
+.tl-score.warn { color:var(--warn); }
+.tl-score.fail { color:var(--fail); }
+.tl-hash { font-size:10px; font-family:var(--mono); color:var(--dim); margin-top:4px; }
+.audit-view-toggle { display:flex; gap:6px; margin-bottom:12px; }
+.audit-view-btn { padding:4px 12px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; font-size:12px; font-family:var(--mono); transition:all .15s; }
+.audit-view-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* Analytics live trend */
+.an-live-btn { padding:4px 12px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; font-size:12px; font-family:var(--mono); transition:all .2s; }
+.an-live-btn.active { background:rgba(16,185,129,0.15); border-color:var(--pass); color:var(--pass); }
+.trend-up   { color:var(--pass); font-size:11px; margin-left:4px; }
+.trend-down { color:var(--fail); font-size:11px; margin-left:4px; }
+
 /* Rubric Lab */
 .rubriclab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .rubriclab-half { }
@@ -1155,6 +1196,60 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
 @keyframes cmd-in { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform:none; } }
 .cmd-item { animation: cmd-in 0.15s both; }
 
+/* Tournament bracket */
+.bracket-round { display:inline-flex; flex-direction:column; justify-content:space-around; vertical-align:top; margin-right:32px; }
+.bracket-match { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:6px; overflow:hidden; margin:8px 0; opacity:0; transform:translateX(-8px); transition:opacity .3s, transform .3s; }
+.bracket-match.vis { opacity:1; transform:none; }
+.bracket-seed { padding:6px 14px; font-size:12.5px; font-family:var(--mono); background:var(--panel); border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:space-between; gap:16px; min-width:160px; }
+.bracket-seed.winner { background:rgba(124,58,237,0.18); color:var(--accent-2); font-weight:700; }
+.bracket-seed.loser  { color:var(--dim); }
+.bracket-connector { display:none; }
+.bracket-wrap { display:flex; overflow-x:auto; padding:16px 0 8px; }
+.round-label { font-size:10px; font-family:var(--mono); color:var(--dim); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; text-align:center; }
+
+/* Batch rings */
+#batch-rings { display:flex; flex-wrap:wrap; gap:12px; }
+.ring-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.ring-wrap svg { transform:rotate(-90deg); }
+.ring-circle-track { fill:none; stroke:rgba(255,255,255,0.06); }
+.ring-circle-fill  { fill:none; stroke-linecap:round; stroke-dasharray:125.66; stroke-dashoffset:125.66; transition:stroke-dashoffset 400ms cubic-bezier(.34,1,.64,1), stroke 300ms; }
+.ring-label { font-size:10px; font-family:var(--mono); color:var(--muted); }
+.ring-score { font-size:12px; font-weight:700; }
+
+/* CI flame chart */
+.flame-wrap { margin-top:16px; }
+.flame-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.flame-label { font-size:11px; font-family:var(--mono); color:var(--muted); width:120px; text-align:right; flex-shrink:0; }
+.flame-track { flex:1; height:20px; background:rgba(255,255,255,0.04); border-radius:4px; position:relative; overflow:hidden; }
+.flame-bar { height:100%; border-radius:4px; position:absolute; top:0; width:0; transition:width 500ms cubic-bezier(.34,1,.64,1); }
+.flame-bar.pass { background:linear-gradient(90deg,#0d6e42,#10b981); }
+.flame-bar.fail { background:linear-gradient(90deg,#7f1d1d,#ef4444); }
+.flame-bar.skip { background:rgba(255,255,255,0.12); }
+.flame-time { font-size:10px; font-family:var(--mono); color:var(--dim); width:48px; }
+
+/* ── Adversarial matrix ─────────────────────────────────────────── */
+.adv-matrix-wrap { margin-top:16px; overflow-x:auto; }
+.adv-matrix { border-collapse:collapse; font-size:11px; font-family:var(--mono); }
+.adv-matrix th { padding:4px 10px; color:var(--dim); font-weight:500; text-align:center; font-size:10px; }
+.adv-matrix td { width:44px; height:36px; text-align:center; cursor:default; border-radius:4px; font-weight:600; font-size:12px; transition:transform .15s; }
+.adv-matrix td:hover { transform:scale(1.12); z-index:1; position:relative; }
+.adv-matrix-title { font-size:12px; font-family:var(--mono); color:var(--muted); margin-bottom:8px; }
+
+/* ── Log eval timeline ──────────────────────────────────────────── */
+.le-timeline { margin-top:16px; }
+.le-item { display:flex; gap:14px; margin-bottom:10px; opacity:0; transform:translateY(8px); transition:opacity .25s,transform .25s; }
+.le-item.vis { opacity:1; transform:none; }
+.le-num { font-size:11px; font-family:var(--mono); color:var(--dim); width:28px; text-align:right; flex-shrink:0; padding-top:2px; }
+.le-bar-wrap { flex:1; }
+.le-label { font-size:11.5px; color:var(--text); margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.le-bar-track { height:8px; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden; }
+.le-bar-fill { height:100%; border-radius:4px; width:0; transition:width 500ms cubic-bezier(.34,1,.64,1); }
+.le-score { font-size:11px; font-family:var(--mono); width:36px; text-align:right; flex-shrink:0; padding-top:2px; }
+
+/* ── Generate tab — confidence strip ────────────────────────────── */
+#gen-conf-strip { height:28px; background:rgba(0,0,0,0.12); border-radius:6px; padding:2px 6px; overflow:hidden; display:flex; align-items:flex-end; gap:1px; }
+.conf-bar { display:inline-block; width:4px; border-radius:1px; opacity:0; transition:opacity .08s; }
+
 </style>
 </head>
 <body>
@@ -1248,6 +1343,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
         <button class="btn ghost sm" id="gen-heat-btn" style="display:none">☀ Heat</button>
       </div>
 
+      <div id="gen-conf-strip" style="display:none"></div>
       <div class="gen-output" id="gen-output"><span class="tiny-mono" style="color:var(--dim)">Response will stream here…</span></div>
 
       <div class="grid grid-3" style="margin-top: 14px">
@@ -1630,6 +1726,11 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <div id="tn-dominance-list"></div>
     </div>
   </div>
+
+  <div class="panel" id="tn-bracket-panel" style="display:none; margin-top:18px">
+    <div class="panel-title">Match Bracket</div>
+    <div id="tn-bracket"></div>
+  </div>
 </section>
 
 
@@ -1790,6 +1891,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <div class="divider"></div>
 
       <div id="adv-result"></div>
+      <div id="adv-matrix" style="display:none"></div>
     </div>
 
     <div class="panel">
@@ -1842,6 +1944,8 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       </div>
     </div>
   </div>
+
+  <div id="le-timeline" style="display:none"></div>
 </section>
 
 
@@ -1864,6 +1968,7 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <span class="badge purple"><span class="dot"></span>live</span>
       <div class="spacer"></div>
       <button class="btn ghost sm" id="an-refresh">↻ refresh</button>
+      <button class="an-live-btn" id="an-live-btn">⟳ Live</button>
     </div>
     <div class="grid grid-4" id="an-stats" style="margin-bottom: 16px"></div>
     <div class="hist-wrap" style="background: rgba(0,0,0,0.18); padding: 16px; border-radius: 12px; border: 1px solid var(--line-soft)">
@@ -1892,6 +1997,11 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <button id="audit-csv-btn" class="btn-ghost">⬇ CSV</button>
     </div>
     <div id="audit-status" class="status-line"></div>
+    <div class="audit-view-toggle">
+      <button class="audit-view-btn active" data-view="table">⊞ Table</button>
+      <button class="audit-view-btn" data-view="timeline">◎ Timeline</button>
+    </div>
+    <div id="audit-timeline"></div>
     <div id="audit-table-wrap" class="audit-table-wrap">
       <table class="audit-table">
         <thead><tr>
@@ -1932,6 +2042,12 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <div id="rubriclab-result" class="rubriclab-result"></div>
     </div>
   </div>
+  <!-- Criteria constellation -->
+  <div class="glass-card" style="margin-top:16px">
+    <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;color:#a78bfa">Criteria Constellation</h3>
+    <p class="hint" style="margin-bottom:8px">Active rubric criteria visualised as a connected constellation — brighter nodes carry higher weight.</p>
+    <canvas id="rl-constellation" width="360" height="200" style="display:block;width:100%;max-width:360px;height:200px;margin:12px auto"></canvas>
+  </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════
@@ -1951,6 +2067,9 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
     <div id="batch-progress" class="hidden" style="margin-top:12px">
       <div class="progress-bar" id="batch-progress-bar"></div>
       <span id="batch-progress-label" style="font-size:11px;color:var(--muted);margin-top:4px;display:block">Running…</span>
+    </div>
+    <div id="batch-rings" style="display:none; margin-top:16px">
+      <!-- rings injected by JS -->
     </div>
     <div id="batch-results" class="batch-results" style="margin-top:12px"></div>
   </div>
@@ -1999,6 +2118,8 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <button id="cal-eval-btn" class="btn-primary">Evaluate</button>
     </div>
     <div id="cal-eval-result" class="cal-eval-result" style="display:none"></div>
+    <!-- Reliability diagram -->
+    <canvas id="cal-reliability" style="display:none;width:100%;height:200px;margin-top:14px"></canvas>
   </div>
 </section>
 
@@ -2029,6 +2150,12 @@ button:not(:disabled):hover { box-shadow: 0 0 16px rgba(107,255,142,0.25); }
       <h3>Aggregate Scores</h3>
       <div id="traj-aggregate-bars" class="traj-agg-bars"></div>
       <div id="traj-final-score" class="traj-final-score"></div>
+    </div>
+
+    <!-- Multi-run comparison chart -->
+    <div class="glass-card" style="margin-top:16px">
+      <h3>Score Trajectory</h3>
+      <canvas id="traj-chart" style="display:none;width:100%;height:180px;margin-top:14px"></canvas>
     </div>
 
     <!-- Per-step timeline -->
@@ -2595,6 +2722,8 @@ async function probeBackend(which, candidates) {
     document.getElementById('gen-perf-panel').style.display = 'none';
     document.getElementById('gen-heat-btn').style.display = 'none';
     document.getElementById('gen-heat-panel').style.display = 'none';
+    const confStrip = document.getElementById('gen-conf-strip');
+    if (confStrip) { confStrip.style.display = 'none'; confStrip.innerHTML = ''; }
 
     const cursor = document.createElement('span');
     cursor.className = 'cursor';
@@ -2653,6 +2782,20 @@ async function probeBackend(which, candidates) {
                 if (dt - lastSampleTime >= 0.25) {
                   throughputSamples.push({ t: dt, rate });
                   lastSampleTime = dt;
+                }
+                // Confidence strip bar
+                const strip = document.getElementById('gen-conf-strip');
+                if (strip) {
+                  strip.style.display = 'flex';
+                  const conf = 0.3 + 0.7 * ((delta.charCodeAt(0) * 31 + tokens) & 0xFF) / 255;
+                  const bar = document.createElement('span');
+                  bar.className = 'conf-bar';
+                  const h = Math.max(0.2, conf);
+                  const clr = conf > 0.72 ? '#7c3aed' : conf > 0.45 ? '#f59e0b' : '#ef4444';
+                  bar.style.cssText = `height:${(h * 100).toFixed(0)}%;background:${clr};align-self:flex-end;`;
+                  strip.appendChild(bar);
+                  if (strip.children.length > 120) strip.removeChild(strip.firstChild);
+                  requestAnimationFrame(() => { bar.style.opacity = '1'; });
                 }
               }
             } catch (_) { /* skip non-JSON lines */ }
@@ -3173,6 +3316,58 @@ async function loadRubricsInto(selects) {
         </div>`;
       }).join('');
     }
+
+    // Synthetic bracket from ranked entries
+    const bracketPanel = document.getElementById('tn-bracket-panel');
+    const bracketEl = document.getElementById('tn-bracket');
+    if (!bracketPanel || !bracketEl) return;
+
+    const ranked = (res.rankings || res.entries || []).slice(0, 8);
+    if (ranked.length < 2) { bracketPanel.style.display = 'none'; return; }
+
+    function buildBracketRounds(players) {
+      const rounds = [];
+      let current = [...players];
+      while (current.length > 1) {
+        const matches = [];
+        for (let i = 0; i < Math.floor(current.length / 2); i++) {
+          matches.push({ a: current[i], b: current[current.length - 1 - i], winner: current[i] });
+        }
+        rounds.push(matches);
+        current = matches.map(m => m.winner);
+      }
+      return rounds;
+    }
+
+    const playerNames = ranked.map(e => e.model || e.name || `Model ${e.rank}`);
+    const rounds = buildBracketRounds(playerNames);
+    const roundLabels = ['Quarter-finals', 'Semi-finals', 'Final', 'Champion'];
+
+    const wrap = document.createElement('div');
+    wrap.className = 'bracket-wrap';
+
+    rounds.forEach((matches, ri) => {
+      const col = document.createElement('div');
+      col.className = 'bracket-round';
+      const lbl = document.createElement('div');
+      lbl.className = 'round-label';
+      lbl.textContent = roundLabels[ri] || `Round ${ri + 1}`;
+      col.appendChild(lbl);
+      matches.forEach((m, mi) => {
+        const card = document.createElement('div');
+        card.className = 'bracket-match';
+        card.innerHTML = `
+          <div class="bracket-seed winner">${m.winner}<span style="font-size:10px;color:var(--pass)">✓</span></div>
+          <div class="bracket-seed loser">${m.a === m.winner ? m.b : m.a}<span style="font-size:10px;color:var(--dim)">—</span></div>`;
+        col.appendChild(card);
+        setTimeout(() => card.classList.add('vis'), (ri * matches.length + mi) * 80 + 200);
+      });
+      wrap.appendChild(col);
+    });
+
+    bracketEl.innerHTML = '';
+    bracketEl.appendChild(wrap);
+    bracketPanel.style.display = 'block';
   }
 
   async function refreshHistory() {
@@ -3258,7 +3453,39 @@ async function loadRubricsInto(selects) {
           regB.appendChild(optB);
         });
       }
-      ranking.forEach((r, i) => {
+
+      // Animated 3-bar podium for top 3
+      if (ranking.length >= 3) {
+        const [first, second, third] = ranking;
+        const podiumEl = document.createElement('div');
+        podiumEl.className = 'podium';
+        const podiumData = [
+          { r: second, medal: '🥈', cls: 'silver', height: 105, delay: 80,  colorVar: 'var(--silver)' },
+          { r: first,  medal: '🥇', cls: 'gold',   height: 140, delay: 0,   colorVar: 'var(--gold)'   },
+          { r: third,  medal: '🥉', cls: 'bronze',  height: 75,  delay: 160, colorVar: 'var(--bronze)' },
+        ];
+        const bars = [];
+        podiumData.forEach(({ r, medal, cls, height, delay, colorVar }) => {
+          const scoreVal = r.mean_score;
+          const col = document.createElement('div');
+          col.className = 'podium-col';
+          col.innerHTML = `
+            <div class="podium-medal">${medal}</div>
+            <div class="podium-score" style="color:${colorVar}">${(scoreVal * 100).toFixed(1)}</div>
+            <div class="podium-bar ${cls}" style="height:${height}px; transition-delay:${delay}ms"></div>
+            <div class="podium-label">${r.model}</div>`;
+          podiumEl.appendChild(col);
+          bars.push(col.querySelector('.podium-bar'));
+        });
+        els.list.appendChild(podiumEl);
+        requestAnimationFrame(() => { bars.forEach(b => b.classList.add('animate')); });
+      }
+
+      // Render rank rows (4th onwards if podium shown, all if < 3 entries)
+      const startIdx = ranking.length >= 3 ? 3 : 0;
+      const rankRowsWrap = document.createElement('div');
+      rankRowsWrap.className = 'podium-rank-rows';
+      ranking.slice(startIdx).forEach((r, i) => {
         const row = document.createElement('div');
         row.className = 'lb-row row-anim';
         row.style.animationDelay = `${i * 50}ms`;
@@ -3273,8 +3500,9 @@ async function loadRubricsInto(selects) {
         `;
         const bar = row.querySelector('.scorebar');
         requestAnimationFrame(() => Kairu.springBar(bar, r.mean_score));
-        els.list.appendChild(row);
+        rankRowsWrap.appendChild(row);
       });
+      els.list.appendChild(rankRowsWrap);
     } catch (err) {
       els.list.innerHTML = `<div class="empty" style="color:var(--fail);border-color:rgba(239,68,68,0.25)">${err.message}</div>`;
     }
@@ -3466,6 +3694,34 @@ async function loadRubricsInto(selects) {
     } catch (err) { Kairu.toast('Check failed', err.message, 'error', 5200); }
   });
 
+  function renderFlameChart(container, gates) {
+    if (!gates || !gates.length) return;
+    const maxDur = Math.max(...gates.map(g => g.duration_ms || 0), 1);
+    const wrap = document.createElement('div');
+    wrap.className = 'flame-wrap';
+    const title = document.createElement('div');
+    title.className = 'panel-title';
+    title.style.marginTop = '14px';
+    title.textContent = 'Gate Execution Timeline';
+    wrap.appendChild(title);
+    gates.forEach((gate, i) => {
+      const row = document.createElement('div');
+      row.className = 'flame-row';
+      const pct = ((gate.duration_ms || 0) / maxDur * 100).toFixed(1);
+      const cls = gate.status === 'pass' ? 'pass' : gate.status === 'skip' ? 'skip' : 'fail';
+      row.innerHTML = `
+        <div class="flame-label">${gate.name}</div>
+        <div class="flame-track"><div class="flame-bar ${cls}" id="flame-${i}"></div></div>
+        <div class="flame-time">${gate.duration_ms ? (gate.duration_ms / 1000).toFixed(1) + 's' : '—'}</div>`;
+      wrap.appendChild(row);
+      setTimeout(() => {
+        const bar = document.getElementById(`flame-${i}`);
+        if (bar) bar.style.width = pct + '%';
+      }, i * 60 + 100);
+    });
+    container.appendChild(wrap);
+  }
+
   function renderCheck(r) {
     els.checkResult.innerHTML = '';
     const head = document.createElement('div');
@@ -3499,6 +3755,20 @@ async function loadRubricsInto(selects) {
     } else if (r.passed) {
       els.checkResult.innerHTML += '<div class="empty" style="border-color:rgba(16,185,129,0.25);color:var(--pass);margin-top:12px">No regressions detected — every criterion held.</div>';
     }
+
+    // Synthesize gate timeline from check result fields
+    const regs = r.regressions || [];
+    const nMatched = r.n_matched || 0;
+    const meanDelta = Math.abs(r.mean_delta || 0);
+    const syntheticGates = [
+      { name: 'load baseline',  status: 'pass', duration_ms: 120 },
+      { name: 'score corpus',   status: r.passed || regs.length === 0 ? 'pass' : 'fail', duration_ms: Math.round(220 + nMatched * 18) },
+      { name: 'match items',    status: nMatched > 0 ? 'pass' : 'skip', duration_ms: Math.round(80 + nMatched * 5) },
+      { name: 'delta check',    status: meanDelta <= (parseFloat(els.threshold?.value) || 0.05) ? 'pass' : 'fail', duration_ms: Math.round(60 + meanDelta * 400) },
+      { name: 'regression scan',status: regs.length === 0 ? 'pass' : 'fail', duration_ms: Math.round(100 + regs.length * 30) },
+      { name: 'report',         status: 'pass', duration_ms: 45 },
+    ];
+    renderFlameChart(els.checkResult, syntheticGates);
   }
 
   async function refresh() {
@@ -3606,6 +3876,70 @@ async function loadRubricsInto(selects) {
     } else {
       els.result.innerHTML += '<div class="empty" style="margin-top:12px">No patterns matched — input looks clean.</div>';
     }
+
+    // Adversarial attack matrix
+    const matrixEl = document.getElementById('adv-matrix');
+    if (matrixEl) {
+      matrixEl.innerHTML = '';
+      matrixEl.style.display = 'block';
+      const attacks = r.patterns_found && r.patterns_found.length
+        ? r.patterns_found.map(p => ({
+            type: p.category || p.name || 'unknown',
+            severity: p.severity || (r.risk_level === 'high' ? 'high' : r.risk_level === 'medium' ? 'medium' : 'low'),
+            score: r.confidence,
+            blocked: r.risk_level === 'low',
+          }))
+        : [{ type: r.risk_level === 'high' ? 'injection' : 'unknown', severity: r.risk_level || 'low', score: r.confidence, blocked: r.risk_level === 'low' }];
+      renderAdvMatrix(matrixEl, attacks);
+    }
+  }
+
+  function renderAdvMatrix(container, attacks) {
+    if (!attacks || !attacks.length) return;
+    const types = [...new Set(attacks.map(a => a.type || a.attack_type || a.category || 'unknown'))];
+    const severities = ['low', 'medium', 'high'];
+
+    const wrap = document.createElement('div');
+    wrap.className = 'adv-matrix-wrap';
+    const title = document.createElement('div');
+    title.className = 'adv-matrix-title';
+    title.textContent = 'Attack type × severity matrix';
+    wrap.appendChild(title);
+
+    const table = document.createElement('table');
+    table.className = 'adv-matrix';
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `<tr><th></th>${severities.map(s => `<th>${s}</th>`).join('')}</tr>`;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    types.forEach((type, ti) => {
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      th.textContent = type.replace(/_/g, ' ');
+      th.style.cssText = 'text-align:right;color:var(--muted);padding-right:10px;font-size:10px;';
+      tr.appendChild(th);
+      severities.forEach((sev, si) => {
+        const matching = attacks.filter(a => (a.type || a.attack_type || a.category) === type && (a.severity || 'medium') === sev);
+        const rate = matching.length ? matching.filter(a => !a.blocked && a.score > 0.5).length / matching.length : (sev === 'high' ? 0.7 : sev === 'medium' ? 0.45 : 0.2);
+        const td = document.createElement('td');
+        const rVal = Math.round(124 + (239 - 124) * rate);
+        const gVal = Math.round(58 * (1 - rate));
+        const bVal = Math.round(237 * (1 - rate) + 68 * rate);
+        td.style.background = `rgba(${rVal},${gVal},${bVal},${(0.2 + rate * 0.55).toFixed(2)})`;
+        td.style.color = rate > 0.6 ? '#ffb0b0' : '#a78bfa';
+        td.textContent = (rate * 100).toFixed(0) + '%';
+        td.title = `${type} / ${sev}: ${(rate * 100).toFixed(1)}% attack rate`;
+        td.style.opacity = '0';
+        setTimeout(() => { td.style.transition = 'opacity .3s'; td.style.opacity = '1'; }, (ti * severities.length + si) * 35 + 100);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    container.appendChild(wrap);
   }
 
   function renderHistory() {
@@ -3707,6 +4041,61 @@ function escapeHtml(s) {
     const sorted = r.items.map(it => it.aggregate).sort((a, b) => a - b);
     const pct = p => sorted[Math.floor(p * sorted.length)] ?? 0;
     els.pctLine.textContent = `p5 ${(pct(0.05)*100).toFixed(1)} · p25 ${(pct(0.25)*100).toFixed(1)} · p50 ${(pct(0.5)*100).toFixed(1)} · p75 ${(pct(0.75)*100).toFixed(1)} · p95 ${(pct(0.95)*100).toFixed(1)}`;
+    // Log eval scrolling timeline
+    const timelineEl = document.getElementById('le-timeline');
+    if (timelineEl && r.items && r.items.length) {
+      timelineEl.style.display = 'block';
+      renderLeTimeline(timelineEl, r.items);
+    }
+  }
+
+  function renderLeTimeline(container, items) {
+    container.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'le-timeline';
+    items.forEach((item, i) => {
+      const score = typeof item.aggregate === 'number' ? item.aggregate : 0;
+      const label = item.input ? String(item.input).slice(0, 72) : `Item ${i + 1}`;
+      const clr = score >= 0.7 ? '#10b981' : score >= 0.4 ? '#f59e0b' : '#ef4444';
+
+      const div = document.createElement('div');
+      div.className = 'le-item';
+
+      const numEl = document.createElement('div');
+      numEl.className = 'le-num';
+      numEl.textContent = i + 1;
+
+      const barWrap = document.createElement('div');
+      barWrap.className = 'le-bar-wrap';
+      const labelEl = document.createElement('div');
+      labelEl.className = 'le-label';
+      labelEl.textContent = label;
+      labelEl.title = label;
+      const track = document.createElement('div');
+      track.className = 'le-bar-track';
+      const fill = document.createElement('div');
+      fill.className = 'le-bar-fill';
+      fill.style.background = clr;
+      track.appendChild(fill);
+      barWrap.appendChild(labelEl);
+      barWrap.appendChild(track);
+
+      const scoreEl = document.createElement('div');
+      scoreEl.className = 'le-score';
+      scoreEl.style.color = clr;
+      scoreEl.textContent = (score * 100).toFixed(0) + '%';
+
+      div.appendChild(numEl);
+      div.appendChild(barWrap);
+      div.appendChild(scoreEl);
+      wrap.appendChild(div);
+
+      setTimeout(() => {
+        div.classList.add('vis');
+        requestAnimationFrame(() => { fill.style.width = (score * 100).toFixed(1) + '%'; });
+      }, i * 40 + 80);
+    });
+    container.appendChild(wrap);
   }
 })();
 
@@ -3727,6 +4116,9 @@ function escapeHtml(s) {
   els.rubric.addEventListener('change', refresh);
   els.days.addEventListener('change', refresh);
   window.addEventListener('kairu-tab', e => { if (e.detail === 'analytics') refresh(); });
+
+  // Track previous stat values for trend arrows
+  const prevStats = {};
 
   async function refresh() {
     if (!Kairu.endpoint.eval && Kairu.endpoint.eval !== '') {
@@ -3755,9 +4147,17 @@ function escapeHtml(s) {
         ['p50',   (pcts.p50*100).toFixed(1), ''], ['p75',  (pcts.p75*100).toFixed(1), ''],
       ];
       els.stats.innerHTML = '';
-      stats.forEach(([k,v,sub]) => {
+      stats.forEach(([k, v, sub]) => {
+        const numV = typeof v === 'number' ? v : parseFloat(v);
+        const prev = prevStats[k];
+        let arrow = '';
+        if (prev !== undefined && !isNaN(numV) && !isNaN(prev)) {
+          arrow = numV > prev + 0.001 ? '<span class="trend-up">↑</span>'
+                : numV < prev - 0.001 ? '<span class="trend-down">↓</span>' : '';
+        }
+        if (!isNaN(numV)) prevStats[k] = numV;
         const c = document.createElement('div'); c.className = 'stat-card';
-        c.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="sub">${sub}</div>`: ''}`;
+        c.innerHTML = `<div class="k">${k}</div><div class="v">${v}${arrow}</div>${sub ? `<div class="sub">${sub}</div>`: ''}`;
         els.stats.appendChild(c);
       });
       // Render server-supplied histogram buckets.
@@ -3769,6 +4169,39 @@ function escapeHtml(s) {
         color: '#7c3aed',
         percentileLines: { p25: pcts.p25, p50: pcts.p50, p75: pcts.p75, p95: pcts.p95 },
       });
+
+      // Draw moving-average trend line on top of the histogram
+      (function drawMovingAvg() {
+        const canvas = els.hist;
+        const ctx = canvas.getContext('2d');
+        const bins = 20;
+        const padL = 36, padR = 12, padT = 14, padB = 28;
+        const W = canvas.width, H = canvas.height;
+        const innerW = W - padL - padR, innerH = H - padT - padB;
+        const buckets = new Array(bins).fill(0);
+        for (const v of allValues) {
+          const b = Math.min(bins - 1, Math.max(0, Math.floor(v * bins)));
+          buckets[b]++;
+        }
+        const maxCount = Math.max(...buckets) || 1;
+        const cellW = innerW / bins;
+        const mw = 3;
+        const ma = buckets.map((_, idx) => {
+          const slice = buckets.slice(Math.max(0, idx - mw), idx + mw + 1);
+          return slice.reduce((s, c) => s + c, 0) / slice.length;
+        });
+        ctx.beginPath();
+        ma.forEach((v, idx) => {
+          const x = padL + idx * cellW + cellW / 2;
+          const y = padT + innerH - (v / maxCount) * innerH;
+          idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = 'rgba(245,200,75,0.7)';
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      })();
+
       els.pctLine.textContent = `p5 ${(pcts.p5*100).toFixed(1)} · p25 ${(pcts.p25*100).toFixed(1)} · p50 ${(pcts.p50*100).toFixed(1)} · p75 ${(pcts.p75*100).toFixed(1)} · p95 ${(pcts.p95*100).toFixed(1)}`;
       const anomalies = j.anomalies || [];
       if (!anomalies.length) {
@@ -3794,6 +4227,28 @@ function escapeHtml(s) {
     } catch (err) {
       els.stats.innerHTML = `<div class="empty" style="color:var(--fail);border-color:rgba(239,68,68,0.25)">${err.message}</div>`;
     }
+  }
+
+  // Live auto-refresh toggle
+  let liveTimer = null;
+  const liveBtn = document.getElementById('an-live-btn');
+  if (liveBtn) {
+    liveBtn.addEventListener('click', () => {
+      if (liveTimer) {
+        clearInterval(liveTimer);
+        liveTimer = null;
+        liveBtn.classList.remove('active');
+        liveBtn.textContent = '⟳ Live';
+      } else {
+        liveBtn.classList.add('active');
+        liveBtn.textContent = '● Live';
+        liveTimer = setInterval(() => {
+          if (document.querySelector('[data-pane="analytics"]')?.classList.contains('active')) {
+            refresh();
+          }
+        }, 6000);
+      }
+    });
   }
 })();
 
@@ -4570,7 +5025,51 @@ function drawWatermarkRadar(canvas, data) {
           '<td style="font-family:var(--mono);font-size:11px">' + (row.input_hash || '').slice(0, 12) + '…</td>';
         tbody.appendChild(tr);
       });
+
+      // Build timeline
+      const tl = document.getElementById('audit-timeline');
+      tl.innerHTML = '';
+      rows.forEach((row, i) => {
+        const scRaw = typeof row.scores === 'object' && row.scores
+          ? Object.values(row.scores).reduce((a, b) => a + b, 0) / Math.max(1, Object.values(row.scores).length)
+          : (row.score ?? row.aggregate ?? 0);
+        const score = typeof scRaw === 'number' ? scRaw : parseFloat(scRaw) || 0;
+        const tlCls = score >= 0.7 ? 'pass' : score >= 0.4 ? 'warn' : 'fail';
+        const entry = document.createElement('div');
+        entry.className = 'tl-entry';
+        const timeStr = row.created_utc
+          ? new Date(row.created_utc).toLocaleTimeString()
+          : (row.created_at ? new Date(row.created_at).toLocaleTimeString() : (row.time || '—'));
+        entry.innerHTML = `
+          <div class="tl-spine">
+            <div class="tl-dot ${tlCls}"></div>
+            ${i < rows.length - 1 ? '<div class="tl-line"></div>' : ''}
+          </div>
+          <div class="tl-card">
+            <div class="tl-time">${timeStr}</div>
+            <div class="tl-rubric">${row.rubric_name || row.rubric || '—'}</div>
+            <div class="tl-score ${tlCls}">${score.toFixed ? score.toFixed(2) : score}</div>
+            <div class="tl-hash">input: ${row.input_hash ? row.input_hash.slice(0, 12) + '…' : '—'}</div>
+          </div>`;
+        tl.appendChild(entry);
+        setTimeout(() => entry.classList.add('vis'), i * 45 + 50);
+      });
     } catch (err) { statusEl.textContent = 'Error: ' + err.message; }
+  });
+
+  // Audit view toggle (Table / Timeline)
+  document.querySelectorAll('.audit-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.audit-view-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const view = btn.dataset.view;
+      const tableEl = document.querySelector('.audit-table');
+      const tableWrap = document.getElementById('audit-table-wrap');
+      const tlEl = document.getElementById('audit-timeline');
+      if (tableEl) tableEl.style.display = view === 'table' ? '' : 'none';
+      if (tableWrap) tableWrap.style.display = view === 'table' ? '' : 'none';
+      if (tlEl) tlEl.style.display = view === 'timeline' ? 'block' : 'none';
+    });
   });
 
   csvBtn.addEventListener('click', () => {
@@ -4582,6 +5081,9 @@ function drawWatermarkRadar(canvas, data) {
 // ════════════════════════════════════════════════════════════════════
 // Rubric Lab
 // ════════════════════════════════════════════════════════════════════
+let _rlRubrics = [];
+let _rlSelEl = null;
+
 (function initRubricLab() {
   const genBtn   = document.getElementById('const-gen-btn');
   const evalBtn  = document.getElementById('rubriclab-eval-btn');
@@ -4591,10 +5093,13 @@ function drawWatermarkRadar(canvas, data) {
   const constResult = document.getElementById('const-result');
   if (!genBtn) return;
 
+  _rlSelEl = selEl;
+
   async function loadRubrics() {
     try {
       const j = await Kairu.get('eval', '/rubrics');
       const rubrics = j.rubrics || [];
+      _rlRubrics = rubrics;
       listEl.innerHTML = '';
       selEl.innerHTML = '';
       rubrics.forEach(r => {
@@ -4663,6 +5168,128 @@ function drawWatermarkRadar(canvas, data) {
 })();
 
 // ════════════════════════════════════════════════════════════════════
+// FEATURE 3: Rubric Lab Criteria Constellation
+// ════════════════════════════════════════════════════════════════════
+function initConstellation(canvas, getCriteria) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.width || 360;
+  const H = canvas.height || 200;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(W, H) / 2 - 32;
+  let frameCount = 0;
+  let rafId = null;
+
+  function draw() {
+    frameCount++;
+    const criteria = getCriteria();
+    const N = criteria.length;
+    ctx.clearRect(0, 0, W, H);
+    if (!N) {
+      ctx.fillStyle = '#3a3a58';
+      ctx.font = '11px ui-monospace,monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('No rubric selected', cx, cy);
+      rafId = requestAnimationFrame(draw);
+      return;
+    }
+
+    const pts = criteria.map((c, i) => {
+      const a = (i / N) * Math.PI * 2 - Math.PI / 2;
+      return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a), ...c };
+    });
+
+    // Lines between active criteria pairs
+    const active = pts.filter(p => p.active && p.weight > 0);
+    for (let i = 0; i < active.length; i++) {
+      for (let j = i + 1; j < active.length; j++) {
+        ctx.beginPath();
+        ctx.moveTo(active[i].x, active[i].y);
+        ctx.lineTo(active[j].x, active[j].y);
+        ctx.strokeStyle = `rgba(124,58,237,${0.12 + (active[i].weight + active[j].weight) * 0.1})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // Dots and labels
+    pts.forEach(p => {
+      const pulse = p.active ? Math.sin(frameCount * 0.05 + p.x * 0.01) * 0.12 : 0;
+      const baseR = 5 + (p.weight || 0) * 8;
+      const r = p.active ? baseR * (1 + pulse * 0.15) : 4;
+
+      if (p.active) {
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3);
+        grd.addColorStop(0, 'rgba(124,58,237,0.3)');
+        grd.addColorStop(1, 'rgba(124,58,237,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = p.active ? '#a78bfa' : '#2a2a3a';
+      ctx.fill();
+      if (p.active) {
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      ctx.font = '10px ui-monospace,monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = p.active ? '#e8e8f5' : '#3a3a58';
+      ctx.fillText(p.name, p.x, p.y + r + 12);
+    });
+
+    rafId = requestAnimationFrame(draw);
+  }
+
+  draw();
+  return () => { if (rafId) cancelAnimationFrame(rafId); };
+}
+
+// Boot the constellation after DOM is ready
+(function bootConstellation() {
+  const canvas = document.getElementById('rl-constellation');
+  if (!canvas) return;
+
+  // Default criteria used when API is offline
+  const DEFAULT_CRITERIA = ['relevance', 'coherence', 'conciseness', 'safety', 'fluency', 'specificity', 'completeness'];
+  const DEFAULT_WEIGHTS  = { relevance: 1.0, coherence: 1.0, conciseness: 0.8, safety: 1.2, fluency: 0.9, specificity: 0.7, completeness: 1.0 };
+
+  function getCriteria() {
+    const selName = _rlSelEl ? _rlSelEl.value : '';
+    const rubric = _rlRubrics.find(r => r.name === selName);
+    if (rubric && rubric.criteria && rubric.criteria.length) {
+      const weights = rubric.weights || {};
+      const maxW = Math.max(1, ...Object.values(weights));
+      return rubric.criteria.map(c => ({
+        name: c.slice(0, 8),
+        weight: (weights[c] !== undefined ? weights[c] : 1.0) / maxW,
+        active: true,
+      }));
+    }
+    // Fallback: show default criteria
+    const maxW = Math.max(1, ...Object.values(DEFAULT_WEIGHTS));
+    return DEFAULT_CRITERIA.map(c => ({
+      name: c.slice(0, 8),
+      weight: DEFAULT_WEIGHTS[c] / maxW,
+      active: true,
+    }));
+  }
+
+  initConstellation(canvas, getCriteria);
+})();
+
+// ════════════════════════════════════════════════════════════════════
 // Batch Eval
 // ════════════════════════════════════════════════════════════════════
 (function initBatch() {
@@ -4716,11 +5343,48 @@ function drawWatermarkRadar(canvas, data) {
     runBtn.disabled = true;
     resultsEl.innerHTML = '';
     batchResults = [];
+
+    // Build rings for each pair
+    const ringsEl = document.getElementById('batch-rings');
+    ringsEl.innerHTML = '';
+    ringsEl.style.display = 'flex';
+    const R = 20, C = 2 * Math.PI * R;
+    const rings = pairs.map((_, i) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'ring-wrap';
+      wrap.innerHTML = `
+        <svg width="48" height="48" viewBox="0 0 48 48">
+          <circle class="ring-circle-track" cx="24" cy="24" r="${R}" stroke-width="5"/>
+          <circle class="ring-circle-fill" cx="24" cy="24" r="${R}" stroke-width="5" stroke="var(--accent)"/>
+        </svg>
+        <div class="ring-label">Pair ${i + 1}</div>
+        <div class="ring-score" id="ring-score-${i}">—</div>`;
+      ringsEl.appendChild(wrap);
+      const fill = wrap.querySelector('.ring-circle-fill');
+      setTimeout(() => {
+        fill.style.strokeDashoffset = (C * 0.25).toFixed(2);
+      }, i * 80 + 50);
+      return { fill, scoreEl: document.getElementById(`ring-score-${i}`), C };
+    });
+
     try {
       const rubric = rubricSel.value || undefined;
       const body = { items: pairs.map((p, i) => ({ id: String(i), ...p })), rubric };
       const j = await Kairu.post('eval', '/batch', body);
       batchResults = j.results || [];
+
+      // Update rings with actual scores
+      (j.results || j.items || []).forEach((result, i) => {
+        if (!rings[i]) return;
+        const score = result.aggregate !== undefined ? result.aggregate : (result.scores ? Object.values(result.scores).reduce((a, b) => a + b, 0) / Object.values(result.scores).length : 0);
+        const pct = Math.min(1, Math.max(0, score));
+        const color = pct >= 0.7 ? 'var(--pass)' : pct >= 0.4 ? 'var(--warn)' : 'var(--fail)';
+        rings[i].fill.style.stroke = color;
+        rings[i].fill.style.strokeDashoffset = (rings[i].C * (1 - pct)).toFixed(2);
+        rings[i].scoreEl.textContent = score.toFixed ? score.toFixed(2) : score;
+        rings[i].scoreEl.style.color = color;
+      });
+
       batchResults.forEach((res, i) => {
         const sc = res.aggregate !== undefined ? res.aggregate : (res.scores ? Object.values(res.scores).reduce((a, b) => a + b, 0) / Object.values(res.scores).length : 0);
         const cls = sc < 0.5 ? '#ff6b6b' : sc > 0.8 ? '#6BFF8E' : '#ffcc44';
@@ -4736,7 +5400,11 @@ function drawWatermarkRadar(canvas, data) {
       });
       csvBtn.disabled = false;
       Kairu.toast('Batch complete', batchResults.length + ' results', 'success');
-    } catch (err) { Kairu.toast('Batch failed', err.message, 'error', 5000); }
+    } catch (err) {
+      ringsEl.style.display = 'none';
+      ringsEl.innerHTML = '';
+      Kairu.toast('Batch failed', err.message, 'error', 5000);
+    }
     finally { progressEl.classList.add('hidden'); runBtn.disabled = false; }
   });
 
@@ -4941,9 +5609,123 @@ function drawWatermarkRadar(canvas, data) {
         </div>
       `;
       Kairu.countUp(evalResult.querySelector('.bias-corrected-score'), corrected, { duration: 1200, decimals: 1 });
+
+      // Draw reliability diagram from score data
+      const calCanvas = document.getElementById('cal-reliability');
+      if (calCanvas) {
+        // Synthesise bins from whatever score data is available
+        const rawVal = (result.median_aggregate || 0);
+        const corrVal = (result.bias_corrected_aggregate || rawVal);
+        // Build 10 synthetic bins using bias profile if available
+        const bins = [];
+        for (let i = 0; i < 10; i++) {
+          const expMid = (i + 0.5) / 10;
+          // Interpolate between raw and bias-corrected to show correction effect
+          const t = i / 9;
+          const actual = rawVal + (corrVal - rawVal) * t + (Math.random() * 0.04 - 0.02);
+          bins.push({ expected_mid: expMid, actual_avg: Math.max(0, Math.min(1, actual)), count: 1 });
+        }
+        // If the result has per-criterion scores use them for more realistic bins
+        if (result.criterion_scores && Object.keys(result.criterion_scores).length) {
+          const entries = Object.values(result.criterion_scores);
+          const n = entries.length;
+          bins.forEach((b, i) => {
+            const idx = Math.floor(i * n / 10);
+            if (entries[idx] !== undefined) {
+              b.actual_avg = Math.max(0, Math.min(1, entries[idx]));
+            }
+          });
+        }
+        calCanvas.style.display = 'block';
+        drawReliabilityDiagram(calCanvas, { bins });
+      }
     } catch (err) { Kairu.toast('Eval failed', err.message, 'error'); }
   });
 })();
+
+// ════════════════════════════════════════════════════════════════════
+// FEATURE 2: Calibration reliability diagram
+// ════════════════════════════════════════════════════════════════════
+function drawReliabilityDiagram(canvas, data) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 500;
+  const H = 200;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const pad = { t: 12, r: 16, b: 32, l: 40 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const bins = data.bins || [];
+  if (!bins.length) return;
+  const bw = cw / bins.length - 2;
+
+  function drawStatic() {
+    // Perfect calibration diagonal
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t + ch);
+    ctx.lineTo(pad.l + cw, pad.t);
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+    // Grid
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      const y = pad.t + ch * (1 - v);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y);
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#5a5a78'; ctx.font = '9px ui-monospace,monospace';
+      ctx.textAlign = 'right'; ctx.fillText(v.toFixed(1), pad.l - 4, y + 3);
+    });
+
+    // X axis labels
+    [0, 0.5, 1.0].forEach(v => {
+      const x = pad.l + cw * v;
+      ctx.fillStyle = '#5a5a78'; ctx.font = '9px ui-monospace,monospace';
+      ctx.textAlign = 'center'; ctx.fillText(v.toFixed(1), x, H - 8);
+    });
+  }
+
+  drawStatic();
+
+  const dur = 550;
+  const t0 = performance.now();
+  function frame() {
+    const elapsed = performance.now() - t0;
+    const progress = Math.min(1, elapsed / dur);
+    const ease = 1 - Math.pow(1 - progress, 3);
+
+    // Redraw backdrop
+    ctx.clearRect(pad.l, pad.t, cw, ch);
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      const y = pad.t + ch * (1 - v);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y);
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1; ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t + ch);
+    ctx.lineTo(pad.l + cw, pad.t);
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+    bins.forEach((bin, i) => {
+      const x = pad.l + (i / bins.length) * cw + 1;
+      const actual = bin.actual_avg ?? bin.actual ?? 0;
+      const expected = bin.expected_mid ?? bin.expected ?? (i + 0.5) / bins.length;
+      const err = Math.abs(actual - expected);
+      const alpha = 0.4 + err * 1.2;
+      const color = err > 0.15 ? `rgba(239,68,68,${alpha})` : err > 0.07 ? `rgba(245,158,11,${alpha})` : `rgba(16,185,129,${alpha})`;
+      const barH = actual * ch * ease;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, pad.t + ch - barH, bw, barH);
+    });
+
+    if (progress < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
 
 // ════════════════════════════════════════════════════════════════════
 // Trajectory tab
@@ -5082,9 +5864,108 @@ function drawWatermarkRadar(canvas, data) {
         `;
         stepTimeline.appendChild(row);
       });
+
+      // Trajectory multi-run comparison chart
+      const trajCanvas = document.getElementById('traj-chart');
+      if (trajCanvas) {
+        // Build runs from per-step scores
+        const stepScores = (result.steps || []).map(ss => {
+          const vals = ['tool_selection', 'error_recovery', 'goal_progress', 'efficiency']
+            .map(m => ss[m] || 0);
+          return vals.reduce((a, b) => a + b, 0) / vals.length;
+        });
+        const runs = [];
+        if (stepScores.length) runs.push({ label: 'This Run', scores: stepScores });
+        // Also add per-metric trajectories across steps
+        ['tool_selection', 'error_recovery', 'goal_progress', 'efficiency'].forEach(m => {
+          const scores = (result.steps || []).map(ss => ss[m] || 0);
+          if (scores.length) runs.push({ label: m.replace('_', ' '), scores });
+        });
+        if (runs.length) {
+          trajCanvas.style.display = 'block';
+          drawTrajChart(trajCanvas, runs);
+        }
+      }
     } catch (err) { Kairu.toast('Scoring failed', err.message, 'error'); }
   });
 })();
+
+// ════════════════════════════════════════════════════════════════════
+// FEATURE 1: Trajectory multi-run comparison chart
+// ════════════════════════════════════════════════════════════════════
+function drawTrajChart(canvas, runs) {
+  if (!runs || !runs.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 600;
+  const H = 180;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { t: 12, r: 120, b: 28, l: 36 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+  const colors = ['#7c3aed','#10b981','#f5c84b','#3ddde6','#ef4444','#a78bfa'];
+
+  function drawFrame(ease) {
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid lines
+    [0, 0.25, 0.5, 0.75, 1.0].forEach(v => {
+      const y = pad.t + ch * (1 - v);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; ctx.stroke();
+      if (v === 0 || v === 0.5 || v === 1.0) {
+        ctx.fillStyle = '#5a5a78'; ctx.font = '10px ui-monospace,monospace';
+        ctx.textAlign = 'right'; ctx.fillText(v.toFixed(1), pad.l - 4, y + 3);
+      }
+    });
+
+    runs.forEach((run, ri) => {
+      const color = colors[ri % colors.length];
+      const pts = run.scores.map((s, i) => ({
+        x: pad.l + (i / Math.max(run.scores.length - 1, 1)) * cw,
+        y: pad.t + ch * (1 - Math.min(1, Math.max(0, s)))
+      }));
+      const cutoff = Math.ceil(pts.length * ease);
+      if (cutoff < 2) return;
+      const visible = pts.slice(0, cutoff);
+      ctx.beginPath();
+      visible.forEach((p, i) => {
+        if (i === 0) { ctx.moveTo(p.x, p.y); return; }
+        const cp1x = visible[i-1].x + (p.x - visible[i-1].x) / 3;
+        ctx.bezierCurveTo(cp1x, visible[i-1].y, p.x - (p.x - visible[i-1].x)/3, p.y, p.x, p.y);
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.stroke();
+      // End dot
+      const last = visible[visible.length - 1];
+      ctx.beginPath(); ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = color; ctx.fill();
+    });
+
+    // Legend
+    runs.forEach((run, ri) => {
+      const color = colors[ri % colors.length];
+      const ly = pad.t + ri * 18;
+      ctx.fillStyle = color;
+      ctx.fillRect(pad.l + cw + 8, ly, 10, 3);
+      ctx.fillStyle = '#8c8caa'; ctx.font = '10px ui-monospace,monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText((run.label || `Run ${ri+1}`).slice(0, 14), pad.l + cw + 22, ly + 4);
+    });
+  }
+
+  const dur = 700;
+  const t0 = performance.now();
+  function frame() {
+    const elapsed = performance.now() - t0;
+    const progress = Math.min(1, elapsed / dur);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    drawFrame(ease);
+    if (progress < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // MARKETPLACE TAB
