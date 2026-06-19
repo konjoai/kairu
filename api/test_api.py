@@ -1403,3 +1403,59 @@ async def test_prompt_unknown_get_returns_404(client: AsyncClient) -> None:
 async def test_prompt_rejects_bad_name(client: AsyncClient) -> None:
     r = await client.post("/prompts", json={"name": "with spaces", "text": "x"})
     assert r.status_code == 422
+
+
+# ----------------------------- /evaluate/cyclic -----------------------------
+
+
+def _cyclic_body() -> dict:
+    return {
+        "items": [
+            {"prompt": "Define entropy.", "response": "Entropy measures disorder."},
+            {"prompt": "What is 2+2?", "response": "Four."},
+            {"prompt": "Capital of France?", "response": "Paris is the capital."},
+        ],
+        "judges": [
+            {"name": "alpha", "noise": 0.05, "seed": 1},
+            {"name": "beta", "noise": 0.05, "seed": 2},
+        ],
+    }
+
+
+async def test_cyclic_eval_ok(client: AsyncClient) -> None:
+    r = await client.post("/evaluate/cyclic", json=_cyclic_body())
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["per_item"]) == 3
+    assert len(body["assignments"]) == 3
+    assert body["balance"] <= 1
+    assert body["interval"]["n"] == 3
+    assert body["interval"]["lo"] <= body["interval"]["mean"] <= body["interval"]["hi"]
+
+
+async def test_cyclic_eval_round_robin_assignment(client: AsyncClient) -> None:
+    r = await client.post("/evaluate/cyclic", json=_cyclic_body())
+    judges = [a[1] for a in r.json()["assignments"]]
+    assert judges == ["alpha", "beta", "alpha"]
+
+
+async def test_cyclic_eval_rejects_duplicate_judges(client: AsyncClient) -> None:
+    body = _cyclic_body()
+    body["judges"] = [{"name": "dup"}, {"name": "dup"}]
+    r = await client.post("/evaluate/cyclic", json=body)
+    assert r.status_code == 422
+
+
+async def test_cyclic_eval_requires_items(client: AsyncClient) -> None:
+    body = _cyclic_body()
+    body["items"] = []
+    r = await client.post("/evaluate/cyclic", json=body)
+    assert r.status_code == 422
+
+
+async def test_cyclic_eval_offset_rotates(client: AsyncClient) -> None:
+    body = _cyclic_body()
+    body["offset"] = 1
+    r = await client.post("/evaluate/cyclic", json=body)
+    judges = [a[1] for a in r.json()["assignments"]]
+    assert judges == ["beta", "alpha", "beta"]

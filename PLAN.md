@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.23.0**
+Current version: **v0.24.0**
 
 ---
 
@@ -80,6 +80,22 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### ✅ v0.24.0 — CyclicJudge: round-robin allocation + coverage-correct intervals *(DONE)*
+
+- **`kairu/cyclic_judge.py`** — `cyclic_allocate` (round-robin judge
+  assignment, CyclicJudge / arXiv:2603.01865), `cyclic_evaluate` →
+  `CyclicEvalReport` (one rotating judge per item at single-judge cost +
+  load-balance diagnostic), `batch_mean_interval` → `MeanInterval`
+  (Student-t CI over independent per-item aggregates — the coverage-correct
+  sampling unit; cf. CJE / arXiv:2512.11150, which shows criterion-level CIs
+  have ~0% coverage), `variance_components` → `VarianceComponents` (two-way
+  ANOVA judge/item/residual split), `full_grid_scores` (N·K reference run).
+- **`POST /evaluate/cyclic`** — boundary-validated round-robin batch endpoint.
+- **Housekeeping:** reconciled the 0.20.0→0.24.0 version-stamp drift across
+  `pyproject.toml` + `kairu/__init__.py`; fixed the `watermark.py` docstring
+  `DeprecationWarning`.
+- 41 new tests; suite: **777 passed**, 4 HF-gated skipped.
 
 ### ✅ v0.23.0 — Rubric Marketplace (last P3 item) *(DONE)*
 

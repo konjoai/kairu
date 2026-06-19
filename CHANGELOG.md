@@ -4,6 +4,52 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.24.0] — 2026-06-19
+
+### Added — CyclicJudge: round-robin allocation + coverage-correct intervals
+
+**New Python module `kairu/cyclic_judge.py`** (pure stdlib + `kairu.ensemble`):
+- `cyclic_allocate(n_items, n_judges, offset)` — deterministic round-robin
+  judge assignment. Item `i` → judge `(i + offset) % n_judges`, balancing
+  every judge across the batch to within one item (CyclicJudge,
+  arXiv:2603.01865), so systematic per-judge offsets cancel in the batch
+  mean instead of summing.
+- `cyclic_evaluate(items, judges, *, offset, confidence)` → `CyclicEvalReport`
+  — scores each item with exactly one rotating judge (single-judge cost),
+  reporting per-judge load balance, per-judge mean (systematic-bias
+  diagnostic), and the coverage-correct batch-mean interval.
+- `batch_mean_interval(aggregates, confidence)` → `MeanInterval` — Student-t
+  interval over **independent per-item aggregates**, the sampling unit that
+  achieves nominal coverage. The existing `paired_t_test` builds its CI over
+  criteria *within one item* — the wrong unit, which Causal Judge Evaluation
+  (arXiv:2512.11150) shows yields ~0% empirical coverage.
+- `variance_components(grid)` → `VarianceComponents` — two-way ANOVA
+  decomposition of a judge × item score grid into judge / item / residual
+  sums of squares. `judge_variance_fraction` is the share attributable to
+  systematic judge disagreement; when small, round-robin is safe.
+- `full_grid_scores(items, judges)` — the N·K reference run that feeds
+  `variance_components` on a calibration slice.
+
+**New endpoint `POST /evaluate/cyclic`** in `api/main.py` — round-robin batch
+evaluation; boundary-validated (≤200 items, ≤16 judges, unique judge names),
+returns the full `CyclicEvalReport`.
+
+**`kairu/__init__.py`** exports `cyclic_allocate`, `cyclic_evaluate`,
+`batch_mean_interval`, `variance_components`, `full_grid_scores`,
+`MeanInterval`, `JudgeLoad`, `VarianceComponents`, `CyclicEvalReport`,
+`DEFAULT_CONFIDENCE`.
+
+### Fixed
+- **Version drift reconciled.** `pyproject.toml` + `kairu/__init__.py` were
+  stuck at `0.20.0` while shipped work (v0.21–v0.23) had advanced the docs;
+  both stamps now read `0.24.0`.
+- `kairu/watermark.py` module docstring is now a raw string — silences the
+  `DeprecationWarning: invalid escape sequence '\ '` raised by the `V \ G`
+  set-difference notation.
+
+**Tests:** 41 new tests (`tests/test_cyclic_judge.py` [36] + 5 API tests in
+`api/test_api.py`); suite: **777 passed**, 4 HF-gated skipped.
+
 ## [0.23.0] — 2026-06-11
 
 ### Added — Rubric Marketplace (last P3 strategic item)

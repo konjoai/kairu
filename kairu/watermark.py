@@ -1,4 +1,4 @@
-"""Token watermarking for LLM output integrity.
+r"""Token watermarking for LLM output integrity.
 
 Implements the Kirchenbauer et al. (2023) green/red list scheme:
 
