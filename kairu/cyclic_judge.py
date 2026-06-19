@@ -1,41 +1,23 @@
 """Round-robin judge allocation + coverage-correct batch intervals.
 
-Why this module exists
-----------------------
-:mod:`kairu.ensemble` runs **every** judge on **every** item and aggregates
-by median. That is the right call for a single high-stakes item, but it has
-two problems at batch scale:
+:mod:`kairu.ensemble` runs every judge on every item and median-aggregates —
+right for one high-stakes item, but at batch scale it costs N·K calls and,
+worse, only shrinks per-item outliers while leaving a *systematic* per-judge
+offset fully intact in the aggregate. **CyclicJudge** (arXiv:2603.01865)
+proves round-robin allocation — rotate which single judge scores each item —
+balances every judge across the batch at single-judge cost, so systematic
+offsets cancel in the batch mean instead of summing.
 
-1. **Cost.** N items × K judges = N·K judge calls. For a 1000-item eval
-   sweep with three judges that is 3000 calls when 1000 would do.
-2. **Bias is averaged, not eliminated.** Median-over-judges shrinks one
-   outlier per item but leaves a *systematic* judge offset (every judge
-   over-rates fluency by 0.1) fully intact in the aggregate.
+:func:`batch_mean_interval` then builds the Student-t interval over
+*independent per-item aggregates*. That sampling unit matters: a CI built
+over the *criteria within one item* (as :func:`kairu.significance.paired_t_test`
+does) has ~0 % empirical coverage for "true mean quality" — Causal Judge
+Evaluation, arXiv:2512.11150. The items are the independent draws.
 
-**CyclicJudge** (Slingshot AI / Cambridge, arXiv:2603.01865) proves that
-*round-robin* allocation — rotate which single judge scores each item —
-balances every judge equally across the batch at single-judge cost, so
-systematic per-judge offsets cancel in the batch mean instead of summing.
-
-Coverage-correct intervals
----------------------------
-:func:`kairu.significance.paired_t_test` builds a confidence interval over
-the *criteria within one item*. That is the wrong sampling unit for the
-question "what is this model's true mean quality?" — the independent draws
-are the **items**, not the criteria. Causal Judge Evaluation
-(arXiv:2512.11150) shows that naive judge CIs built on the wrong unit have
-~0 % empirical coverage. :func:`batch_mean_interval` builds the Student-t
-interval over independent per-item aggregates — the unit that actually
-achieves nominal coverage.
-
-Variance decomposition
-----------------------
 :func:`variance_components` runs a one-observation-per-cell two-way ANOVA
-decomposition over a judge × item score grid, splitting total variance into
-a *judge* component (systematic disagreement — the bias you want to cancel),
-an *item* component (real signal — genuine quality differences), and a
-*residual*. ``judge_variance_fraction`` is the share attributable to judges;
-when it is small, round-robin allocation is safe.
+over a judge × item grid, splitting total variance into a *judge* component
+(systematic disagreement), an *item* component (real signal), and a residual.
+``judge_variance_fraction`` is the judge share; when small, round-robin is safe.
 
 No ML deps — pure stdlib + :mod:`kairu.ensemble`.
 """
