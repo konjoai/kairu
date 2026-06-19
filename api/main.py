@@ -57,6 +57,7 @@ from kairu.ensemble import (
     ensemble_compare,
     ensemble_evaluate,
 )
+from kairu.cyclic_judge import cyclic_evaluate
 from kairu.calibration import (
     BiasProfile,
     BiasProfileStore,
@@ -204,6 +205,22 @@ class EnsembleCompareRequest(BaseModel):
     disagreement_threshold: float = Field(
         DEFAULT_DISAGREEMENT_THRESHOLD, ge=0.0, le=1.0
     )
+
+
+class CyclicItem(BaseModel):
+    """One (prompt, response) pair for round-robin batch evaluation."""
+
+    prompt: str = Field(..., min_length=1)
+    response: str = Field(..., min_length=1)
+
+
+class CyclicEvaluateRequest(BaseModel):
+    """Body for ``POST /evaluate/cyclic`` — round-robin judge allocation."""
+
+    items: List[CyclicItem] = Field(..., min_length=1, max_length=200)
+    judges: List[JudgeConfigRequest] = Field(..., min_length=1, max_length=16)
+    offset: int = Field(0, ge=0)
+    confidence: float = Field(0.95, gt=0.0, lt=1.0)
 
 
 class CIItem(BaseModel):
@@ -828,6 +845,21 @@ def create_app(
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return result.to_dict()
+
+    @app.post("/evaluate/cyclic")
+    def evaluate_cyclic_endpoint(req: CyclicEvaluateRequest):
+        for i, it in enumerate(req.items):
+            _check_text(f"items[{i}].prompt", it.prompt)
+            _check_text(f"items[{i}].response", it.response)
+        judges = _validate_judges(req.judges)
+        pairs = [(it.prompt, it.response) for it in req.items]
+        try:
+            report = cyclic_evaluate(
+                pairs, judges, offset=req.offset, confidence=req.confidence
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return report.to_dict()
 
     # ── v0.16 CI regression gating ────────────────────────────────────
 

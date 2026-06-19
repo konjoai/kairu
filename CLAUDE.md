@@ -2,7 +2,7 @@
 
 Real-time inference optimizer for LLMs — speculative decoding, early-exit decoding, KV cache management, token budgets, benchmarking (p50/p95/p99), streaming API, and a Rich live dashboard.
 
-**v0.6.0** — Python-first, no ML frameworks required for core logic. HF integration optional.
+**v0.24.0** — Python-first, no ML frameworks required for core logic. HF integration optional.
 
 ## Stack
 Python 3.9+ · NumPy · Rich · FastAPI (optional, `kairu[server]`) · uvicorn (optional) · transformers + PyTorch (optional, `kairu[hf]`) · hatchling
@@ -42,6 +42,10 @@ uvicorn kairu.server:app --reload                                        # strea
 | `kairu/server.py` | FastAPI streaming inference API (optional) |
 | `kairu/cli.py` | CLI entry point |
 | `kairu/_hf_backend.py` | `HuggingFaceModel` with `TextIteratorStreamer` (optional) |
+| `kairu/ensemble.py` | `JudgeConfig` multi-judge eval — median aggregation + disagreement |
+| `kairu/cyclic_judge.py` | Round-robin judge allocation + coverage-correct batch intervals |
+| `kairu/significance.py` | Paired t-test / Cohen's d for A/B compares (pure stdlib) |
+| `kairu/calibration.py` | Judge bias profiles + Hoeffding bias bounds |
 
 ## Planning Docs
 - `PLAN.md` — current phase state and version history

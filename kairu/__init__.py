@@ -28,7 +28,7 @@ Provides:
 
 from __future__ import annotations
 
-__version__ = "0.20.0"
+__version__ = "0.24.0"
 
 from kairu.adversarial import (
     AdversarialMatch,
@@ -75,6 +75,18 @@ from kairu.ci_regression import (
     snapshot_baseline,
 )
 from kairu.cluster_budget import ClusterTokenBudget, LocalClusterBudget
+from kairu.cyclic_judge import (
+    CyclicEvalReport,
+    DEFAULT_CONFIDENCE,
+    JudgeLoad,
+    MeanInterval,
+    VarianceComponents,
+    batch_mean_interval,
+    cyclic_allocate,
+    cyclic_evaluate,
+    full_grid_scores,
+    variance_components,
+)
 from kairu.ensemble import (
     DEFAULT_DISAGREEMENT_THRESHOLD,
     EnsembleComparison,
@@ -359,5 +371,16 @@ __all__ = [
     "compute_marketplace_signature",
     "open_default_marketplace_store",
     "seed_community_rubrics",
+    # v0.24 — cyclic (round-robin) judge allocation + coverage-correct intervals
+    "DEFAULT_CONFIDENCE",
+    "MeanInterval",
+    "JudgeLoad",
+    "VarianceComponents",
+    "CyclicEvalReport",
+    "cyclic_allocate",
+    "batch_mean_interval",
+    "variance_components",
+    "cyclic_evaluate",
+    "full_grid_scores",
     "__version__",
 ]
