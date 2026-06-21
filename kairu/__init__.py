@@ -28,7 +28,7 @@ Provides:
 
 from __future__ import annotations
 
-__version__ = "0.24.0"
+__version__ = "0.25.0"
 
 from kairu.adversarial import (
     AdversarialMatch,
@@ -75,6 +75,15 @@ from kairu.ci_regression import (
     snapshot_baseline,
 )
 from kairu.cluster_budget import ClusterTokenBudget, LocalClusterBudget
+from kairu.reliability import (
+    DEFAULT_PASS_THRESHOLD,
+    ReliabilityReport,
+    compute_reliability,
+    cronbach_alpha,
+    fleiss_kappa,
+    intraclass_correlation,
+    reliability_from_ensemble,
+)
 from kairu.cyclic_judge import (
     CyclicEvalReport,
     DEFAULT_CONFIDENCE,
@@ -382,5 +391,13 @@ __all__ = [
     "variance_components",
     "cyclic_evaluate",
     "full_grid_scores",
+    # v0.25 — psychometric reliability metrics
+    "DEFAULT_PASS_THRESHOLD",
+    "ReliabilityReport",
+    "cronbach_alpha",
+    "intraclass_correlation",
+    "fleiss_kappa",
+    "compute_reliability",
+    "reliability_from_ensemble",
     "__version__",
 ]

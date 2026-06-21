@@ -58,6 +58,7 @@ from kairu.ensemble import (
     ensemble_evaluate,
 )
 from kairu.cyclic_judge import cyclic_evaluate
+from kairu.reliability import compute_reliability, reliability_from_ensemble
 from kairu.calibration import (
     BiasProfile,
     BiasProfileStore,
@@ -221,6 +222,13 @@ class CyclicEvaluateRequest(BaseModel):
     judges: List[JudgeConfigRequest] = Field(..., min_length=1, max_length=16)
     offset: int = Field(0, ge=0)
     confidence: float = Field(0.95, gt=0.0, lt=1.0)
+
+
+class ReliabilityRequest(BaseModel):
+    """Body for ``POST /evaluate/reliability`` — a judges × criteria matrix."""
+
+    matrix: List[List[float]] = Field(..., min_length=1, max_length=64)
+    pass_threshold: float = Field(0.5, ge=0.0, le=1.0)
 
 
 class CIItem(BaseModel):
@@ -813,6 +821,7 @@ def create_app(
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         out = result.to_dict()
+        out["reliability"] = reliability_from_ensemble(result).to_dict()
         if req.model:
             try:
                 rubric_name = result.judges[0].rubric if result.judges else "default"
@@ -856,6 +865,21 @@ def create_app(
         try:
             report = cyclic_evaluate(
                 pairs, judges, offset=req.offset, confidence=req.confidence
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return report.to_dict()
+
+    @app.post("/evaluate/reliability")
+    def evaluate_reliability_endpoint(req: ReliabilityRequest):
+        widths = {len(row) for row in req.matrix}
+        if len(widths) != 1:
+            raise HTTPException(
+                status_code=422, detail="every matrix row must be the same length"
+            )
+        try:
+            report = compute_reliability(
+                req.matrix, pass_threshold=req.pass_threshold
             )
         except (ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

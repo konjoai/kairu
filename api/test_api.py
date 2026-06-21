@@ -1459,3 +1459,47 @@ async def test_cyclic_eval_offset_rotates(client: AsyncClient) -> None:
     r = await client.post("/evaluate/cyclic", json=body)
     judges = [a[1] for a in r.json()["assignments"]]
     assert judges == ["beta", "alpha", "beta"]
+
+
+# -------------------------- /evaluate/reliability ---------------------------
+
+
+async def test_reliability_matrix_ok(client: AsyncClient) -> None:
+    body = {"matrix": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]}
+    r = await client.post("/evaluate/reliability", json=body)
+    assert r.status_code == 200
+    out = r.json()
+    assert out["cronbach_alpha"] == pytest.approx(1.0)
+    assert out["cronbach_label"] == "excellent"
+    assert out["n_judges"] == 3
+    assert out["n_criteria"] == 3
+
+
+async def test_reliability_rejects_ragged_matrix(client: AsyncClient) -> None:
+    body = {"matrix": [[0.1, 0.2], [0.3]]}
+    r = await client.post("/evaluate/reliability", json=body)
+    assert r.status_code == 422
+
+
+async def test_reliability_threshold_passes_through(client: AsyncClient) -> None:
+    body = {"matrix": [[0.6, 0.6], [0.2, 0.2]], "pass_threshold": 0.5}
+    r = await client.post("/evaluate/reliability", json=body)
+    assert r.status_code == 200
+    assert r.json()["pass_threshold"] == 0.5
+
+
+async def test_ensemble_response_carries_reliability(client: AsyncClient) -> None:
+    body = {
+        "prompt": "Explain gravity.",
+        "response": "Gravity attracts mass toward mass.",
+        "judges": [
+            {"name": "a", "noise": 0.05, "seed": 1},
+            {"name": "b", "noise": 0.05, "seed": 2},
+            {"name": "c", "noise": 0.05, "seed": 3},
+        ],
+    }
+    r = await client.post("/evaluate/ensemble", json=body)
+    assert r.status_code == 200
+    rel = r.json()["reliability"]
+    assert rel["n_judges"] == 3
+    assert "cronbach_label" in rel

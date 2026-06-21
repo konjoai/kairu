@@ -4,6 +4,39 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.25.0] — 2026-06-19
+
+### Added — Psychometric reliability metrics for judge ensembles
+
+**New Python module `kairu/reliability.py`** (pure stdlib + `kairu.ensemble`):
+- `cronbach_alpha(matrix)` — internal consistency across criteria (criteria as
+  test items, judges as observations).
+- `intraclass_correlation(matrix)` — ICC(2,1), two-way-random single-rater
+  absolute-agreement inter-judge correlation on the continuous [0, 1] scores.
+- `fleiss_kappa(matrix, threshold)` — chance-corrected inter-judge agreement on
+  the pass/fail binarisation, the categorical view auditors expect.
+- `compute_reliability(matrix)` → `ReliabilityReport` — all three metrics plus
+  standard interpretation bands (Cronbach / Cicchetti / Landis & Koch). Each
+  metric returns `None` rather than a fabricated number when the matrix is too
+  small (< 2 judges or < 2 criteria) or the statistic is undefined.
+- `reliability_from_ensemble(result)` — builds the matrix from an
+  `EnsembleResult`, using only criteria every judge scored so columns stay
+  aligned. Grounded in Autorubric, arXiv:2603.00077.
+
+**API:**
+- `POST /evaluate/ensemble` responses now carry a `reliability` block.
+- New `POST /evaluate/reliability` — compute the report directly from a
+  judges × criteria matrix (rectangular, ≤64 rows; `422` on ragged input).
+
+**`kairu/__init__.py`** exports `cronbach_alpha`, `intraclass_correlation`,
+`fleiss_kappa`, `compute_reliability`, `reliability_from_ensemble`,
+`ReliabilityReport`, `DEFAULT_PASS_THRESHOLD`.
+
+**Tests:** 25 new tests (`tests/test_reliability.py` [21] + 4 API tests);
+suite: **802 passed**, 4 HF-gated skipped.
+
+---
+
 ## [0.24.0] — 2026-06-19
 
 ### Added — CyclicJudge: round-robin allocation + coverage-correct intervals
