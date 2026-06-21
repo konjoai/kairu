@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.24.0**
+Current version: **v0.25.0**
 
 ---
 
@@ -80,6 +80,19 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### ✅ v0.25.0 — Psychometric reliability metrics *(DONE)*
+
+- **`kairu/reliability.py`** — `cronbach_alpha` (internal consistency across
+  criteria), `intraclass_correlation` (ICC(2,1) inter-judge agreement on
+  continuous scores), `fleiss_kappa` (chance-corrected agreement on pass/fail
+  binarisation), `compute_reliability` → `ReliabilityReport` with standard
+  interpretation bands, `reliability_from_ensemble`. Pure stdlib; each metric
+  returns `None` when undefined rather than fabricating a number. Grounded in
+  Autorubric (arXiv:2603.00077).
+- **API:** `/evaluate/ensemble` responses gain a `reliability` block; new
+  `POST /evaluate/reliability` computes from a raw judges × criteria matrix.
+- 25 new tests; suite: **802 passed**, 4 HF-gated skipped.
 
 ### ✅ v0.24.0 — CyclicJudge: round-robin allocation + coverage-correct intervals *(DONE)*
 
