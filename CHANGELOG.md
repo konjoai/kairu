@@ -4,6 +4,48 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.28.0] — 2026-06-22
+
+### Added — SPEED-Bench semantic task splits + speculative spec/quant warnings
+
+**New module `kairu/speed_bench.py`** (pure stdlib + `kairu.bench`):
+- `run_speed_bench(model, splits=None, ...)` → `SpeedBenchReport` — runs the
+  benchmark across named semantic task splits (SPEED-Bench methodology) because
+  speculative speedup and early-exit savings are strongly *task-dependent*: a
+  single aggregate latency hides the variance that matters at deploy time.
+- `TaskSplit` (name + representative prompt + description) and six
+  `DEFAULT_SPLITS` (translation, summarization, qa, code, dialogue, math), each
+  with a deterministic integer prompt so `MockModel` runs fully offline.
+- `SpeedBenchReport` carries per-split `SplitResult`s, the fastest/slowest split
+  by tokens/s, the cross-split mean throughput, and a **throughput coefficient
+  of variation** — one number quantifying how task-sensitive the configuration
+  is (`0.0` → uniform). All result types expose `as_dict()` for JSON transport.
+
+**`kairu/bench.py`** — `BenchmarkRunner` gains an optional `prompt` argument
+(defaults to the fixed class prompt) so SPEED-Bench can drive distinct task
+splits through the same runner. Existing behaviour is unchanged.
+
+**`kairu/auto_profile.py` — speculative configuration warnings:**
+- `DecoderProfile` gains a `warnings: tuple[str, ...] = ()` field.
+- `AutoProfile.recommend(..., quant=None, draft_kind=None)` now flags
+  speculative configs known to erode the expected speedup: a **4-bit draft**
+  (`int4`/`4bit`/`nf4`/`fp4` — tanks draft–target acceptance) and a
+  **tree-structured draft** (the sequential verifier here cannot exploit it).
+  Warnings are empty unless the relevant hints are supplied, so existing
+  recommendations are unchanged.
+
+**`kairu/__init__.py`** exports `TaskSplit`, `SplitResult`, `SpeedBenchReport`,
+`SPEED_BENCH_SPLITS`, `run_speed_bench`; version `0.27.0 → 0.28.0`.
+
+**Tests:** new `tests/test_speed_bench.py` (9 tests, module 100%) + 5 warning
+tests in `tests/test_auto_profile.py`. Suite: **746 passed**, 4 HF-gated skipped.
+
+> This closes the last item in this session's researched Discovery sweep
+> (CyclicJudge → reliability → KV eviction/quant → adaptive early exit →
+> SPEED-Bench), completing both the eval and inference-optimizer tracks.
+
+---
+
 ## [0.27.0] — 2026-06-22
 
 ### Added — Adaptive per-token early exit + early-exit architecture gating

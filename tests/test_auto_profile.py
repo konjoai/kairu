@@ -110,3 +110,42 @@ def test_layered_gated_when_too_shallow():
 def test_layered_deep_enough_still_early_exits():
     p = AutoProfile.recommend(MockLayeredModel(num_layers=12))
     assert p.strategy == "layered_early_exit"
+
+
+def _big_with_draft(**kwargs):
+    class Big(MockModel):
+        @property
+        def vocab_size(self) -> int:
+            return 50_000
+
+    return AutoProfile.recommend(
+        Big(), name_hint="llama-3-8b", has_draft=True, **kwargs
+    )
+
+
+def test_speculative_has_no_warnings_by_default():
+    p = _big_with_draft()
+    assert p.strategy == "speculative"
+    assert p.warnings == ()
+
+
+def test_four_bit_draft_emits_warning():
+    p = _big_with_draft(quant="int4")
+    assert p.strategy == "speculative"
+    assert any("4-bit" in w for w in p.warnings)
+
+
+def test_tree_draft_emits_warning():
+    p = _big_with_draft(draft_kind="tree")
+    assert any("tree" in w.lower() for w in p.warnings)
+
+
+def test_both_caveats_stack():
+    p = _big_with_draft(quant="NF4", draft_kind="Tree")  # case-insensitive
+    assert len(p.warnings) == 2
+
+
+def test_non_speculative_profile_has_no_warnings():
+    # quant/draft_kind only matter on the speculative path.
+    p = AutoProfile.recommend(MockModel(), quant="int4", draft_kind="tree")
+    assert p.warnings == ()

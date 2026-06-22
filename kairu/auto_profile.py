@@ -38,6 +38,30 @@ _EARLY_EXIT_UNSUITABLE = re.compile(
 # Below this depth there are too few layers for an early-exit head to skip
 # enough compute to be worth the confidence bookkeeping.
 _MIN_EARLY_EXIT_LAYERS = 6
+# Quantisation tiers at which draft-model quality erodes enough to threaten
+# speculative acceptance.
+_FOUR_BIT_QUANTS = frozenset({"int4", "4bit", "nf4", "fp4"})
+
+
+def _speculative_warnings(quant: str | None, draft_kind: str | None) -> tuple[str, ...]:
+    """Flag speculative-decoding configs known to erode the expected speedup.
+
+    Returns a (possibly empty) tuple of human-readable caveats — a 4-bit draft
+    that tanks draft–target agreement, or a tree-structured draft the sequential
+    verifier here cannot exploit.
+    """
+    warnings: list[str] = []
+    if quant is not None and quant.lower() in _FOUR_BIT_QUANTS:
+        warnings.append(
+            "4-bit draft quantisation sharply lowers draft–target agreement; "
+            "speculative speedup can vanish — benchmark acceptance before deploying"
+        )
+    if draft_kind is not None and draft_kind.lower() == "tree":
+        warnings.append(
+            "tree-structured drafts need tree-aware verification; the sequential "
+            "verifier here realises none of their speedup"
+        )
+    return tuple(warnings)
 
 
 def _early_exit_suitable(model: ModelInterface, name: str) -> tuple[bool, str]:
@@ -70,6 +94,9 @@ class DecoderProfile:
     use_cache: bool
     cache_capacity: int
     rationale: str
+    # Non-fatal caveats about the chosen configuration (e.g. a 4-bit draft that
+    # may erode speculative acceptance). Empty for unconfigured recommendations.
+    warnings: tuple[str, ...] = ()
 
 
 class AutoProfile:
@@ -80,6 +107,9 @@ class AutoProfile:
         model: ModelInterface,
         name_hint: str | None = None,
         has_draft: bool = False,
+        *,
+        quant: str | None = None,
+        draft_kind: str | None = None,
     ) -> DecoderProfile:
         from kairu.layered import LayeredModelInterface  # local — avoid cycle
 
@@ -112,6 +142,7 @@ class AutoProfile:
                     f"{' / frontier family' if _FRONTIER_FAMILIES.search(name) else ''}"
                     f" with draft → speculative γ={gamma}"
                 ),
+                warnings=_speculative_warnings(quant, draft_kind),
             )
 
         ee_suitable, ee_reason = _early_exit_suitable(model, name)

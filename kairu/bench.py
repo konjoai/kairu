@@ -244,9 +244,17 @@ class BenchmarkRunner:
     # A fixed prompt so every run starts from the same context.
     _PROMPT: list[int] = [1, 2, 3, 4, 5]
 
-    def __init__(self, model: ModelInterface, name: str = "benchmark") -> None:
+    def __init__(
+        self,
+        model: ModelInterface,
+        name: str = "benchmark",
+        prompt: list[int] | None = None,
+    ) -> None:
         self._model = model
         self.name = name
+        # Per-runner prompt lets SPEED-Bench drive distinct task splits through
+        # the same runner; defaults to the fixed class prompt for back-compat.
+        self._prompt = list(prompt) if prompt else list(self._PROMPT)
 
     def run(
         self,
@@ -274,7 +282,7 @@ class BenchmarkRunner:
             t0 = time.perf_counter()
             # Consume the full stream — each generated token is timed as part of
             # the per-run total latency.
-            for _ in decoder.stream(self._PROMPT, max_new_tokens=num_tokens):
+            for _ in decoder.stream(self._prompt, max_new_tokens=num_tokens):
                 pass
             elapsed = time.perf_counter() - t0
 
