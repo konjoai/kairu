@@ -85,3 +85,28 @@ def test_recommendation_is_deterministic():
     a = AutoProfile.recommend(MockModel(), name_hint="qwen", has_draft=False)
     b = AutoProfile.recommend(MockModel(), name_hint="qwen", has_draft=False)
     assert a == b
+
+
+def test_early_exit_gated_for_encoder_architecture():
+    """A mid-size model is normally early_exit, but an encoder-style name
+    (no left-to-right confidence trajectory) must fall back to vanilla."""
+
+    class Mid(MockModel):
+        @property
+        def vocab_size(self) -> int:
+            return 32_000
+
+    p = AutoProfile.recommend(Mid(), name_hint="bert-large")
+    assert p.strategy == "vanilla"
+    assert "encoder" in p.rationale.lower()
+
+
+def test_layered_gated_when_too_shallow():
+    """A layered model below the minimum depth is too shallow to exit."""
+    p = AutoProfile.recommend(MockLayeredModel(num_layers=4))
+    assert p.strategy == "vanilla"
+
+
+def test_layered_deep_enough_still_early_exits():
+    p = AutoProfile.recommend(MockLayeredModel(num_layers=12))
+    assert p.strategy == "layered_early_exit"

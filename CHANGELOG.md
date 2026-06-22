@@ -4,6 +4,46 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.27.0] — 2026-06-22
+
+### Added — Adaptive per-token early exit + early-exit architecture gating
+
+**`kairu/early_exit.py`** — `EarlyExitDecoder` gains a CALM-style (Schuster et
+al. 2022, "Confident Adaptive Language Modeling") per-token *adaptive* threshold,
+opt-in via `adaptive=True` (the static path is unchanged and bit-for-bit
+identical):
+
+- The effective confidence bar **decays geometrically** over decoding steps:
+  `threshold(t) = min_confidence + (confidence_threshold - min_confidence) *
+  exp(-adapt_decay * t)`. Early tokens must clear a high bar (an early mistake
+  propagates through every later token); the bar relaxes toward `min_confidence`
+  as decoding proceeds. New `effective_confidence(step)` exposes the schedule.
+- `min_confidence` is clamped to `confidence_threshold` so the schedule is always
+  monotone non-increasing. The constructor now **validates** its inputs (the
+  bars, the entropy floor, the decay rate) instead of accepting nonsense.
+- `generate()` stats gain `adaptive` and `final_confidence_threshold` (the
+  effective bar at the step generation stopped).
+
+**`kairu/auto_profile.py`** — early exit is now **architecture-gated**. The new
+`_early_exit_suitable(model, name)` rules out encoder-style families
+(BERT/RoBERTa/ELECTRA/DeBERTa/T5/encoder — no left-to-right confidence
+trajectory) and models shallower than `_MIN_EARLY_EXIT_LAYERS` (6) layers, which
+have too little depth for an exit head to save compute. Both the `early_exit`
+and `layered_early_exit` recommendations fall back to `vanilla` (with an
+explanatory rationale) when the gate fails.
+
+**`kairu/wrapper.py`** — `ModelWrapper` / `wrap_model` gain an
+`adaptive_early_exit: bool = False` flag (parallel to `adaptive_gamma`) that
+forwards to the decoder, making the feature reachable from the public entry
+point.
+
+**Tests:** new `tests/test_early_exit.py` (14 tests — validation, the decay
+schedule, every exit reason, and an adaptive-vs-static divergence case) takes
+the module from 21% → **100%** coverage; 3 new arch-gate tests in
+`tests/test_auto_profile.py`. Suite: **732 passed**, 4 HF-gated skipped.
+
+---
+
 ## [0.26.0] — 2026-06-21
 
 ### Added — Attention-weighted KV eviction + INT8/INT4 quantised storage tier

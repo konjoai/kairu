@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.26.0**
+Current version: **v0.27.0**
 
 ---
 
@@ -80,6 +80,21 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### ✅ v0.27.0 — Adaptive per-token early exit + arch-suitability gating *(DONE)*
+
+- **`kairu/early_exit.py`** — CALM-style (Schuster et al. 2022) per-token
+  adaptive confidence threshold, opt-in via `adaptive=True` (static path
+  unchanged). The bar decays geometrically from `confidence_threshold` toward
+  `min_confidence` over decoding steps via `effective_confidence(step)`; early
+  tokens need high confidence, later tokens exit more readily. Constructor now
+  validates inputs; stats gain `adaptive` + `final_confidence_threshold`.
+- **`kairu/auto_profile.py`** — `_early_exit_suitable` gates early exit out of
+  encoder-style architectures (BERT/RoBERTa/T5/…) and sub-6-layer models,
+  falling back to `vanilla` with an explanatory rationale.
+- **`kairu/wrapper.py`** — `adaptive_early_exit` flag (parallel to
+  `adaptive_gamma`) forwards to the decoder from the public entry point.
+- 17 new tests; new `tests/test_early_exit.py` takes the module 21% → 100%.
 
 ### ✅ v0.26.0 — Attention-weighted KV eviction + INT8/INT4 quant tier *(DONE)*
 

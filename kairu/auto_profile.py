@@ -29,6 +29,34 @@ _FRONTIER_FAMILIES = re.compile(
     re.IGNORECASE,
 )
 _DRAFT_HINTS = re.compile(r"\b(tiny|small|mini|draft|125m|350m)\b", re.IGNORECASE)
+# Encoder-style / non-causal architectures do not benefit from confidence
+# early exit — there is no left-to-right confidence trajectory to ride.
+_EARLY_EXIT_UNSUITABLE = re.compile(
+    r"\b(bert|roberta|electra|distilbert|deberta|t5|encoder)\b",
+    re.IGNORECASE,
+)
+# Below this depth there are too few layers for an early-exit head to skip
+# enough compute to be worth the confidence bookkeeping.
+_MIN_EARLY_EXIT_LAYERS = 6
+
+
+def _early_exit_suitable(model: ModelInterface, name: str) -> tuple[bool, str]:
+    """Gate whether early exit is architecturally sensible for ``model``.
+
+    Returns ``(suitable, reason)``; ``reason`` is empty when suitable and
+    otherwise explains why early exit was ruled out (for the profile rationale).
+    """
+    if name and _EARLY_EXIT_UNSUITABLE.search(name):
+        return False, f"'{name}' is an encoder-style architecture (no exit trajectory)"
+    depth = getattr(model, "num_layers", None)
+    if callable(depth):  # LayeredModelInterface exposes num_layers() as a method
+        depth = depth()
+    if isinstance(depth, int) and depth < _MIN_EARLY_EXIT_LAYERS:
+        return (
+            False,
+            f"depth {depth} < {_MIN_EARLY_EXIT_LAYERS} layers — too shallow to exit",
+        )
+    return True, ""
 
 
 @dataclass(frozen=True)
@@ -86,7 +114,9 @@ class AutoProfile:
                 ),
             )
 
-        if is_layered:
+        ee_suitable, ee_reason = _early_exit_suitable(model, name)
+
+        if is_layered and ee_suitable:
             return DecoderProfile(
                 strategy="layered_early_exit",
                 gamma=1,
@@ -97,7 +127,7 @@ class AutoProfile:
                 rationale="model exposes per-layer logits → architecture-aware early exit",
             )
 
-        if vocab >= 5_000:
+        if vocab >= 5_000 and ee_suitable:
             return DecoderProfile(
                 strategy="early_exit",
                 gamma=1,
@@ -106,6 +136,17 @@ class AutoProfile:
                 use_cache=True,
                 cache_capacity=128,
                 rationale=f"mid-size single-backbone model (vocab={vocab}) → confidence early exit",
+            )
+
+        if vocab >= 5_000 and not ee_suitable:
+            return DecoderProfile(
+                strategy="vanilla",
+                gamma=1,
+                early_exit_threshold=1.0,
+                temperature=1.0,
+                use_cache=True,
+                cache_capacity=128,
+                rationale=f"mid-size model (vocab={vocab}) but {ee_reason} → vanilla decoding",
             )
 
         return DecoderProfile(
