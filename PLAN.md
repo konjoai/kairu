@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.27.0**
+Current version: **v0.28.0**
 
 ---
 
@@ -80,6 +80,22 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### ✅ v0.28.0 — SPEED-Bench task splits + speculative spec/quant warnings *(DONE)*
+
+- **`kairu/speed_bench.py`** — `run_speed_bench` → `SpeedBenchReport` runs the
+  benchmark across six semantic task splits (`TaskSplit`/`DEFAULT_SPLITS`:
+  translation, summarization, qa, code, dialogue, math) and reports per-split
+  throughput + a throughput coefficient of variation quantifying
+  task-dependence (SPEED-Bench methodology). `BenchmarkRunner` gained an
+  optional `prompt` arg to drive distinct splits.
+- **`kairu/auto_profile.py`** — `DecoderProfile.warnings` + `recommend(quant=,
+  draft_kind=)` flag 4-bit draft and tree-draft speculative configs that erode
+  acceptance/speedup (empty unless the hints are supplied).
+- 14 new tests; new `tests/test_speed_bench.py` at 100% module coverage.
+- **Closes this session's Discovery sweep** — both the eval track (CyclicJudge,
+  reliability) and the inference-optimizer track (KV eviction/quant, adaptive
+  early exit, SPEED-Bench) are complete.
 
 ### ✅ v0.27.0 — Adaptive per-token early exit + arch-suitability gating *(DONE)*
 

@@ -28,7 +28,7 @@ Provides:
 
 from __future__ import annotations
 
-__version__ = "0.27.0"
+__version__ = "0.28.0"
 
 from kairu.adversarial import (
     AdversarialMatch,
@@ -60,6 +60,13 @@ from kairu.audit import AuditLog, AuditRecord, hash_inputs, open_default_audit
 from kairu.significance import SignificanceResult, paired_t_test, per_criterion_diffs
 from kairu.auto_profile import AutoProfile, DecoderProfile
 from kairu.bench import BenchmarkResult, BenchmarkRunner
+from kairu.speed_bench import (
+    DEFAULT_SPLITS as SPEED_BENCH_SPLITS,
+    SpeedBenchReport,
+    SplitResult,
+    TaskSplit,
+    run_speed_bench,
+)
 from kairu.benchmarks import BENCHMARKS, BenchmarkStats, percentile_rank
 from kairu.budget import TokenBudget
 from kairu.ci_regression import (
@@ -254,6 +261,11 @@ __all__ = [
     "HFTokenizer",
     "BenchmarkRunner",
     "BenchmarkResult",
+    "TaskSplit",
+    "SplitResult",
+    "SpeedBenchReport",
+    "SPEED_BENCH_SPLITS",
+    "run_speed_bench",
     "create_app",
     "ServerConfig",
     "RateLimiter",
