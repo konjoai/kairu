@@ -4,6 +4,38 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.26.0] — 2026-06-21
+
+### Added — Attention-weighted KV eviction + INT8/INT4 quantised storage tier
+
+**`kairu/kv_cache.py`** gains two opt-in upgrades to `LogitsCache` (and the
+`CachedModel` wrapper). Both default to off, so the existing path stays
+bit-exact and every prior test is unchanged:
+
+- **Attention-weighted eviction** (`eviction="attention"`) — an H2O-style
+  *heavy-hitter* policy (Zhang et al. 2023, NeurIPS) that evicts the entry with
+  the least accumulated attention mass instead of the least-recently-used one.
+  Cache hits accrue attention automatically; the new
+  `LogitsCache.add_attention(key, weight)` injects external scores (e.g. a real
+  model's attention rollup) and reports whether the key is still resident. Ties
+  break on the oldest entry, so the policy degrades gracefully to LRU when no
+  attention signal is present. The default `eviction="lru"` is untouched.
+- **Quantised storage tier** (`quant="int8"` / `quant="int4"`) — cached arrays
+  are stored under affine min-max quantisation, shrinking the cache's resident
+  footprint ~4× (int8) / ~8× (int4) at the cost of a small, bounded precision
+  loss on retrieval (≤ half a quantisation step). `int4` codes are packed
+  two-per-byte for a true 4-bit tier. A constant array reconstructs exactly.
+  `stats()` now reports `eviction`, `quant`, and `memory_bytes`; the new module
+  type `QuantizedArray` (frozen) carries `scale`/`offset`/`bits` and a
+  `dequantize()` method.
+
+**`kairu/__init__.py`** exports `QuantizedArray`; version `0.25.0 → 0.26.0`.
+
+**Tests:** 18 new tests in `tests/test_kv_cache.py` (27 total); module line
+coverage 100%, all functions radon grade A.
+
+---
+
 ## [0.25.0] — 2026-06-19
 
 ### Added — Psychometric reliability metrics for judge ensembles

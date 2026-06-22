@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.25.0**
+Current version: **v0.26.0**
 
 ---
 
@@ -80,6 +80,22 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### ✅ v0.26.0 — Attention-weighted KV eviction + INT8/INT4 quant tier *(DONE)*
+
+- **`kairu/kv_cache.py`** — upgrades `LogitsCache` from plain-recency LRU with
+  two opt-in strategies (defaults unchanged, prior path bit-exact):
+  - `eviction="attention"` — H2O heavy-hitter eviction (Zhang et al. 2023):
+    evict the least-accumulated-attention entry, not the oldest. Hits accrue
+    attention; `add_attention(key, weight)` injects external rollups; ties
+    break on the oldest entry (graceful LRU degradation).
+  - `quant="int8" | "int4"` — affine min-max quantised storage tier, ~4×/~8×
+    footprint reduction at ≤ half-step precision loss; int4 packed two-per-byte.
+    New frozen `QuantizedArray` type; `stats()` exposes `eviction`/`quant`/
+    `memory_bytes`.
+- **`CachedModel`** forwards both knobs. `kairu/__init__.py` exports
+  `QuantizedArray`.
+- 18 new tests; `tests/test_kv_cache.py` at 100% module coverage, all grade A.
 
 ### ✅ v0.25.0 — Psychometric reliability metrics *(DONE)*
 

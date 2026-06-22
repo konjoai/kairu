@@ -28,7 +28,7 @@ Provides:
 
 from __future__ import annotations
 
-__version__ = "0.25.0"
+__version__ = "0.26.0"
 
 from kairu.adversarial import (
     AdversarialMatch,
@@ -132,7 +132,7 @@ from kairu.evaluation import (
 )
 from kairu.feedback import FeedbackLoop, FeedbackSummary
 from kairu.gamma_scheduler import DynamicGammaScheduler
-from kairu.kv_cache import CachedModel, LogitsCache
+from kairu.kv_cache import CachedModel, LogitsCache, QuantizedArray
 from kairu.layered import (
     LayeredModelInterface,
     LayerwiseEarlyExitDecoder,
@@ -265,6 +265,7 @@ __all__ = [
     "DecoderProfile",
     "CachedModel",
     "LogitsCache",
+    "QuantizedArray",
     "DynamicGammaScheduler",
     "LayeredModelInterface",
     "LayerwiseEarlyExitDecoder",
