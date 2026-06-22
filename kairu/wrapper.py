@@ -51,6 +51,7 @@ class ModelWrapper:
         temperature: float = 1.0,
         cache_capacity: int = 0,
         adaptive_gamma: bool = False,
+        adaptive_early_exit: bool = False,
     ):
         if cache_capacity > 0:
             model = CachedModel(model, cache_capacity=cache_capacity)
@@ -78,6 +79,7 @@ class ModelWrapper:
                 model=model,
                 confidence_threshold=early_exit_threshold,
                 temperature=temperature,
+                adaptive=adaptive_early_exit,
             )
 
     @property
