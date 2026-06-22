@@ -4,6 +4,50 @@ All notable changes to Kairu follow [Conventional Commits](https://www.conventio
 
 ---
 
+## [0.29.0] — 2026-06-22
+
+### Added — Conformal judge intervals: distribution-free uncertainty bounds
+
+**New module `kairu/conformal.py`** (pure stdlib + `kairu.ensemble`). The
+reliability module ships Cronbach α / ICC(2,1) / Fleiss κ — all retrospective,
+distribution-*parametric* estimators. Split conformal prediction (Vovk; applied
+to LLM judges by Sheng et al., EMNLP 2025, arXiv:2509.18658) adds a
+**distribution-free** coverage guarantee that holds regardless of the judge's
+score distribution:
+
+- `conformal_quantile(residuals, alpha)` — the finite-sample-corrected
+  `(1 - alpha)` quantile of the absolute calibration residuals, using the
+  conformal rank `ceil((n + 1)(1 - alpha))`. Returns `+inf` (no finite bound)
+  when the calibration set is too small for the requested `alpha` — the honest
+  answer rather than a fabricated number.
+- `calibrate_interval(prediction, calibration_pairs, *, alpha, score_range)` →
+  `ConformalInterval` — wraps a judge score in `[score - q, score + q]`, with
+  the paper's two judge-specific refinements: **ordinal boundary adjustment**
+  (clamp to the valid score range) and the lower-bias **midpoint** point
+  estimate (the midpoint of the clamped interval, pulled inside the range near a
+  boundary). For any exchangeable new pair the interval covers the reference
+  with probability ≥ `1 - alpha`.
+- `conformal_from_ensemble(result, calibration_pairs, ...)` — bridges an
+  `EnsembleResult` (uses its `median_aggregate` as the prediction). The existing
+  `reliability.py` and `EnsembleResult` are untouched — this is purely additive.
+- `ConformalInterval` (frozen) carries `lower`/`upper`/`midpoint`/
+  `coverage_level`/`half_width`/`n_calibration` with `width()`, `contains()`,
+  and `to_dict()`.
+
+**`kairu/__init__.py`** exports `ConformalInterval`, `conformal_quantile`,
+`calibrate_interval`, `conformal_from_ensemble`, `CONFORMAL_DEFAULT_ALPHA`,
+`CONFORMAL_DEFAULT_SCORE_RANGE`; version `0.28.0 → 0.29.0`.
+
+**Tests:** new `tests/test_conformal.py` (17 tests, module 100%) — including an
+**empirical coverage test** that verifies ~90% of held-out references fall
+within 90%-level intervals on synthetic exchangeable data. Suite: **763
+passed**, 4 HF-gated skipped.
+
+> First sprint of a new Discovery cycle (the v0.24–v0.28 sweep having shipped).
+> Grounded in a fresh arXiv survey; rebalances toward the judge-eval track.
+
+---
+
 ## [0.28.0] — 2026-06-22
 
 ### Added — SPEED-Bench semantic task splits + speculative spec/quant warnings
