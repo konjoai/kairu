@@ -2,7 +2,7 @@
 
 > 流 · *to flow, to stream*
 
-Current version: **v0.28.0**
+Current version: **v0.29.0**
 
 ---
 
@@ -80,6 +80,21 @@ has shipped in v0.15.0 — the four `🔴` rows below are now **DONE**.
   observation, response}` records. Scores: tool selection correctness,
   error recovery, goal progress/completion, efficiency (steps taken vs.
   optimal). Returns a per-step breakdown plus an overall trajectory grade.
+
+### ✅ v0.29.0 — Conformal judge intervals: distribution-free uncertainty bounds *(DONE)*
+
+- **`kairu/conformal.py`** — split conformal prediction (Sheng et al., EMNLP
+  2025, arXiv:2509.18658) adds a distribution-free coverage guarantee to the
+  judge-eval stack, complementing the distribution-parametric reliability
+  metrics. `conformal_quantile` (finite-sample rank, `+inf` when undersized),
+  `calibrate_interval` → `ConformalInterval` (ordinal boundary clamp + lower-bias
+  midpoint), `conformal_from_ensemble` bridge. `reliability.py` / `EnsembleResult`
+  untouched — purely additive.
+- 17 new tests incl. an empirical-coverage check; module 100% coverage.
+- **First sprint of a new Discovery cycle** (researcher sweep surfaced it as
+  High-impact/Low-complexity; rebalances toward eval after two inference
+  sprints). Backlog from the same sweep: IRT judge discrimination, entropy-driven
+  adaptive γ, dark-current datasheet, radix-tree KV dedup.
 
 ### ✅ v0.28.0 — SPEED-Bench task splits + speculative spec/quant warnings *(DONE)*
 

@@ -28,7 +28,7 @@ Provides:
 
 from __future__ import annotations
 
-__version__ = "0.28.0"
+__version__ = "0.29.0"
 
 from kairu.adversarial import (
     AdversarialMatch,
@@ -90,6 +90,14 @@ from kairu.reliability import (
     fleiss_kappa,
     intraclass_correlation,
     reliability_from_ensemble,
+)
+from kairu.conformal import (
+    ConformalInterval,
+    DEFAULT_ALPHA as CONFORMAL_DEFAULT_ALPHA,
+    DEFAULT_SCORE_RANGE as CONFORMAL_DEFAULT_SCORE_RANGE,
+    calibrate_interval,
+    conformal_from_ensemble,
+    conformal_quantile,
 )
 from kairu.cyclic_judge import (
     CyclicEvalReport,
@@ -412,5 +420,12 @@ __all__ = [
     "fleiss_kappa",
     "compute_reliability",
     "reliability_from_ensemble",
+    # v0.29 — conformal judge intervals
+    "ConformalInterval",
+    "CONFORMAL_DEFAULT_ALPHA",
+    "CONFORMAL_DEFAULT_SCORE_RANGE",
+    "conformal_quantile",
+    "calibrate_interval",
+    "conformal_from_ensemble",
     "__version__",
 ]
